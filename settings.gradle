@@ -1,0 +1,11 @@
+rootProject.name = 'playlizt'
+
+include(
+    'eureka-service',
+    'auth-service',
+    'content-service',
+    'playback-service',
+    'ai-service',
+    'api-gateway'
+)
+include 'playlizt-ui-tests'

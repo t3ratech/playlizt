@@ -1,0 +1,1 @@
+INSERT INTO auth.users (username, email, password_hash, role, created_at, updated_at, is_active) VALUES ('tkaviya', 'tsungai.kaviya@gmail.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, true);

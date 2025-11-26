@@ -1,0 +1,282 @@
+version: "3.8"
+
+services:
+  # =============================================================================
+  # DATABASE SERVICE
+  # =============================================================================
+  playlizt-database:
+    image: postgres:17
+    container_name: playlizt-database
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    networks:
+      - playlizt-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # =============================================================================
+  # EUREKA SERVICE DISCOVERY
+  # =============================================================================
+  eureka-service:
+    build:
+      context: .
+      dockerfile: eureka-service/Dockerfile
+      args:
+        PLAYLIZT_UID: ${PLAYLIZT_UID}
+        PLAYLIZT_GID: ${PLAYLIZT_GID}
+    container_name: eureka-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SERVER_PORT=${EUREKA_PORT}
+      - JAVA_OPTS=${JAVA_OPTS}
+      - TZ=${TZ}
+    ports:
+      - "${EUREKA_PORT}:${EUREKA_PORT}"
+    volumes:
+      - ${LOG_PATH}/eureka:/var/log/playlizt
+    networks:
+      - playlizt-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${EUREKA_PORT}/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      playlizt-database:
+        condition: service_healthy
+
+  # =============================================================================
+  # AUTH SERVICE
+  # =============================================================================
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+      args:
+        PLAYLIZT_UID: ${PLAYLIZT_UID}
+        PLAYLIZT_GID: ${PLAYLIZT_GID}
+    container_name: auth-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SERVER_PORT=${AUTH_SERVICE_PORT}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS}
+      - JWT_REFRESH_EXPIRATION_MS=${JWT_REFRESH_EXPIRATION_MS}
+      - JAVA_OPTS=${JAVA_OPTS}
+      - TZ=${TZ}
+    ports:
+      - "${AUTH_SERVICE_PORT}:${AUTH_SERVICE_PORT}"
+    volumes:
+      - ${LOG_PATH}/auth:/var/log/playlizt
+    networks:
+      - playlizt-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${AUTH_SERVICE_PORT}/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      playlizt-database:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
+
+  # =============================================================================
+  # CONTENT SERVICE
+  # =============================================================================
+  content-service:
+    build:
+      context: .
+      dockerfile: content-service/Dockerfile
+      args:
+        PLAYLIZT_UID: ${PLAYLIZT_UID}
+        PLAYLIZT_GID: ${PLAYLIZT_GID}
+    container_name: content-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SERVER_PORT=${CONTENT_SERVICE_PORT}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - JAVA_OPTS=${JAVA_OPTS}
+      - TZ=${TZ}
+    ports:
+      - "${CONTENT_SERVICE_PORT}:${CONTENT_SERVICE_PORT}"
+    volumes:
+      - ${LOG_PATH}/content:/var/log/playlizt
+    networks:
+      - playlizt-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${CONTENT_SERVICE_PORT}/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      playlizt-database:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
+
+  # =============================================================================
+  # PLAYBACK SERVICE
+  # =============================================================================
+  playback-service:
+    build:
+      context: .
+      dockerfile: playback-service/Dockerfile
+      args:
+        PLAYLIZT_UID: ${PLAYLIZT_UID}
+        PLAYLIZT_GID: ${PLAYLIZT_GID}
+    container_name: playback-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SERVER_PORT=${PLAYBACK_SERVICE_PORT}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
+      - JAVA_OPTS=${JAVA_OPTS}
+      - TZ=${TZ}
+    ports:
+      - "${PLAYBACK_SERVICE_PORT}:${PLAYBACK_SERVICE_PORT}"
+    volumes:
+      - ${LOG_PATH}/playback:/var/log/playlizt
+    networks:
+      - playlizt-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PLAYBACK_SERVICE_PORT}/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      playlizt-database:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
+
+  # =============================================================================
+  # AI SERVICE
+  # =============================================================================
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai-service/Dockerfile
+      args:
+        PLAYLIZT_UID: ${PLAYLIZT_UID}
+        PLAYLIZT_GID: ${PLAYLIZT_GID}
+    container_name: ai-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SERVER_PORT=${AI_SERVICE_PORT}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+      - GEMINI_FALLBACK_MODELS=${GEMINI_FALLBACK_MODELS}
+      - GEMINI_MAX_TOKENS=${GEMINI_MAX_TOKENS}
+      - GEMINI_TEMPERATURE=${GEMINI_TEMPERATURE}
+      - GEMINI_RATE_LIMIT_RPM=${GEMINI_RATE_LIMIT_RPM}
+      - JAVA_OPTS=${JAVA_OPTS}
+      - TZ=${TZ}
+    ports:
+      - "${AI_SERVICE_PORT}:${AI_SERVICE_PORT}"
+    volumes:
+      - ${LOG_PATH}/ai:/var/log/playlizt
+    networks:
+      - playlizt-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${AI_SERVICE_PORT}/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      playlizt-database:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
+
+  # =============================================================================
+  # API GATEWAY
+  # =============================================================================
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+      args:
+        PLAYLIZT_UID: ${PLAYLIZT_UID}
+        PLAYLIZT_GID: ${PLAYLIZT_GID}
+    container_name: api-gateway
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SERVER_PORT=${API_GATEWAY_PORT}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
+      - JAVA_OPTS=${JAVA_OPTS}
+      - TZ=${TZ}
+    ports:
+      - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
+    volumes:
+      - ${LOG_PATH}/gateway:/var/log/playlizt
+    networks:
+      - playlizt-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${API_GATEWAY_PORT}/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      content-service:
+        condition: service_healthy
+      playback-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  playlizt-network:
+    driver: bridge
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local

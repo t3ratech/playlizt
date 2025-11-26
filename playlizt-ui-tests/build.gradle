@@ -1,0 +1,59 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.smatech.playlizt'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Playwright for UI testing
+    testImplementation 'com.microsoft.playwright:playwright:1.48.0'
+    
+    // JUnit 5 - use platform BOM for version alignment
+    testImplementation platform('org.junit:junit-bom:5.11.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    
+    // AssertJ for fluent assertions
+    testImplementation 'org.assertj:assertj-core:3.25.1'
+    
+    // SLF4J for logging
+    testImplementation 'org.slf4j:slf4j-api:2.0.9'
+    testRuntimeOnly 'ch.qos.logback:logback-classic:1.4.14'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+test {
+    useJUnitPlatform()
+    
+    // Configure test execution
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+        showStandardStreams = true
+    }
+    
+    // Set system properties for Playwright
+    systemProperty 'playwright.headless', System.getProperty('playwright.headless', 'true')
+    systemProperty 'playwright.slowmo', System.getProperty('playwright.slowmo', '50')
+    systemProperty 'playwright.timeout', System.getProperty('playwright.timeout', '30000')
+    systemProperty 'test.web.url', System.getProperty('test.web.url', 'http://localhost:8080')
+    systemProperty 'test.flutter.url', System.getProperty('test.flutter.url', 'http://localhost:8090')
+    
+    // Increase timeout for UI tests
+    timeout = Duration.ofMinutes(10)
+}
+
+// Task to install Playwright browsers
+tasks.register('installPlaywrightBrowsers', Exec) {
+    commandLine 'mvn', 'exec:java', '-e', '-D', 'exec.mainClass=com.microsoft.playwright.CLI', '-D', 'exec.args=install'
+}

@@ -1,0 +1,80 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.0' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+    id 'jacoco'
+}
+
+allprojects {
+    group = 'com.smatech.playlizt'
+    version = '1.0.0'
+    
+    repositories {
+        mavenCentral()
+        maven { url 'https://projectlombok.org/edge-releases' }
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'jacoco'
+    
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+    
+    dependencies {
+        // Lombok edge version for Java 25 support
+        compileOnly 'org.projectlombok:lombok:edge-SNAPSHOT'
+        annotationProcessor 'org.projectlombok:lombok:edge-SNAPSHOT'
+        
+        // Testing dependencies
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testImplementation 'org.mockito:mockito-core'
+        testImplementation 'org.mockito:mockito-junit-jupiter'
+    }
+    
+    tasks.withType(Test) {
+        useJUnitPlatform()
+        finalizedBy jacocoTestReport
+    }
+    
+    jacocoTestReport {
+        dependsOn test
+        reports {
+            xml.required = true
+            html.required = true
+            csv.required = false
+        }
+    }
+    
+    jacocoTestCoverageVerification {
+        violationRules {
+            rule {
+                limit {
+                    minimum = 0.70 // Start with 70% goal towards 90%
+                }
+            }
+        }
+    }
+    
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+        options.compilerArgs << '-parameters'
+    }
+}
+
+// Versions
+ext {
+    set('springCloudVersion', '2025.0.0')
+    set('springdocVersion', '2.6.0')
+    set('mapStructVersion', '1.6.2')
+    set('testcontainersVersion', '1.20.3')
+    set('jjwtVersion', '0.12.6')
+    set('geminiVersion', '0.4.0')
+}
