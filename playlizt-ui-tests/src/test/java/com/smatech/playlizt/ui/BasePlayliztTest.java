@@ -183,19 +183,14 @@ public abstract class BasePlayliztTest {
         // Wait for page load event
         page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE);
         
-        // Optimization: Check if already hydrated (text visible)
-        if (isTextVisible("Playlizt") || isTextVisible("Login") || isTextVisible("Register")) {
-            System.out.println("✓ App appears already hydrated (Text visible). Skipping accessibility enablement.");
-            return;
-        }
-        
-        // Give Flutter time to initialize and render
-        page.waitForTimeout(3000);
-        
         // Enable accessibility if prompted (common in Flutter Web CanvasKit)
+        // We do NOT skip this check even if text is visible, because partial hydration can occur.
         try {
+            // Check for the button explicitly
             com.microsoft.playwright.Locator accessBtn = page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Enable accessibility"));
-            if (accessBtn.count() > 0) {
+            
+            // If button exists, we MUST click it
+            if (accessBtn.count() > 0 && accessBtn.first().isVisible()) {
                 System.out.println("✓ Found 'Enable accessibility' button. Clicking it to hydrate DOM...");
                 try {
                     accessBtn.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
@@ -364,28 +359,47 @@ public abstract class BasePlayliztTest {
             try {
                 emailInput.first().waitFor(new Locator.WaitForOptions().setTimeout(3000));
             } catch (Exception ex) {
-                System.out.println("Could not find Email input. Proceeding to try click anyway...");
+                System.out.println("Could not find Email input. Proceeding to try anyway...");
             }
         }
         
         if (emailInput.count() == 0) emailInput = page.getByPlaceholder("email");
         
-        emailInput.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
-        emailInput.first().clear();
-        emailInput.first().fill(email);
+        // Try to scroll into view and interact using JS if standard fails
+        try {
+            emailInput.first().scrollIntoViewIfNeeded();
+            emailInput.first().fill(email);
+        } catch (Exception e) {
+            System.out.println("Standard fill failed, trying JS fill for Email...");
+            emailInput.first().evaluate("node => { node.value = '" + email + "'; node.dispatchEvent(new Event('input', { bubbles: true })); }");
+        }
         
         com.microsoft.playwright.Locator passInput = page.getByLabel("Password");
         if (passInput.count() == 0) passInput = page.getByPlaceholder("password");
 
-        passInput.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
-        passInput.first().clear();
-        passInput.first().fill(password);
+        try {
+            passInput.first().scrollIntoViewIfNeeded();
+            passInput.first().fill(password);
+        } catch (Exception e) {
+            System.out.println("Standard fill failed, trying JS fill for Password...");
+            passInput.first().evaluate("node => { node.value = '" + password + "'; node.dispatchEvent(new Event('input', { bubbles: true })); }");
+        }
         
         // Click login button
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Login"))
-           .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign In")))
-           .first()
-           .click();
+        try {
+            com.microsoft.playwright.Locator loginBtn = page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Login"))
+               .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign In")))
+               .first();
+            
+            loginBtn.scrollIntoViewIfNeeded();
+            loginBtn.click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+        } catch (Exception e) {
+            System.out.println("Click failed, trying JS click...");
+            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Login"))
+               .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign In")))
+               .first()
+               .evaluate("node => node.click()");
+        }
         
         // Wait for navigation
         page.waitForTimeout(2000);
@@ -432,10 +446,19 @@ public abstract class BasePlayliztTest {
              confirmInput.first().fill(password);
         }
         
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Register"))
-           .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign Up")))
-           .first()
-           .click();
+        try {
+            com.microsoft.playwright.Locator registerBtn = page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Register"))
+               .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign Up")))
+               .first();
+               
+            registerBtn.evaluate("node => node.click()");
+        } catch (Exception e) {
+            System.out.println("JS Click for Register failed, trying standard click...");
+            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Register"))
+               .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign Up")))
+               .first()
+               .click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+        }
         
         page.waitForTimeout(2000);
     }
@@ -461,18 +484,37 @@ public abstract class BasePlayliztTest {
         com.microsoft.playwright.Locator profileBtn = page.getByLabel("Profile")
             .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Profile")));
             
+        if (profileBtn.count() == 0) {
+             // Fallback: It might be the last button (Profile icon) if semantics are missing
+             System.out.println("Profile button not found by label. Trying last button in AppBar...");
+             // Assuming AppBar actions: [Theme, Profile]
+             // We try to find buttons that are likely in the app bar (top of screen)
+             profileBtn = page.getByRole(AriaRole.BUTTON).last(); 
+        }
+
         if (profileBtn.count() > 0 && profileBtn.first().isVisible()) {
-            System.out.println("Found Profile button. Opening menu...");
+            System.out.println("Found potential Profile button. Opening menu...");
             profileBtn.first().click();
             page.waitForTimeout(1000); // Wait for dialog/menu
             
-            // Now Logout should be visible
+            // Now Logout should be visible in the Dialog
             if (logoutBtn.count() > 0 && logoutBtn.first().isVisible()) {
                 logoutBtn.first().click();
                 page.waitForTimeout(1000);
                 return;
             } else {
-                System.out.println("Profile opened, but Logout button still not visible.");
+                // Maybe "Close" is visible?
+                if (isTextVisible("Close")) {
+                     System.out.println("Profile dialog opened (Close visible), but Logout not found?");
+                     // Try finding button with text "Logout" manually if role fails
+                     if (isTextVisible("Logout")) {
+                         page.getByText("Logout").click();
+                         page.waitForTimeout(1000);
+                         return;
+                     }
+                } else {
+                     System.out.println("Profile dialog did not appear or is different.");
+                }
             }
         }
         
@@ -499,9 +541,20 @@ public abstract class BasePlayliztTest {
      * @param query Search query
      */
     protected void searchContent(String query) {
-        page.getByPlaceholder("Search content...")
-            .or(page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Search")))
-            .fill(query);
+        try {
+            page.getByPlaceholder("Search content...")
+                .or(page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Search")))
+                .first() // Use first if multiple matches (e.g. desktop/mobile layout)
+                .fill(query);
+        } catch (Exception e) {
+            System.out.println("Specific search input not found. Trying generic textbox...");
+            // Fallback: Try first textbox
+            if (page.getByRole(AriaRole.TEXTBOX).count() > 0) {
+                page.getByRole(AriaRole.TEXTBOX).first().fill(query);
+            } else {
+                throw e; // Rethrow if no textboxes at all
+            }
+        }
         page.keyboard().press("Enter");
         page.waitForTimeout(1500);
     }
@@ -524,7 +577,7 @@ public abstract class BasePlayliztTest {
      */
     protected boolean isTextVisible(String text) {
         try {
-            return page.getByText(text).isVisible();
+            return page.getByText(text).first().isVisible();
         } catch (Exception e) {
             return false;
         }

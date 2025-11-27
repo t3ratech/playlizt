@@ -395,6 +395,9 @@ setup_test_env() {
     wait_for_service_health "playlizt-database"
     wait_for_service_health "eureka-service"
     wait_for_service_health "auth-service"
+    wait_for_service_health "content-service"
+    wait_for_service_health "playback-service"
+    wait_for_service_health "ai-service"
     wait_for_service_health "api-gateway"
     
     # Start frontend

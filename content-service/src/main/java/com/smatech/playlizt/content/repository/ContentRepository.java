@@ -11,10 +11,17 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+
 @Repository
-public interface ContentRepository extends JpaRepository<Content, Long> {
+public interface ContentRepository extends JpaRepository<Content, Long>, JpaSpecificationExecutor<Content> {
     
     Page<Content> findByIsPublishedTrue(Pageable pageable);
+    
+    @Modifying
+    @Query("UPDATE Content c SET c.viewCount = c.viewCount + 1 WHERE c.id = :id")
+    void incrementViewCount(@Param("id") Long id);
     
     Page<Content> findByCreatorId(Long creatorId, Pageable pageable);
     

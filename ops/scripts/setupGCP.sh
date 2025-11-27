@@ -80,14 +80,14 @@ build_push() {
     # Build locally (but DO NOT push yet)
     (cd "$PROJECT_ROOT" && docker build --platform linux/amd64 -t "$IMAGE" -f "${SERVICE}/Dockerfile" $BUILD_ARGS .)
 
-    # Get local digest
-    LOCAL_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null | sed 's/.*@//')
+    # Get local digest (safely handle case where RepoDigests might be empty)
+    LOCAL_DIGEST=$(docker inspect --format='{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$IMAGE" 2>/dev/null | sed 's/.*@//' || true)
 
     # Get remote digest
     REMOTE_DIGEST=$(gcloud artifacts docker images describe "$IMAGE" \
         --project "$GCP_PROJECT_ID" \
         --location "$GCP_REGION" \
-        --format="value(image_summary.digest)" 2>/dev/null)
+        --format="value(image_summary.digest)" 2>/dev/null || true)
 
     echo "Local Digest : $LOCAL_DIGEST"
     echo "Remote Digest: $REMOTE_DIGEST"

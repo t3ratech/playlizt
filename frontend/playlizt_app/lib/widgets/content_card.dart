@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/content.dart';
+import '../screens/video_player_screen.dart';
 
 class ContentCard extends StatelessWidget {
   final Content content;
@@ -19,9 +20,14 @@ class ContentCard extends StatelessWidget {
         width: width,
         child: InkWell(
           onTap: () {
-            // TODO: Navigate to content detail screen
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Selected: ${content.title}')),
+            // Increment view count
+            Provider.of<ContentProvider>(context, listen: false).incrementView(content.id);
+            
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VideoPlayerScreen(content: content),
+              ),
             );
           },
           child: Column(
@@ -47,24 +53,17 @@ class ContentCard extends StatelessWidget {
               
               // Content Info
               Padding(
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.all(8.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       content.title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      maxLines: 2,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      content.displayDescription,
-                      style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Container(

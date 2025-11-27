@@ -12,6 +12,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +25,7 @@ import java.util.List;
 public class ContentService {
 
     private final ContentRepository contentRepository;
-    private final GeminiAiService geminiAiService;
+    private final AsyncContentEnhancer asyncContentEnhancer;
 
     @Transactional
     public ContentResponse createContent(ContentRequest request) {
@@ -41,47 +44,15 @@ public class ContentService {
                 .viewCount(0L)
                 .build();
 
-        // Enhance with AI if requested
-        if (Boolean.TRUE.equals(request.getEnhanceWithAi())) {
-            try {
-                enhanceContentWithAi(content);
-            } catch (Exception e) {
-                log.error("Failed to enhance content with AI, proceeding without enhancement", e);
-            }
-        }
-
         content = contentRepository.save(content);
         log.info("Content created successfully: id={}", content.getId());
 
+        // Enhance with AI if requested (Async)
+        if (Boolean.TRUE.equals(request.getEnhanceWithAi())) {
+            asyncContentEnhancer.enhanceContent(content);
+        }
+
         return toResponse(content);
-    }
-
-    private void enhanceContentWithAi(Content content) {
-        String aiResponse = geminiAiService.enhanceMetadata(
-                content.getTitle(),
-                content.getDescription(),
-                content.getTags()
-        );
-
-        JsonNode metadata = geminiAiService.parseEnhancedMetadata(aiResponse);
-
-        if (metadata.has("improvedDescription")) {
-            content.setAiGeneratedDescription(metadata.get("improvedDescription").asText());
-        }
-
-        if (metadata.has("predictedCategory")) {
-            content.setAiPredictedCategory(metadata.get("predictedCategory").asText());
-        }
-
-        if (metadata.has("suggestedTags") && metadata.get("suggestedTags").isArray()) {
-            List<String> suggestedTags = new ArrayList<>();
-            metadata.get("suggestedTags").forEach(tag -> suggestedTags.add(tag.asText()));
-            content.setTags(suggestedTags.toArray(new String[0]));
-        }
-
-        if (metadata.has("relevanceScore")) {
-            content.setAiRelevanceScore(new BigDecimal(metadata.get("relevanceScore").asText()));
-        }
     }
 
     public ContentResponse getContent(Long id) {
@@ -100,13 +71,52 @@ public class ContentService {
                 .map(this::toResponse);
     }
 
-    public Page<ContentResponse> searchContent(String query, Pageable pageable) {
-        return contentRepository.searchContent(query, pageable)
+    public Page<ContentResponse> searchContent(String query, String category, Integer minDuration, Integer maxDuration, Pageable pageable) {
+        Specification<Content> spec = (root, queryObj, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // Published only
+            predicates.add(cb.isTrue(root.get("isPublished")));
+            
+            // Query (Title or Description)
+            if (query != null && !query.trim().isEmpty()) {
+                String likePattern = "%" + query.toLowerCase() + "%";
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("title")), likePattern),
+                    cb.like(cb.lower(root.get("description")), likePattern)
+                ));
+            }
+            
+            // Category
+            if (category != null && !category.trim().isEmpty()) {
+                predicates.add(cb.equal(root.get("category"), category));
+            }
+            
+            // Duration
+            if (minDuration != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("durationSeconds"), minDuration));
+            }
+            if (maxDuration != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("durationSeconds"), maxDuration));
+            }
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        
+        return contentRepository.findAll(spec, pageable)
                 .map(this::toResponse);
     }
+    
+    // Keep old method for backward compatibility if needed, or remove it if controller is updated.
+    // I will remove the old searchContent method in the same edit or update controller to match.
 
     public List<String> getAllCategories() {
         return contentRepository.findAllCategories();
+    }
+
+    @Transactional
+    public void incrementViewCount(Long id) {
+        contentRepository.incrementViewCount(id);
     }
 
     @Transactional

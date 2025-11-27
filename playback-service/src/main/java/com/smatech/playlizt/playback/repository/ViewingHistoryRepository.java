@@ -25,4 +25,7 @@ public interface ViewingHistoryRepository extends JpaRepository<ViewingHistory, 
     
     @Query("SELECT SUM(vh.watchTimeSeconds) FROM ViewingHistory vh WHERE vh.contentId = :contentId")
     Long sumWatchTimeByContentId(@Param("contentId") Long contentId);
+    
+    @Query("SELECT SUM(vh.watchTimeSeconds) FROM ViewingHistory vh")
+    Long sumTotalWatchTime();
 }

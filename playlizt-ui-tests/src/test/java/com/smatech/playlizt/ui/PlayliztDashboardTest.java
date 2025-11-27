@@ -57,9 +57,30 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
             if (isTextVisible("Don't have an account")) System.out.println("DEBUG: Found 'Don't have an account'");
             
             if (isTextVisible("Login")) {
-                System.out.println("Login page visible. Attempting login with " + TEST_USER_EMAIL);
-                login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
-                page.waitForTimeout(3000);
+                System.out.println("Login page visible. Attempting to ensure user exists via Register...");
+                try {
+                    navigateToRegister();
+                    register(TEST_USER_USERNAME, TEST_USER_EMAIL, TEST_USER_PASSWORD);
+                    page.waitForTimeout(2000);
+                } catch (Exception e) {
+                    System.out.println("Registration failed (maybe user exists?): " + e.getMessage());
+                    // Navigate back to login if stuck on register
+                    if (isTextVisible("Register")) {
+                        // Click "Already have an account" if visible, or reload
+                        if (isTextVisible("Already have an account")) {
+                            page.getByText("Already have an account").click();
+                        } else {
+                            navigateToApp();
+                        }
+                    }
+                }
+                
+                // Now Login
+                if (isTextVisible("Login")) {
+                    System.out.println("Attempting login with " + TEST_USER_EMAIL);
+                    login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
+                    page.waitForTimeout(3000);
+                }
             }
             
             // If still on Login/Register (e.g. invalid credentials), try registering? 

@@ -11,6 +11,7 @@ trigger: always_on
 - All terminal operations must use `run_command` so they appear in the IDE terminal.
 - All file edits must use `edit` or `write_to_file` so they appear in the IDE.
 - No hidden background operations - everything must be visible to the user.
+- You must usee the IDE for all terminal and editing so the user has visibility, do not use obscure MCP tools
 
 ## Golden References
 1. `ARCHITECTURE.md` (authoritative technical guide)

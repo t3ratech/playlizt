@@ -6,6 +6,7 @@ class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   
   bool _isAuthenticated = false;
+  bool _isInitialized = false;
   String? _token;
   String? _refreshToken;
   int? _userId;
@@ -14,6 +15,7 @@ class AuthProvider with ChangeNotifier {
   String? _role;
   
   bool get isAuthenticated => _isAuthenticated;
+  bool get isInitialized => _isInitialized;
   String? get token => _token;
   int? get userId => _userId;
   String? get username => _username;
@@ -36,8 +38,9 @@ class AuthProvider with ChangeNotifier {
     if (_token != null) {
       _isAuthenticated = true;
       _apiService.setToken(_token!);
-      notifyListeners();
     }
+    _isInitialized = true;
+    notifyListeners();
   }
   
   Future<void> _saveToStorage() async {

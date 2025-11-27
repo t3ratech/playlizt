@@ -70,4 +70,10 @@ public class PlaybackController {
                 "totalWatchTimeSeconds", totalWatchTime
         ));
     }
+    
+    @GetMapping("/analytics/platform")
+    @Operation(summary = "Platform analytics", description = "Get global platform analytics (Admin only)")
+    public ResponseEntity<Map<String, Long>> getPlatformAnalytics() {
+        return ResponseEntity.ok(playbackService.getPlatformAnalytics());
+    }
 }

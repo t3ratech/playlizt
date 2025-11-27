@@ -27,6 +27,10 @@ class ContentProvider with ChangeNotifier {
       _contentList = (response['content'] as List)
           .map((json) => Content.fromJson(json))
           .toList();
+      
+      // Reverse to show Episode 1 first (assuming default is descending or we just want to reverse)
+      _contentList = _contentList.reversed.toList();
+      
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -86,6 +90,36 @@ class ContentProvider with ChangeNotifier {
       _error = e.toString();
       notifyListeners();
       return null;
+    }
+  }
+  
+  Future<void> incrementView(int contentId) async {
+    // Call API
+    await _apiService.incrementViewCount(contentId);
+    
+    // Update local state
+    final index = _contentList.indexWhere((c) => c.id == contentId);
+    if (index != -1) {
+      final old = _contentList[index];
+      _contentList[index] = Content(
+        id: old.id,
+        creatorId: old.creatorId,
+        title: old.title,
+        description: old.description,
+        category: old.category,
+        tags: old.tags,
+        thumbnailUrl: old.thumbnailUrl,
+        videoUrl: old.videoUrl,
+        durationSeconds: old.durationSeconds,
+        aiGeneratedDescription: old.aiGeneratedDescription,
+        aiPredictedCategory: old.aiPredictedCategory,
+        aiRelevanceScore: old.aiRelevanceScore,
+        createdAt: old.createdAt,
+        updatedAt: old.updatedAt,
+        isPublished: old.isPublished,
+        viewCount: old.viewCount + 1,
+      );
+      notifyListeners();
     }
   }
 }

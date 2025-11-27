@@ -3,6 +3,7 @@ package com.smatech.playlizt.auth.service;
 import com.smatech.playlizt.auth.dto.AuthResponse;
 import com.smatech.playlizt.auth.dto.LoginRequest;
 import com.smatech.playlizt.auth.dto.RegisterRequest;
+import com.smatech.playlizt.auth.dto.UpdateProfileRequest;
 import com.smatech.playlizt.auth.entity.User;
 import com.smatech.playlizt.auth.repository.UserRepository;
 import com.smatech.playlizt.auth.security.JwtUtil;
@@ -78,6 +79,30 @@ public class AuthService {
         User user = userRepository.findActiveByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+        return buildAuthResponse(user);
+    }
+
+    @Transactional
+    public AuthResponse updateProfile(String token, UpdateProfileRequest request) {
+        if (!jwtUtil.validateToken(token)) {
+            throw new IllegalArgumentException("Invalid token");
+        }
+        String email = jwtUtil.getEmailFromToken(token);
+        
+        User user = userRepository.findActiveByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                
+        if (request.getUsername() != null && !request.getUsername().isEmpty()) {
+            user.setUsername(request.getUsername());
+        }
+        if (request.getEmail() != null && !request.getEmail().isEmpty()) {
+            user.setEmail(request.getEmail());
+        }
+        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+            user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        }
+        
+        user = userRepository.save(user);
         return buildAuthResponse(user);
     }
 

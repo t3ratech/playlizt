@@ -24,6 +24,19 @@ echo "Testing Auth Flow via Remote Gateway..."
 echo "Registering remote user..."
 curl -v -X POST -H "Content-Type: application/json" -d '{"username":"remoteuser","email":"remote@test.com","password":"password"}' https://api-gateway-a2y2msttda-bq.a.run.app/api/v1/auth/register
 
-# Login
+# Login and get Token
 echo "Logging in..."
-curl -v -X POST -H "Content-Type: application/json" -d '{"email":"remote@test.com","password":"password"}' https://api-gateway-a2y2msttda-bq.a.run.app/api/v1/auth/login
+LOGIN_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"remote@test.com","password":"password"}' https://api-gateway-a2y2msttda-bq.a.run.app/api/v1/auth/login)
+
+if echo "$LOGIN_RESPONSE" | grep -q "token"; then
+  echo "Login OK"
+  TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+  echo "Token: ${TOKEN:0:10}..."
+  
+  # Test Content
+  echo "Fetching Content..."
+  curl -v -H "Authorization: Bearer $TOKEN" https://api-gateway-a2y2msttda-bq.a.run.app/api/v1/content
+else
+  echo "Login FAILED"
+  echo "Response: $LOGIN_RESPONSE"
+fi

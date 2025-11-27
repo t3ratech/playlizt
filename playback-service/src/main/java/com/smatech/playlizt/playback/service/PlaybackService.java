@@ -11,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -77,6 +79,15 @@ public class PlaybackService {
     public Long getTotalWatchTime(Long contentId) {
         Long total = viewingHistoryRepository.sumWatchTimeByContentId(contentId);
         return total != null ? total : 0L;
+    }
+    
+    public Map<String, Long> getPlatformAnalytics() {
+        Long totalSessions = viewingHistoryRepository.count();
+        Long totalWatchTime = viewingHistoryRepository.sumTotalWatchTime();
+        return Map.of(
+            "totalSessions", totalSessions,
+            "totalWatchTimeSeconds", totalWatchTime != null ? totalWatchTime : 0L
+        );
     }
 
     private PlaybackResponse toResponse(ViewingHistory history) {

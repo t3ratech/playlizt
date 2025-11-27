@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 
 class ApiService {
@@ -91,6 +92,56 @@ class ApiService {
     }
   }
   
+  Future<void> incrementViewCount(int contentId) async {
+    try {
+      await _dio.post('/content/$contentId/view');
+    } catch (e) {
+      // Ignore errors for view counting to not block user experience
+      print('Failed to increment view count: $e');
+    }
+  }
+  
+  Future<Map<String, dynamic>> uploadFile(File file) async {
+    String fileName = file.path.split('/').last;
+    FormData formData = FormData.fromMap({
+      "file": await MultipartFile.fromFile(file.path, filename: fileName),
+    });
+    
+    try {
+      final response = await _dio.post('/content/upload', data: formData);
+      return Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createContent({
+    required String title,
+    required String description,
+    required String category,
+    required int creatorId,
+    String? videoUrl,
+    String? thumbnailUrl,
+    List<String> tags = const [],
+    int durationSeconds = 0,
+  }) async {
+    try {
+      final response = await _dio.post('/content', data: {
+        'title': title,
+        'description': description,
+        'category': category,
+        'creatorId': creatorId,
+        'videoUrl': videoUrl,
+        'thumbnailUrl': thumbnailUrl,
+        'tags': tags,
+        'durationSeconds': durationSeconds,
+      });
+      return Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+  
   Future<Map<String, dynamic>> searchContent(String query, {int page = 0, int size = 20}) async {
     try {
       final response = await _dio.get('/content/search', queryParameters: {
@@ -170,11 +221,32 @@ class ApiService {
     }
   }
   
+  Future<Map<String, dynamic>> getPlatformAnalytics() async {
+    try {
+      final response = await _dio.get('/playback/analytics/platform');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+  
   String _handleError(DioException e) {
     if (e.response != null) {
       final data = e.response!.data;
-      if (data is Map && data.containsKey('error')) {
-        return data['error']['message'] ?? 'An error occurred';
+      if (data is Map) {
+        // Check for top-level message
+        if (data.containsKey('message')) {
+          return data['message'].toString();
+        }
+        // Check for nested error object
+        if (data.containsKey('error')) {
+          if (data['error'] is Map && data['error'].containsKey('message')) {
+            return data['error']['message'].toString();
+          }
+          if (data['error'] is String) {
+            return data['error'];
+          }
+        }
       }
       return e.response!.statusMessage ?? 'An error occurred';
     } else {

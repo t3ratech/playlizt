@@ -5,6 +5,8 @@ import '../providers/content_provider.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/content_card.dart';
 import '../widgets/themed_logo.dart';
+import 'creator_dashboard_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -68,6 +70,18 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.upload),
+            tooltip: 'Upload',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CreatorDashboardScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.person),
             tooltip: 'Profile',
             onPressed: () {
@@ -90,6 +104,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   actions: [
+                    if (authProvider.role == 'ADMIN')
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminDashboardScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text('Admin Dashboard'),
+                      ),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Close'),
@@ -206,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 0.7,
+                    childAspectRatio: 1.2,
                   ),
                   itemCount: contentProvider.contentList.length,
                   itemBuilder: (context, index) {

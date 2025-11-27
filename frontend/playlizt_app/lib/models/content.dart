@@ -37,11 +37,11 @@ class Content {
   
   factory Content.fromJson(Map<String, dynamic> json) {
     return Content(
-      id: json['id'],
-      creatorId: json['creatorId'],
-      title: json['title'],
+      id: json['id'] ?? 0,
+      creatorId: json['creatorId'] ?? 0,
+      title: json['title'] ?? 'Untitled',
       description: json['description'],
-      category: json['category'],
+      category: json['category'] ?? 'Uncategorized',
       tags: List<String>.from(json['tags'] ?? []),
       thumbnailUrl: json['thumbnailUrl'],
       videoUrl: json['videoUrl'],
@@ -49,10 +49,14 @@ class Content {
       aiGeneratedDescription: json['aiGeneratedDescription'],
       aiPredictedCategory: json['aiPredictedCategory'],
       aiRelevanceScore: json['aiRelevanceScore']?.toDouble(),
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-      isPublished: json['isPublished'],
-      viewCount: json['viewCount'],
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null 
+          ? DateTime.parse(json['updatedAt']) 
+          : DateTime.now(),
+      isPublished: json['isPublished'] ?? false,
+      viewCount: json['viewCount'] ?? 0,
     );
   }
   

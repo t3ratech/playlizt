@@ -14,6 +14,7 @@ dependencies {
     
     // Spring Cloud
     implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client")
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
     
     // Google Gemini AI
     implementation("com.google.genai:google-genai:${property("geminiVersion")}")

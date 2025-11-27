@@ -27,6 +27,23 @@ services:
     restart: unless-stopped
 
   # =============================================================================
+  # REDIS CACHE
+  # =============================================================================
+  redis:
+    image: redis:alpine
+    container_name: playlizt-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - playlizt-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # =============================================================================
   # EUREKA SERVICE DISCOVERY
   # =============================================================================
   eureka-service:
@@ -131,6 +148,7 @@ services:
       - "${CONTENT_SERVICE_PORT}:${CONTENT_SERVICE_PORT}"
     volumes:
       - ${LOG_PATH}/content:/var/log/playlizt
+      - uploads_data:/uploads
     networks:
       - playlizt-network
     healthcheck:
@@ -288,4 +306,6 @@ networks:
 # =============================================================================
 volumes:
   postgres_data:
+    driver: local
+  uploads_data:
     driver: local

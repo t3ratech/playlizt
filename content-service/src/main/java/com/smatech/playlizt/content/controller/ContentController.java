@@ -53,20 +53,36 @@ public class ContentController {
     }
 
     @GetMapping("/search")
-    @Operation(summary = "Search content", description = "Search content by query")
+    @Operation(summary = "Search content", description = "Search content by query with optional filters")
     public ResponseEntity<Page<ContentResponse>> searchContent(
-            @RequestParam String q,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Integer minDuration,
+            @RequestParam(required = false) Integer maxDuration,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt,desc") String sort) {
         
-        PageRequest pageRequest = PageRequest.of(page, size);
-        return ResponseEntity.ok(contentService.searchContent(q, pageRequest));
+        String[] sortParams = sort.split(",");
+        Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("asc") 
+                ? Sort.Direction.ASC 
+                : Sort.Direction.DESC;
+        
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(direction, sortParams[0]));
+        return ResponseEntity.ok(contentService.searchContent(q, category, minDuration, maxDuration, pageRequest));
     }
 
     @GetMapping("/categories")
     @Operation(summary = "List categories", description = "Get all content categories")
     public ResponseEntity<List<String>> getCategories() {
         return ResponseEntity.ok(contentService.getAllCategories());
+    }
+
+    @PostMapping("/{id}/view")
+    @Operation(summary = "Increment view count", description = "Increment the view count for a content item")
+    public ResponseEntity<Void> incrementViewCount(@PathVariable Long id) {
+        contentService.incrementViewCount(id);
+        return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}")
