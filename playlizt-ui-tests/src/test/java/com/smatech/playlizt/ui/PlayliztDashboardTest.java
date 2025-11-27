@@ -20,18 +20,14 @@ import static org.assertj.core.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class PlayliztDashboardTest extends BasePlayliztTest {
 
-    private static final String TEST_EMAIL = "strict_dash_" + System.currentTimeMillis() + "@playlizt.com";
-    private static final String TEST_PASSWORD = "StrictPass123!";
-
     @BeforeAll
     static void setupUser() {
-        // Ideally we would seed a user via API here
-        // For now, we rely on registration in the first test or existing user
+        // Using seeded user from test.properties
     }
 
     @Test
     @Order(1)
-    @DisplayName("01 - Dashboard: Register & Login to Clean State")
+    @DisplayName("01 - Dashboard: Login with Test User")
     void test01_SetupDashboardUser() {
         try {
             navigateToApp();
@@ -60,30 +56,14 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
             if (isTextVisible("Register")) System.out.println("DEBUG: Found 'Register'");
             if (isTextVisible("Don't have an account")) System.out.println("DEBUG: Found 'Don't have an account'");
             
-            // Navigate to Register page
-            System.out.println("Attempting to navigate to Register page...");
-            navigateToRegister();
-
-            // Wait for navigation to complete
-            page.waitForTimeout(3000);
-            
-            // Verify we are on Register page
-            if (!isTextVisible("Username")) {
-                 System.out.println("⚠️ Failed to navigate to Register page! Current URL: " + page.url());
-                 takeScreenshot("failures/navigation/failed_to_register");
-                 // Try one more fallback: explicit JS click if possible?
-                 // No, let's rely on strict failure here.
-            }
-    
-            // Register new user to ensure we have access
-            register("DashUser", TEST_EMAIL, TEST_PASSWORD);
-            page.waitForTimeout(2000);
-            
-            // If not auto-logged in, do login
             if (isTextVisible("Login")) {
-                login(TEST_EMAIL, TEST_PASSWORD);
-                page.waitForTimeout(2000);
+                System.out.println("Login page visible. Attempting login with " + TEST_USER_EMAIL);
+                login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
+                page.waitForTimeout(3000);
             }
+            
+            // If still on Login/Register (e.g. invalid credentials), try registering? 
+            // No, we expect seeded user to exist.
             
             takeScreenshot("dashboard", "01_setup", "01_logged_in.png");
             
@@ -101,9 +81,9 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
     @Order(2)
     @DisplayName("02 - Dashboard: Search Functionality")
     void test02_SearchFunctionality() {
-        // Ensure logged in (reuse session if possible, else relogin)
+        // Ensure logged in
         if (isTextVisible("Login")) {
-             login(TEST_EMAIL, TEST_PASSWORD);
+             login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
              page.waitForTimeout(2000);
         }
         
@@ -124,7 +104,7 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
     @DisplayName("03 - Dashboard: Content Interaction")
     void test03_ContentInteraction() {
         // Ensure we are on Dashboard (Home)
-        if (!getCurrentUrl().contains("localhost") && !getCurrentUrl().contains("8090")) {
+        if (!getCurrentUrl().contains("localhost") && !getCurrentUrl().contains("4090")) {
              navigateToApp();
         }
         

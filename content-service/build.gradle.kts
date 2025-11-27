@@ -19,6 +19,7 @@ dependencies {
     
     // Database
     runtimeOnly("org.postgresql:postgresql")
+    implementation("com.google.cloud:spring-cloud-gcp-starter-sql-postgresql")
     
     // Google Gemini AI
     implementation("com.google.genai:google-genai:${property("geminiVersion")}")
@@ -45,6 +46,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.cloud:spring-cloud-dependencies:${property("springCloudVersion")}")
+        mavenBom("com.google.cloud:spring-cloud-gcp-dependencies:5.8.0")
     }
 }
 

@@ -32,14 +32,6 @@ public abstract class BasePlayliztTest {
     protected static BrowserContext context;
     protected static Page page;
     
-    // Test configuration from system properties
-    protected static final String WEB_URL = System.getProperty("test.web.url", "http://localhost:8080");
-    protected static final String FLUTTER_URL = System.getProperty("test.flutter.url", "http://localhost:3000");
-    protected static final boolean HEADLESS = Boolean.parseBoolean(System.getProperty("playwright.headless", "true"));
-    protected static final int SLOWMO = Integer.parseInt(System.getProperty("playwright.slowmo", "50"));
-    protected static final int TIMEOUT = Integer.parseInt(System.getProperty("playwright.timeout", "30000"));
-    protected static final String SCREENSHOT_DIR = "src/test/output";
-    
     static {
         try {
             java.util.Properties props = new java.util.Properties();
@@ -61,11 +53,23 @@ public abstract class BasePlayliztTest {
         }
     }
     
+    // Test configuration from system properties
+    protected static final String WEB_URL = System.getProperty("test.web.url");
+    protected static final String FLUTTER_URL = System.getProperty("test.flutter.url");
+    protected static final boolean HEADLESS = Boolean.parseBoolean(System.getProperty("playwright.headless"));
+    protected static final int SLOWMO = Integer.parseInt(System.getProperty("playwright.slowmo"));
+    protected static final int TIMEOUT = Integer.parseInt(System.getProperty("playwright.timeout"));
+    protected static final String SCREENSHOT_DIR = "src/test/output";
+
+    protected static final String TEST_USER_EMAIL = System.getProperty("test.user.email");
+    protected static final String TEST_USER_PASSWORD = System.getProperty("test.user.password");
+    protected static final String TEST_USER_USERNAME = System.getProperty("test.user.username");
+    
     @BeforeAll
     static void launchBrowser() {
         // Re-read properties after loading file
-        boolean headless = Boolean.parseBoolean(System.getProperty("playwright.headless", "true"));
-        int slowmo = Integer.parseInt(System.getProperty("playwright.slowmo", "50"));
+        boolean headless = Boolean.parseBoolean(System.getProperty("playwright.headless"));
+        int slowmo = Integer.parseInt(System.getProperty("playwright.slowmo"));
         
         playwright = Playwright.create();
         browser = playwright.chromium().launch(new BrowserType.LaunchOptions()

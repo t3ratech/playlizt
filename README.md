@@ -91,12 +91,12 @@ JWT_SECRET=your_jwt_secret_minimum_256_bits
 GEMINI_API_KEY=your_gemini_api_key
 
 # Ports
-EUREKA_PORT=8761
-AUTH_SERVICE_PORT=8081
-CONTENT_SERVICE_PORT=8082
-PLAYBACK_SERVICE_PORT=8083
-AI_SERVICE_PORT=8084
-API_GATEWAY_PORT=8080
+EUREKA_PORT=4761
+AUTH_SERVICE_PORT=4081
+CONTENT_SERVICE_PORT=4082
+PLAYBACK_SERVICE_PORT=4083
+AI_SERVICE_PORT=4084
+API_GATEWAY_PORT=4080
 ```
 
 ### Running the Platform
@@ -122,16 +122,35 @@ API_GATEWAY_PORT=8080
 ./playlizt-docker.sh --cleanup
 ```
 
+## Deployment
+
+### Google Cloud Platform (GCP)
+The project includes automated scripts for deploying the full stack to GCP using Terraform.
+
+1.  **Setup Credentials**: Configure `~/gcp/credentials` with your project details.
+2.  **Provision & Deploy**:
+    ```bash
+    ./playlizt-docker.sh --deploy
+    ```
+
+This script (invoking `ops/scripts/setupGCP.sh`) handles:
+- Artifact Registry creation
+- Docker image build and push
+- Cloud SQL (Postgres 17) provisioning
+- Cloud Run service deployment
+
+For detailed instructions, see [ARCHITECTURE.md](ARCHITECTURE.md#end-to-end-deployment).
+
 ## API Documentation
 
 Once the services are running, access the API documentation:
 
-- **API Gateway Swagger**: http://localhost:8080/swagger-ui.html
-- **Auth Service Swagger**: http://localhost:8081/swagger-ui.html
-- **Content Service Swagger**: http://localhost:8082/swagger-ui.html
-- **Playback Service Swagger**: http://localhost:8083/swagger-ui.html
-- **AI Service Swagger**: http://localhost:8084/swagger-ui.html
-- **Eureka Dashboard**: http://localhost:8761
+- **API Gateway Swagger**: http://localhost:4080/swagger-ui.html
+- **Auth Service Swagger**: http://localhost:4081/swagger-ui.html
+- **Content Service Swagger**: http://localhost:4082/swagger-ui.html
+- **Playback Service Swagger**: http://localhost:4083/swagger-ui.html
+- **AI Service Swagger**: http://localhost:4084/swagger-ui.html
+- **Eureka Dashboard**: http://localhost:4761
 
 ## API Endpoints
 
@@ -167,7 +186,7 @@ Once the services are running, access the API documentation:
 
 ### Register a User
 ```bash
-curl -X POST http://localhost:8080/api/v1/auth/register \
+curl -X POST http://localhost:4080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "john_doe",
@@ -179,7 +198,7 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
 
 ### Login
 ```bash
-curl -X POST http://localhost:8080/api/v1/auth/login \
+curl -X POST http://localhost:4080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "john@example.com",
@@ -189,7 +208,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 
 ### Upload Content (as CREATOR)
 ```bash
-curl -X POST http://localhost:8080/api/v1/content \
+curl -X POST http://localhost:4080/api/v1/content \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -205,7 +224,7 @@ curl -X POST http://localhost:8080/api/v1/content \
 
 ### Get Recommendations
 ```bash
-curl -X GET http://localhost:8080/api/v1/ai/recommendations \
+curl -X GET http://localhost:4080/api/v1/ai/recommendations \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -253,7 +272,7 @@ To reset the database to its clean, seeded state (wipes all user data!):
 ### Services Won't Start
 1. Check if ports are available:
 ```bash
-netstat -tuln | grep -E '8080|8081|8082|8083|8084|8761|5432'
+netstat -tuln | grep -E '4080|4081|4082|4083|4084|4761|5432'
 ```
 
 2. Check logs:
@@ -332,12 +351,18 @@ For technical documentation and architecture details, see [ARCHITECTURE.md](ARCH
 
 For issues or questions:
 1. Check the logs: `./playlizt-docker.sh --logs <service-name>`
-2. Review API documentation at http://localhost:8080/swagger-ui.html
+2. Review API documentation at http://localhost:4080/swagger-ui.html
 3. Consult ARCHITECTURE.md for implementation details
+
+## Contact
+
+For support or inquiries, contact:
+- Name: Tsungai Kaviya
+- Email: t3ratech.dev@gmail.com
 
 ## License
 
-Copyright © 2025 Smatech. All rights reserved.
+Copyright © 2025 TeraTech Solutions (PVT) Ltd. All rights reserved.
 
 ---
 

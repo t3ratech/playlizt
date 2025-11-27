@@ -79,10 +79,11 @@ print_usage() {
     echo "  --coverage           Run tests with coverage report"
     echo "  --cleanup            Stop and remove all containers"
     echo "  --build-web          Build Flutter web application"
-    echo "  --serve-web [port]   Serve Flutter web application (default: 8090)"
+    echo "  --serve-web [port]   Serve Flutter web application (default: 4090)"
     echo "  --stop-web           Stop Flutter web application"
     echo "  --build-apk          Build Flutter Android APK"
     echo "  --build-bundle       Build Flutter App Bundle (for Play Store)"
+    echo "  --deploy             Deploy to Google Cloud Platform"
     echo "  --destroy-all        Stop, remove containers and volumes"
     echo "  --full-cleanup       Stop, remove containers, volumes and prune system"
     echo "  -h, --help           Show this help message"
@@ -164,7 +165,7 @@ wait_for_service_health() {
                 fi
                 ;;
             eureka-service)
-                if docker compose exec -T "$service" curl -f http://localhost:8761/actuator/health >/dev/null 2>&1; then
+                if docker compose exec -T "$service" curl -f http://localhost:${EUREKA_PORT}/actuator/health >/dev/null 2>&1; then
                     echo -e "${GREEN}$service is healthy${NC}"
                     return 0
                 fi
@@ -172,11 +173,11 @@ wait_for_service_health() {
             auth-service|content-service|playback-service|ai-service|api-gateway)
                 local port=""
                 case "$service" in
-                    auth-service) port=${AUTH_SERVICE_PORT:-8081} ;;
-                    content-service) port=${CONTENT_SERVICE_PORT:-8082} ;;
-                    playback-service) port=${PLAYBACK_SERVICE_PORT:-8083} ;;
-                    ai-service) port=${AI_SERVICE_PORT:-8084} ;;
-                    api-gateway) port=${API_GATEWAY_PORT:-8080} ;;
+                    auth-service) port=${AUTH_SERVICE_PORT} ;;
+                    content-service) port=${CONTENT_SERVICE_PORT} ;;
+                    playback-service) port=${PLAYBACK_SERVICE_PORT} ;;
+                    ai-service) port=${AI_SERVICE_PORT} ;;
+                    api-gateway) port=${API_GATEWAY_PORT} ;;
                 esac
                 if docker compose exec -T "$service" curl -f http://localhost:$port/actuator/health >/dev/null 2>&1; then
                     echo -e "${GREEN}$service is healthy${NC}"
@@ -303,12 +304,15 @@ recreate_service() {
 
 # Rebuild all services
 rebuild_all() {
+    local api_url=${1}
     echo -e "${CYAN}=== Rebuilding all services in dependency order ===${NC}"
     source_env
-    
     for service in "${SERVICES[@]}"; do
         rebuild_service "$service"
     done
+    
+    # Rebuild web app
+    build_flutter_web "$api_url"
     
     echo -e "${GREEN}All services rebuilt successfully${NC}"
 }
@@ -378,25 +382,69 @@ run_integration_tests() {
     fi
 }
 
+# Setup test environment
+setup_test_env() {
+    echo -e "${CYAN}=== Setting up Test Environment ===${NC}"
+    
+    # Start backend services
+    echo -e "${BLUE}Starting backend services...${NC}"
+    source_env
+    docker compose up -d
+    
+    # Wait for critical services
+    wait_for_service_health "playlizt-database"
+    wait_for_service_health "eureka-service"
+    wait_for_service_health "auth-service"
+    wait_for_service_health "api-gateway"
+    
+    # Start frontend
+    serve_flutter_web 4090
+    
+    echo -e "${GREEN}Test environment ready${NC}"
+}
+
+# Teardown test environment
+teardown_test_env() {
+    echo -e "${CYAN}=== Tearing down Test Environment ===${NC}"
+    stop_flutter_web
+    docker compose stop
+    echo -e "${GREEN}Test environment stopped${NC}"
+}
+
 # Run all tests
 run_all_tests() {
     local test_pattern=${1:-""}
     local module=${2:-""}
-    echo -e "${CYAN}=== Running all tests ===${NC}"
+    
+    echo -e "${CYAN}=== Running all tests with environment ===${NC}"
+    
+    # Setup environment
+    setup_test_env
+    
     cd "$SCRIPT_DIR"
     
-    local tasks="test integrationTest"
+    local tasks="test"
     if [ -n "$module" ]; then
-        tasks=":$module:test :$module:integrationTest"
+        tasks=":$module:test"
         echo -e "${BLUE}Targeting module: $module${NC}"
     fi
     
+    local exit_code=0
     if [ -n "$test_pattern" ]; then
         echo -e "${BLUE}Running all tests matching: $test_pattern${NC}"
-        ./gradlew $tasks --tests "$test_pattern" --no-daemon
+        ./gradlew $tasks --tests "$test_pattern" --no-daemon || exit_code=$?
     else
-        ./gradlew $tasks --no-daemon
+        ./gradlew $tasks --no-daemon || exit_code=$?
     fi
+    
+    # Teardown
+    teardown_test_env
+    
+    if [ $exit_code -ne 0 ]; then
+        echo -e "${RED}Tests failed!${NC}"
+        return $exit_code
+    fi
+    echo -e "${GREEN}All tests passed!${NC}"
 }
 
 # Run tests with coverage
@@ -413,6 +461,7 @@ run_coverage() {
 
 # Build Flutter web
 build_flutter_web() {
+    local api_url=${1}
     echo -e "${CYAN}=== Building Flutter Web ===${NC}"
     cd "$SCRIPT_DIR/frontend/playlizt_app"
     
@@ -423,7 +472,14 @@ build_flutter_web() {
     fi
     
     flutter pub get
-    flutter build web --release
+    
+    if [ -n "$api_url" ]; then
+        echo -e "${BLUE}Building with API_URL: $api_url${NC}"
+        flutter build web --release --dart-define=API_URL="$api_url"
+    else
+        echo -e "${BLUE}Building with default API URL (localhost)${NC}"
+        flutter build web --release
+    fi
     
     echo -e "${GREEN}Flutter web build complete!${NC}"
     echo -e "${BLUE}Output: $SCRIPT_DIR/frontend/playlizt_app/build/web${NC}"
@@ -467,9 +523,42 @@ build_flutter_bundle() {
     echo -e "${BLUE}Output: $SCRIPT_DIR/frontend/playlizt_app/build/app/outputs/bundle/release/app-release.aab${NC}"
 }
 
+# Deploy to GCP
+deploy() {
+    echo -e "${CYAN}=== Deploying to Google Cloud ===${NC}"
+    
+    # Fetch API Gateway URL
+    echo -e "${BLUE}Fetching API Gateway URL...${NC}"
+    local api_url=$(cd "$SCRIPT_DIR/terraform" && terraform output -raw api_gateway_url 2>/dev/null || echo "")
+    
+    if [ -n "$api_url" ]; then
+        api_url="${api_url}/api/v1"
+        echo -e "${GREEN}Found URL: $api_url${NC}"
+    else
+        echo -e "${YELLOW}API Gateway URL not found. Using existing deployment URL.${NC}"
+        api_url="https://api-gateway-a2y2msttda-bq.a.run.app/api/v1"
+    fi
+    
+    # Build Web with PROD URL
+    build_flutter_web "$api_url"
+
+    local deploy_script="$SCRIPT_DIR/ops/scripts/setupGCP.sh"
+    
+    if [ ! -f "$deploy_script" ]; then
+        echo -e "${RED}Deployment script not found: $deploy_script${NC}"
+        exit 1
+    fi
+    
+    # Ensure executable
+    chmod +x "$deploy_script"
+    
+    # Run deployment
+    "$deploy_script"
+}
+
 # Serve Flutter web
 serve_flutter_web() {
-    local port=${1:-8090}
+    local port=${1:-4090}
     local web_dir="$SCRIPT_DIR/frontend/playlizt_app/build/web"
     local pid_file="$SCRIPT_DIR/frontend/playlizt_app/.web_server.pid"
     
@@ -588,6 +677,7 @@ main() {
     local test_module=""
     local tail_lines=500
     local follow_logs=false
+    local api_url=""
     
     # Parse arguments
     while [ $# -gt 0 ]; do
@@ -608,8 +698,13 @@ main() {
                 detach_mode=""
                 shift
                 ;;
+            --api-url)
+                shift
+                api_url="$1"
+                shift
+                ;;
             --rebuild-all)
-                rebuild_all
+                rebuild_all "$api_url"
                 exit 0
                 ;;
             --restart-all)
@@ -687,7 +782,7 @@ main() {
                 exit 0
                 ;;
             --build-web)
-                build_flutter_web
+                build_flutter_web "$api_url"
                 exit 0
                 ;;
             --serve-web)
@@ -710,6 +805,10 @@ main() {
                 ;;
             --build-bundle)
                 build_flutter_bundle
+                exit 0
+                ;;
+            --deploy)
+                deploy
                 exit 0
                 ;;
             --cleanup)

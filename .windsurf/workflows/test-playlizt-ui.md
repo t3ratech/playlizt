@@ -17,7 +17,7 @@ This workflow defines the rigorous process for validating the Playlizt platform'
 ## Prerequisites
 
 - Backend services running: `./playlizt-docker.sh --status` (All UP)
-- Flutter web app running on port 8090 (or configured port)
+- Flutter web app running on port 4090 (or configured port)
 - `playlizt-ui-tests` module built and ready
 
 ## Workflow Steps
@@ -31,9 +31,9 @@ Before running any tests, verify the environment is healthy.
 ```
 
 **Ensure Frontend is Running:**
-If `curl -I http://localhost:8090` fails:
+If `curl -I http://localhost:4090` fails:
 ```bash
-./playlizt-docker.sh --serve-web 8090
+./playlizt-docker.sh --serve-web 4090
 ```
 
 ### 2. Execute Tests Sequentially

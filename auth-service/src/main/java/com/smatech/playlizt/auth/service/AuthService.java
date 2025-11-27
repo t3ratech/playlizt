@@ -53,11 +53,13 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         log.info("Login attempt for: {}", request.getEmail());
 
-        User user = userRepository.findActiveByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
+        String identifier = request.getEmail();
+        User user = userRepository.findByUsernameOrEmail(identifier, identifier)
+                .filter(User::getIsActive)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("Invalid email or password");
+            throw new IllegalArgumentException("Invalid credentials");
         }
 
         user.setLastLogin(LocalDateTime.now());

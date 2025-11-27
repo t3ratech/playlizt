@@ -5,7 +5,7 @@ This document tracks the outstanding tasks and features to be implemented.
 
 ## 🚀 Outstanding Features
 
-### 1. Content Service (Port 8082)
+### 1. Content Service (Port 4082)
 - [ ] **Content CRUD**: Full Create/Read/Update/Delete operations for video content.
 - [ ] **Category Management**: Admin/Creator APIs to manage content categories.
 - [ ] **Tag Management**: System for handling content tags.
@@ -13,33 +13,42 @@ This document tracks the outstanding tasks and features to be implemented.
 - [ ] **Gemini AI Integration**: Automated metadata enhancement (Description generation, Tag suggestion).
 - [ ] **Creator Upload Flow**: Robust upload handling (S3/Local storage optimization).
 
-### 2. Playback Service (Port 8083)
+### 2. Playback Service (Port 4083)
 - [ ] **Session Management**: Tracking active viewing sessions.
 - [ ] **View Tracking**: Accurate view counting logic (e.g., 30s threshold).
 - [ ] **Watch History**: Storing and retrieving user watch history.
 - [ ] **"Continue Watching"**: Endpoint to return partially watched videos.
 - [ ] **Engagement Metrics**: Calculating completion rates, drop-off points.
 
-### 3. AI Service (Port 8084)
+### 3. AI Service (Port 4084)
 - [ ] **Recommendation Engine**: Personalized content feed based on history and tags.
 - [ ] **Metadata Enhancer Worker**: Async processing of new content.
 - [ ] **Watch Pattern Analysis**: Admin insights generation.
 - [ ] **Sentiment Analysis**: Analyzing comments/reviews (if implemented).
 - [ ] **Gemini API Fallback**: Handling API quotas/failures with fallback models.
 
-### 4. API Gateway (Port 8080)
+### 4. API Gateway (Port 4080)
 - [ ] **Rate Limiting**: Implementing request limits per user/IP.
 - [ ] **Advanced Routing**: Optimize routes for streaming data.
 - [ ] **CORS Tuning**: Fine-grained CORS policies for web/mobile clients.
 
 ### 5. Frontend (Flutter)
+- [x] **UI Rebranding**: Implement Black & White color scheme with Dark/Light mode support.
+- [x] **Logo Integration**: Add TeraTech/Blaklizt logos and make them theme-aware.
 - [ ] **Video Player**: Full-featured video player (Play/Pause, Seek, Quality).
 - [ ] **Creator Dashboard**: UI for uploading and managing content.
+
+### 6. Security & Authentication
+- [x] **Flexible Login**: Support login via Username or Email.
+- [x] **Strong Hashing**: Enforce Argon2id for password storage.
+- [x] **UX Improvements**: Enter key submission and clear validation.
+- [ ] **MFA**: Multi-Factor Authentication (Future).
 - [ ] **Admin Analytics**: Dashboard for platform insights.
 - [ ] **Profile Management**: User profile editing and settings.
 - [ ] **"Continue Watching" UI**: Horizontal list of unfinished videos.
 
 ### 6. Infrastructure & Testing
+- [x] **GCP Infrastructure**: Terraform configuration for Cloud Run & Cloud SQL.
 - [ ] **Integration Tests**: Testcontainers-based integration tests for all services.
 - [ ] **End-to-End Tests**: Full flow testing (Frontend -> Gateway -> Service -> DB).
 - [ ] **Log Management**: Centralized logging setup.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/themed_logo.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -57,41 +58,34 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    Icons.play_circle_filled,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  const Icon(Icons.play_circle_filled, size: 80),
                   const SizedBox(height: 16),
                   Text(
                     'Playlizt',
-                    style: Theme.of(context).textTheme.headlineLarge,
+                    style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
                   Text(
                     'AI-Powered Streaming Platform',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(context).textTheme.titleMedium,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
                   TextFormField(
                     controller: _emailController,
                     decoration: const InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'Email or Username',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.email),
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Please enter a valid email';
+                        return 'Please enter your email or username';
                       }
                       return null;
                     },
+                    textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -102,6 +96,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.lock),
                     ),
                     obscureText: true,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _login(),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your password';
@@ -131,6 +127,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                     },
                     child: const Text('Don\'t have an account? Register'),
+                  ),
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                       Image.asset(
+                         'assets/images/blaklizt_logo.jpg',
+                         height: 40,
+                         errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported),
+                       ),
+                       const SizedBox(width: 12),
+                       Text(
+                         'Powered by Blaklizt Entertainment', 
+                         style: Theme.of(context).textTheme.bodySmall,
+                       ),
+                    ],
                   ),
                 ],
               ),

@@ -73,7 +73,9 @@ class ContentCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
+                            color: Theme.of(context).brightness == Brightness.dark 
+                                ? Colors.grey[800] 
+                                : Colors.grey[200],
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

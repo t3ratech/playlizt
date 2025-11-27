@@ -92,7 +92,7 @@ class AuthServiceTest {
 
     @Test
     void shouldAuthenticateValidUser() {
-        when(userRepository.findActiveByEmail(anyString())).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameOrEmail(anyString(), anyString())).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
         when(jwtUtil.generateToken(any(User.class))).thenReturn("token");
         when(jwtUtil.generateRefreshToken(any(User.class))).thenReturn("refreshToken");
@@ -106,7 +106,7 @@ class AuthServiceTest {
 
     @Test
     void shouldThrowExceptionForInvalidCredentials() {
-        when(userRepository.findActiveByEmail(anyString())).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameOrEmail(anyString(), anyString())).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
 
         assertThrows(IllegalArgumentException.class, () -> authService.login(loginRequest));

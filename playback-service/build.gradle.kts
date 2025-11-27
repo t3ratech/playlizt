@@ -18,6 +18,7 @@ dependencies {
     
     // Database
     runtimeOnly("org.postgresql:postgresql")
+    implementation("com.google.cloud:spring-cloud-gcp-starter-sql-postgresql")
     
     // OpenAPI Documentation
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${rootProject.extra["springdocVersion"]}")
@@ -36,6 +37,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.cloud:spring-cloud-dependencies:${property("springCloudVersion")}")
+        mavenBom("com.google.cloud:spring-cloud-gcp-dependencies:5.8.0")
     }
 }
 

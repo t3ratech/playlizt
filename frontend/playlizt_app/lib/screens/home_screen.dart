@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/content_provider.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/content_card.dart';
+import '../widgets/themed_logo.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,8 +51,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Playlizt'),
+        toolbarHeight: 160,
+        title: const ThemedLogo(height: 144),
+        centerTitle: false,
         actions: [
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, _) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.themeMode == ThemeMode.dark
+                      ? Icons.light_mode
+                      : Icons.dark_mode,
+                ),
+                onPressed: () => themeProvider.toggleTheme(),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.person),
             tooltip: 'Profile',
@@ -61,8 +77,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: const Text('Profile'),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const ThemedLogo(height: 180),
+                      const SizedBox(height: 16),
+                      const CircleAvatar(
+                        radius: 30,
+                        child: Icon(Icons.person, size: 40),
+                      ),
                       Text('Username: ${authProvider.username}'),
                       Text('Email: ${authProvider.email}'),
                       Text('Role: ${authProvider.role}'),
@@ -194,6 +215,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 ),
+
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   Image.asset(
+                     'assets/images/blaklizt_logo.jpg',
+                     height: 40,
+                     errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported),
+                   ),
+                   const SizedBox(width: 12),
+                   Text(
+                     'Powered by Blaklizt Entertainment', 
+                     style: Theme.of(context).textTheme.bodySmall,
+                   ),
+                ],
+              ),
+              const SizedBox(height: 32),
             ],
           ),
         ),

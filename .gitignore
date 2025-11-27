@@ -38,6 +38,13 @@ spring-boot-application.log
 # Docker
 postgres_data/
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+
 # Flutter
 frontend/.dart_tool/
 frontend/.flutter-plugins

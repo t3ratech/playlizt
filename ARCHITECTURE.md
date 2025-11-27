@@ -43,12 +43,12 @@ Flutter Frontend → API Gateway → [Auth, Content, Playback, AI Services] → 
 ## Microservices
 
 ### Service Inventory
-1. **eureka-service** (8761) - Service discovery
-2. **auth-service** (8081) - Authentication & authorization
-3. **content-service** (8082) - Content management
-4. **playback-service** (8083) - View tracking & analytics
-5. **ai-service** (8084) - AI features
-6. **api-gateway** (8080) - Request routing
+1. **eureka-service** (4761) - Service discovery
+2. **auth-service** (4081) - Authentication & authorization
+3. **content-service** (4082) - Content management
+4. **playback-service** (4083) - View tracking & analytics
+5. **ai-service** (4084) - AI features
+6. **api-gateway** (4080) - Request routing
 
 ### Startup Order
 ```
@@ -109,7 +109,7 @@ Database services:
 
 **.env**:
 ```properties
-AUTH_SERVICE_PORT=8081
+AUTH_SERVICE_PORT=4081
 POSTGRES_HOST=playlizt-database
 POSTGRES_PORT=5432
 POSTGRES_DB=playlizt
@@ -439,7 +439,7 @@ class ContentServiceIntegrationTest {
 
 **Module**: `playlizt-ui-tests/`  
 **Technology**: Playwright (Java), JUnit 5  
-**Target**: Flutter web frontend on http://localhost:8090
+**Target**: Flutter web frontend on http://localhost:4090
 
 #### Flutter Web Testing Constraints
 
@@ -515,12 +515,12 @@ class PlayliztVisualE2ETest extends BasePlayliztTest {
     @DisplayName("Visual Test: Login page loads correctly")
     void visualTest01_LoginPage() {
         // Navigate
-        page.navigate("http://localhost:8090");
+        page.navigate("http://localhost:4090");
         page.waitForLoadState(LoadState.NETWORKIDLE);
         
         // Assert page state (NOT DOM elements)
         assertThat(page.title()).contains("Playlizt");
-        assertThat(page.url()).contains("localhost:8090");
+        assertThat(page.url()).contains("localhost:4090");
         
         // PRIMARY VERIFICATION: Screenshot
         takeScreenshot("visual", "01-login-page", "01-initial-load.png");
@@ -533,7 +533,7 @@ class PlayliztVisualE2ETest extends BasePlayliztTest {
     @Order(2)
     @DisplayName("Visual Test: Page reload consistency")
     void visualTest02_ReloadConsistency() {
-        page.navigate("http://localhost:8090");
+        page.navigate("http://localhost:4090");
         takeScreenshot("visual", "02-reload", "01-first-load.png");
         
         // Reload and compare
@@ -626,9 +626,9 @@ class PlayliztVisualE2ETest extends BasePlayliztTest {
    ./playlizt-docker.sh --status
    ```
 
-2. Flutter web app running on port 8090:
+2. Flutter web app running on port 4090:
    ```bash
-   curl -I http://localhost:8090
+   curl -I http://localhost:4090
    ```
 
 3. Playwright browsers installed:
@@ -752,7 +752,7 @@ POST /api/v1/ai/sentiment
 ```gradle
 implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 ```
-**Access**: `http://localhost:8080/swagger-ui.html`
+**Access**: `http://localhost:4080/swagger-ui.html`
 
 ## Docker & Deployment
 
@@ -773,9 +773,9 @@ WORKDIR /app
 COPY --from=build /workspace/auth-service/build/libs/auth-service.jar app.jar
 RUN mkdir -p /var/log/playlizt && chown -R playlizt:playlizt /var/log/playlizt
 USER playlizt:playlizt
-EXPOSE 8081
+EXPOSE 4081
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:8081/actuator/health || exit 1
+  CMD curl -f http://localhost:4081/actuator/health || exit 1
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
@@ -805,7 +805,7 @@ services:
       context: .
       dockerfile: eureka-service/Dockerfile
     ports:
-      - "8761:8761"
+      - "4761:4761"
     depends_on:
       - database
 
@@ -814,7 +814,7 @@ services:
       context: .
       dockerfile: auth-service/Dockerfile
     ports:
-      - "${AUTH_SERVICE_PORT}:8081"
+      - "${AUTH_SERVICE_PORT}:4081"
     environment:
       - SERVER_PORT=${AUTH_SERVICE_PORT}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
@@ -954,6 +954,72 @@ public class GlobalExceptionHandler {
 }
 ```
 
+## End-to-End Deployment
+
+### 1. Credential Management
+All deployment scripts rely on a centralized credentials file located at `~/gcp/credentials`. This file contains sensitive configuration for GCP, Database, and GitHub.
+
+**File Structure (`~/gcp/credentials`)**:
+```bash
+# Google Cloud Configuration
+export GCP_PROJECT_ID="playlizt-production-123"
+export GCP_REGION="us-central1"
+export GCP_ZONE="us-central1-a"
+
+# Database Configuration
+export DB_USER="playlizt_admin"
+export DB_PASSWORD="<STRONG_GENERATED_PASSWORD>"
+export DB_NAME="playlizt"
+
+# Application Secrets
+export JWT_SECRET="<STRONG_GENERATED_SECRET>"
+
+# GitHub Configuration
+export GITHUB_REPO_URL="https://github.com/t3ratech/playlizt.git"
+export GITHUB_TOKEN="ghp_YOUR_GITHUB_TOKEN"
+
+# Local Development
+export JAVA_VERSION="25"
+export ANDROID_SDK_ROOT="/opt/android/sdk"
+```
+
+### 2. Deployment Scripts
+The project includes automated scripts for setting up the environment from scratch, located in `ops/scripts/`:
+
+#### A. `ops/scripts/setupGIT.sh`
+- **Purpose**: Clones the repository using the provided GitHub token.
+- **Usage**: `./ops/scripts/setupGIT.sh`
+- **Pre-requisites**: `~/gcp/credentials` must exist.
+
+#### B. `ops/scripts/setupLocal.sh`
+- **Purpose**: Installs all necessary development tools on a fresh Ubuntu machine.
+- **Installs**:
+  - Java 25 (Temurin)
+  - Docker & Docker Compose
+  - Terraform
+  - Google Cloud SDK (via Snap)
+  - Android SDK (Command Line Tools)
+- **Usage**: `./ops/scripts/setupLocal.sh` (requires sudo)
+
+#### C. `ops/scripts/setupGCP.sh` (Invoked via playlizt-docker.sh)
+- **Purpose**: Provisions GCP infrastructure and deploys the application.
+- **Actions**:
+  1.  Initializes Terraform.
+  2.  Creates Artifact Registry.
+  3.  Builds and Pushes Docker images for all services.
+  4.  Deploys Cloud Run services and Cloud SQL (Postgres 17) via Terraform.
+- **Usage**: `./playlizt-docker.sh --deploy`
+
+### 3. Terraform Infrastructure
+Infrastructure as Code (IaC) is managed via Terraform in the `terraform/` directory.
+
+- **Resources**:
+  - **Cloud SQL**: PostgreSQL 17 (Production Grade)
+  - **Cloud Run**: Serverless compute for microservices
+  - **Artifact Registry**: Docker image storage
+  - **Secret Manager**: (Optional) For storing sensitive config
+- **State**: Local state (default), configure backend for production team usage.
+
 ## Success Criteria
 
 - [x] Configuration externalized with no defaults
@@ -972,7 +1038,7 @@ public class GlobalExceptionHandler {
 
 ---
 
-**Author**: Claude Code  
+**Author**: Tsungai  
 **Date**: 2025-11-24  
 **Version**: 1.0.0  
-**Copyright**: © 2025 Smatech
+**Copyright**: © 2025 T3raTech Solutions (Pvt) Ltd

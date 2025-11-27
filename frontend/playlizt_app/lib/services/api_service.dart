@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8080/api/v1';
+  static const String baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://localhost:4080/api/v1'
+  );
   
   // Singleton instance
   static final ApiService _instance = ApiService._internal();
@@ -12,8 +15,6 @@ class ApiService {
   
   final Dio _dio;
   
-  String? _token;
-  
   ApiService._internal() : _dio = Dio(BaseOptions(
     baseUrl: baseUrl,
     connectTimeout: const Duration(seconds: 10),
@@ -21,12 +22,10 @@ class ApiService {
   ));
   
   void setToken(String token) {
-    _token = token;
     _dio.options.headers['Authorization'] = 'Bearer $token';
   }
   
   void clearToken() {
-    _token = null;
     _dio.options.headers.remove('Authorization');
   }
   

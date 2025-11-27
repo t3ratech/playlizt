@@ -36,6 +36,7 @@ services:
       args:
         PLAYLIZT_UID: ${PLAYLIZT_UID}
         PLAYLIZT_GID: ${PLAYLIZT_GID}
+        SERVER_PORT: ${EUREKA_PORT}
     container_name: eureka-service
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
@@ -69,6 +70,7 @@ services:
       args:
         PLAYLIZT_UID: ${PLAYLIZT_UID}
         PLAYLIZT_GID: ${PLAYLIZT_GID}
+        SERVER_PORT: ${AUTH_SERVICE_PORT}
     container_name: auth-service
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
@@ -76,6 +78,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_CLOUD_GCP_SQL_ENABLED=false
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS}
@@ -111,6 +114,7 @@ services:
       args:
         PLAYLIZT_UID: ${PLAYLIZT_UID}
         PLAYLIZT_GID: ${PLAYLIZT_GID}
+        SERVER_PORT: ${CONTENT_SERVICE_PORT}
     container_name: content-service
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
@@ -118,6 +122,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_CLOUD_GCP_SQL_ENABLED=${SPRING_CLOUD_GCP_SQL_ENABLED}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - JAVA_OPTS=${JAVA_OPTS}
@@ -151,6 +156,7 @@ services:
       args:
         PLAYLIZT_UID: ${PLAYLIZT_UID}
         PLAYLIZT_GID: ${PLAYLIZT_GID}
+        SERVER_PORT: ${PLAYBACK_SERVICE_PORT}
     container_name: playback-service
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
@@ -158,6 +164,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_CLOUD_GCP_SQL_ENABLED=${SPRING_CLOUD_GCP_SQL_ENABLED}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
       - JAVA_OPTS=${JAVA_OPTS}
       - TZ=${TZ}
@@ -190,6 +197,7 @@ services:
       args:
         PLAYLIZT_UID: ${PLAYLIZT_UID}
         PLAYLIZT_GID: ${PLAYLIZT_GID}
+        SERVER_PORT: ${AI_SERVICE_PORT}
     container_name: ai-service
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
@@ -235,6 +243,7 @@ services:
       args:
         PLAYLIZT_UID: ${PLAYLIZT_UID}
         PLAYLIZT_GID: ${PLAYLIZT_GID}
+        SERVER_PORT: ${API_GATEWAY_PORT}
     container_name: api-gateway
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}

@@ -20,6 +20,7 @@ dependencies {
     
     // Database
     runtimeOnly("org.postgresql:postgresql")
+    implementation("com.google.cloud:spring-cloud-gcp-starter-sql-postgresql")
     
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:${property("jjwtVersion")}")
@@ -52,6 +53,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.cloud:spring-cloud-dependencies:${property("springCloudVersion")}")
+        mavenBom("com.google.cloud:spring-cloud-gcp-dependencies:5.8.0")
     }
 }
 
