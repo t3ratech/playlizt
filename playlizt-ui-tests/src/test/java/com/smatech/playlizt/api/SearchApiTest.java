@@ -13,28 +13,12 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class SearchApiTest {
-
-    private static String authToken;
-    private static final String BASE_URL = "http://localhost:4080/api/v1";
+public class SearchApiTest extends BaseApiTest {
 
     @BeforeAll
     public static void setup() {
-        RestAssured.baseURI = BASE_URL;
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-        
-        String loginBody = "{ \"email\": \"tkaviya@t3ratech.co.zw\", \"password\": \"testpass\" }";
-        
-        Response response = given()
-                .contentType(ContentType.JSON)
-                .body(loginBody)
-                .when()
-                .post("/auth/login")
-                .then()
-                .statusCode(200)
-                .extract().response();
-                
-        authToken = response.path("data.token");
+        // BaseApiTest handles login and properties
+        // No extra setup needed here
     }
 
     @Test

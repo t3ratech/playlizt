@@ -13,30 +13,13 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class PlaybackApiTest {
+public class PlaybackApiTest extends BaseApiTest {
 
-    private static String authToken;
     private static Long contentId;
-    private static final String BASE_URL = "http://localhost:4080/api/v1";
 
     @BeforeAll
     public static void setup() {
-        RestAssured.baseURI = BASE_URL;
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-        
-        // Login
-        String loginBody = "{ \"email\": \"tkaviya@t3ratech.co.zw\", \"password\": \"testpass\" }";
-        
-        Response response = given()
-                .contentType(ContentType.JSON)
-                .body(loginBody)
-                .when()
-                .post("/auth/login")
-                .then()
-                .statusCode(200)
-                .extract().response();
-                
-        authToken = response.path("data.token");
+        // Base setup (login, properties) handled by BaseApiTest
         
         // Create Content
         contentId = createContent("Playback Test Video");
@@ -46,11 +29,11 @@ public class PlaybackApiTest {
     private static Long createContent(String title) {
         String body = String.format("{" +
                 "\"title\": \"%s\"," +
-                "\"description\": \"Testing Playback\"," +
-                "\"category\": \"Test\"," +
+                "\"description\": \"Caught up in a way\"," +
+                "\"category\": \"Hip Hip\"," +
                 "\"creatorId\": 1," +
-                "\"videoUrl\": \"http://example.com/vid\"," +
-                "\"thumbnailUrl\": \"http://example.com/thumb\"," +
+                "\"videoUrl\": \"https://www.youtube.com/watch?v=GEeMjb0dd5U\"," +
+                "\"thumbnailUrl\": \"https://d3e6ckxkrs5ntg.cloudfront.net/artists/images/316898/original/resize:740x600/crop:x0y14w444h333/aspect:1.0/hash:1466574974/Blaklizt_Logo_Final.\"," +
                 "\"tags\": [\"playback\"]," +
                 "\"durationSeconds\": 300" +
                 "}", title);

@@ -35,6 +35,7 @@ When creators upload content, AI automatically:
 - Suggests relevant tags
 - Predicts the most appropriate category
 - Calculates content relevance scores
+*(Powered by async Metadata Enhancer Worker with Gemini API Fallback)*
 
 ### 3. Watch Pattern Analysis
 Administrators get AI-generated insights including:
