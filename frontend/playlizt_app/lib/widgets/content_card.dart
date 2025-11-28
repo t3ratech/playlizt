@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/content.dart';
+import '../providers/content_provider.dart';
 import '../screens/video_player_screen.dart';
 
 class ContentCard extends StatelessWidget {
@@ -39,6 +41,7 @@ class ContentCard extends StatelessWidget {
                 child: content.thumbnailUrl != null
                     ? Image.network(
                         content.thumbnailUrl!,
+                        semanticLabel: 'Video: ${content.title}',
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           color: Colors.grey[800],

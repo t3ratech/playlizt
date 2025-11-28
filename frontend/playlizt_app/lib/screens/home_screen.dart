@@ -69,18 +69,19 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.upload),
-            tooltip: 'Upload',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CreatorDashboardScreen(),
-                ),
-              );
-            },
-          ),
+          if (authProvider.role == 'CREATOR' || authProvider.role == 'ADMIN')
+            IconButton(
+              icon: const Icon(Icons.upload),
+              tooltip: 'Upload',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreatorDashboardScreen(),
+                  ),
+                );
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.person),
             tooltip: 'Profile',

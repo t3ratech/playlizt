@@ -177,6 +177,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Role',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.admin_panel_settings),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'USER', child: Text('User')),
+                      DropdownMenuItem(value: 'CREATOR', child: Text('Content Creator')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedRole = value);
+                      }
+                    },
+                  ),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _register,

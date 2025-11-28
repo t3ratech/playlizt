@@ -26,7 +26,7 @@ public class ContentApiTest extends BaseApiTest {
                 "\"category\": \"TEST\"," +
                 "\"creatorId\": 1," +
                 "\"videoUrl\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"," +
-                "\"thumbnailUrl\": \"https://example.com/thumb.jpg\"," +
+                "\"thumbnailUrl\": \"https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg\"," +
                 "\"tags\": [\"test\", \"e2e\"]," +
                 "\"durationSeconds\": 120" +
                 "}";
@@ -64,11 +64,11 @@ public class ContentApiTest extends BaseApiTest {
     public void testUpdateContent() {
         String updateBody = "{" +
                 "\"title\": \"Updated E2E Video\"," +
-                "\"description\": \"Updated Description\"," +
+                "\"description\": \"Caught up in a way Licoflat ft. Tich de Blak\"," +
                 "\"category\": \"TEST\"," +
                 "\"creatorId\": 1," +
                 "\"videoUrl\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"," +
-                "\"thumbnailUrl\": \"https://example.com/thumb.jpg\"," +
+                "\"thumbnailUrl\": \"https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg\"," +
                 "\"tags\": [\"test\", \"updated\"]," +
                 "\"durationSeconds\": 120" +
                 "}";

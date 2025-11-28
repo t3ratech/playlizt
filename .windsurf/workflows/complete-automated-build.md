@@ -1,10 +1,10 @@
 ---
-description: Complete Automated No-Intervention Build Workflow for Streetz System
+description: Complete Automated No-Intervention Build Workflow for Playlizt System
 ---
 
 # Complete Automated No-Intervention Build Workflow
 
-This workflow builds the entire Streetz system with absolutely no user intervention whatsoever, following all strict rules:
+This workflow builds the entire Playlizt system with absolutely no user intervention whatsoever, following all strict rules:
 - NO hardcoding, NO defaulting, NO temporary code, NO placeholders
 - Production-ready ONLY code
 - All configuration from properties files or database
@@ -17,8 +17,8 @@ This workflow builds the entire Streetz system with absolutely no user intervent
 1. **ABSOLUTELY NO hardcoding, NO defaulting, NO temporary code, NO fallback code, NO placeholder code** is allowed in any class, script or configuration or ANYWHERE
 2. All lines written must use production-ready ONLY
 3. Configuration values must be defined in properties file or database - let system break if missing
-4. Use `/mnt/ext4_work/wave` project as THE EXACT blueprint for structure, Dockerfiles, build files, .env files, logging config, docker-compose.yml, wave-docker.sh/streetz-docker.sh, application{-env}.properties files
-5. Read and understand ALL files from wave project before implementing EXACTLY the same in streetz system
+4. Use `/mnt/ext4_work/wave` project as THE EXACT blueprint for structure, Dockerfiles, build files, .env files, logging config, docker-compose.yml, wave-docker.sh/playlizt-docker.sh, application{-env}.properties files
+5. Read and understand ALL files from wave project before implementing EXACTLY the same in playlizt system
 6. Variable names WAVE_XYZ should be translated to STREETZ_XYZ
 7. Create only modules we need but they must work EXACTLY like wave
 8. Check wave first before introducing any technology
@@ -80,24 +80,24 @@ Update `ARCHITECTURE.md` with:
 
 #### 3.2.5: Run Comprehensive Testing Usinng ./playlizt-
 Execute comprehensive multi-language test suite:
-- Start test environment: `./streetz-docker.sh --test-env start`
-- Verify test environment health: `./streetz-docker.sh --test-env status`
-- Run unit tests in all languages: `./streetz-docker.sh --test-multi-lang unit`
-- Run integration tests in all languages: `./streetz-docker.sh --test-multi-lang integration`
-- Run UI tests in all languages: `./streetz-docker.sh --test-multi-lang ui`
-- Stop test environment: `./streetz-docker.sh --test-env stop`
+- Start test environment: `./playlizt-docker.sh --test-env start`
+- Verify test environment health: `./playlizt-docker.sh --test-env status`
+- Run unit tests in all languages: `./playlizt-docker.sh --test-multi-lang unit`
+- Run integration tests in all languages: `./playlizt-docker.sh --test-multi-lang integration`
+- Run UI tests in all languages: `./playlizt-docker.sh --test-multi-lang ui`
+- Stop test environment: `./playlizt-docker.sh --test-env stop`
 
 #### 3.2.6: Rerun Fix Build Process
-Execute `/mnt/ext4_work/ThaStreetz/.windsurf/workflows/fix-build-process.md` until complete
+Execute `/mnt/ext4_work/ThaPlaylizt/.windsurf/workflows/fix-build-process.md` until complete
 - Verify all services still work after changes
 - All health checks must pass
 - System must be fully functional
 
 #### 3.2.7: Move to Next Section
-Check that everything implemented is in line with our existing structure, SYSTEM-DESIGN.md or wave reference
+Check that everything implemented is in line with our existing structure, ARCHITECTURE.md or wave reference
 
 #### 3.2.7: Move to Next Section
-Continue with next section in SYSTEM-DESIGN.md
+Continue with next section in ARCHITECTURE.md
 
 ## Phase 4: Complete System Verification
 
@@ -110,7 +110,7 @@ Test the complete system end-to-end:
 - No errors in logs
 
 ### Step 4.2: Final Documentation Update
-Update `/mnt/ext4_work/ThaStreetz/SYSTEM-DESIGN.md` with:
+Update `/mnt/ext4_work/ThaPlaylizt/ARCHITECTURE.md` with:
 - Complete system status
 - All implemented features
 - Configuration documentation
@@ -123,7 +123,7 @@ Update `/mnt/ext4_work/ThaStreetz/SYSTEM-DESIGN.md` with:
 - NEVER ask questions
 - NEVER request feedback
 - Continue until entire system is complete
-- If in doubt, make educated guess based on existing patterns and document in SYSTEM-DESIGN.md
+- If in doubt, make educated guess based on existing patterns and document in ARCHITECTURE.md
 
 ### Error Handling
 - If any step fails, diagnose and fix immediately
@@ -145,7 +145,7 @@ Update `/mnt/ext4_work/ThaStreetz/SYSTEM-DESIGN.md` with:
 - Document all test results
 
 ### Documentation Requirements
-- Update SYSTEM-DESIGN.md after every major change
+- Update ARCHITECTURE.md after every major change
 - Document all decisions made
 - Keep documentation current with implementation
 - Include configuration details
@@ -153,7 +153,7 @@ Update `/mnt/ext4_work/ThaStreetz/SYSTEM-DESIGN.md` with:
 ## Success Criteria
 
 The workflow is complete when:
-1. All sections of SYSTEM-DESIGN.md are implemented
+1. All sections of ARCHITECTURE.md are implemented
 2. All API endpoints are tested and functional
 3. Complete system runs without errors
 4. All services are healthy
@@ -161,7 +161,7 @@ The workflow is complete when:
 6. Database operations work correctly
 7. No hardcoding, defaults, or temporary code exists
 8. All configuration is externalized
-9. SYSTEM-DESIGN.md is fully updated
+9. ARCHITECTURE.md is fully updated
 10. System matches wave project patterns exactly
 
 ## Execution Command

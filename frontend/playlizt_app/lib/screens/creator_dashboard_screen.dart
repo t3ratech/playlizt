@@ -22,7 +22,30 @@ class _CreatorDashboardScreenState extends State<CreatorDashboardScreen> {
   bool _isUploading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _urlController.addListener(_onUrlChanged);
+  }
+
+  void _onUrlChanged() {
+    final url = _urlController.text;
+    final videoId = _extractVideoId(url);
+    if (videoId != null) {
+      setState(() {
+        _thumbnailUrlController.text = 'https://img.youtube.com/vi/$videoId/maxresdefault.jpg';
+      });
+    }
+  }
+
+  String? _extractVideoId(String url) {
+    RegExp regExp = RegExp(r'(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})');
+    Match? match = regExp.firstMatch(url);
+    return match?.group(1);
+  }
+
+  @override
   void dispose() {
+    _urlController.removeListener(_onUrlChanged);
     _titleController.dispose();
     _descController.dispose();
     _urlController.dispose();
@@ -134,8 +157,10 @@ class _CreatorDashboardScreenState extends State<CreatorDashboardScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _thumbnailUrlController,
+                readOnly: true, // Auto-populated
+                enabled: false, // Greyed out
                 decoration: const InputDecoration(
-                  labelText: 'Thumbnail URL',
+                  labelText: 'Thumbnail URL (Auto-populated)',
                   border: OutlineInputBorder(),
                 ),
               ),

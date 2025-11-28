@@ -193,7 +193,7 @@ public abstract class BasePlayliztTest {
             if (accessBtn.count() > 0 && accessBtn.first().isVisible()) {
                 System.out.println("✓ Found 'Enable accessibility' button. Clicking it to hydrate DOM...");
                 try {
-                    accessBtn.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+                    accessBtn.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true).setDelay(100));
                     page.waitForTimeout(1000);
                     
                     // If button still exists, try pressing Enter
@@ -280,64 +280,66 @@ public abstract class BasePlayliztTest {
      */
     protected void navigateToRegister() {
         System.out.println("Navigating to Register page...");
+        
+        // Check if already on register page
+        if (isTextVisible("Confirm Password") || isTextVisible("Repeat Password")) {
+            return;
+        }
+        
         boolean clicked = false;
         
-        // Try "Don't have an account" link first (most specific)
-        if (isTextVisible("Don't have an account? Register")) {
-             System.out.println("Found 'Don't have an account? Register' link. Clicking...");
-             try {
-                 // Click the RIGHT side of the text (where "Register" usually is)
-                 com.microsoft.playwright.Locator link = page.getByText("Don't have an account? Register").first();
-                 com.microsoft.playwright.options.BoundingBox box = link.boundingBox();
-                 if (box != null) {
-                     System.out.println("Clicking at 95% width of the text to hit 'Register' span...");
-                     link.click(new com.microsoft.playwright.Locator.ClickOptions()
-                         .setPosition(box.width * 0.95, box.height / 2)
-                         .setForce(true));
-                 } else {
-                     link.click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
-                 }
-                 clicked = true;
-             } catch (Exception e) {
-                 System.out.println("Click failed: " + e.getMessage());
-             }
+        // 1. Try "Don't have an account? Register" button/text
+        try {
+            com.microsoft.playwright.Locator link = page.getByText("Don't have an account? Register");
+            if (link.count() > 0 && link.first().isVisible()) {
+                System.out.println("Found 'Don't have an account? Register' link. Clicking...");
+                link.first().click();
+                clicked = true;
+            }
+        } catch (Exception e) {
+            System.out.println("Click failed on full text: " + e.getMessage());
         }
         
-        if (!clicked && isTextVisible("Don't have an account")) {
-            System.out.println("Found 'Don't have an account' link. Clicking...");
-            try {
-                page.getByText("Don't have an account").first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
-                clicked = true;
-            } catch (Exception e) {
-                System.out.println("Click failed: " + e.getMessage());
-            }
-        } 
-        
-        if (!clicked && isTextVisible("Register")) {
-            System.out.println("Found 'Register' text. Clicking...");
-            try {
-                page.getByText("Register").last().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
-                clicked = true;
-            } catch (Exception e) {
-                System.out.println("Click failed: " + e.getMessage());
-            }
-        }
-        
+        // 2. Try "Register" button if first attempt failed
         if (!clicked) {
-            System.out.println("⚠️ Could not find Register link via text. Checking buttons...");
             try {
-                com.microsoft.playwright.Locator regBtn = page.getByRole(AriaRole.BUTTON).filter(
-                    new com.microsoft.playwright.Locator.FilterOptions().setHasText("Register"));
-                if (regBtn.count() > 0) {
-                    regBtn.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+                com.microsoft.playwright.Locator regBtn = page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Register"))
+                   .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign Up")));
+                
+                if (regBtn.count() > 0 && regBtn.first().isVisible()) {
+                    System.out.println("Found Register button. Clicking...");
+                    regBtn.first().click();
                     clicked = true;
                 }
             } catch (Exception e) {
-                System.out.println("Button click failed: " + e.getMessage());
+                 System.out.println("Register button click failed: " + e.getMessage());
             }
         }
         
-        page.waitForTimeout(2000);
+        // 3. Fallback: Try finding "Register" text and clicking it
+        if (!clicked && isTextVisible("Register")) {
+             System.out.println("Fallback: Clicking 'Register' text...");
+             try {
+                 page.getByText("Register").last().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+                 clicked = true;
+             } catch (Exception e) {
+                 System.out.println("Fallback text click failed: " + e.getMessage());
+             }
+        }
+        
+        // Wait for navigation to complete by checking for a field unique to Register page
+        try {
+            page.waitForTimeout(1000);
+            // Wait for Confirm Password or specific title
+            com.microsoft.playwright.Locator confirmInput = page.getByLabel("Confirm Password")
+                .or(page.getByLabel("Repeat Password"))
+                .or(page.getByPlaceholder("confirm password"));
+                
+            confirmInput.first().waitFor(new Locator.WaitForOptions().setTimeout(5000));
+            System.out.println("✓ Successfully navigated to Register page");
+        } catch (Exception e) {
+            System.out.println("⚠️ Warning: Did not detect Register page elements after navigation attempt.");
+        }
     }
 
     /**

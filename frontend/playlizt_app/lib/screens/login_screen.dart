@@ -38,10 +38,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = false);
 
-    if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
-      );
+    if (error != null) {
+      print('LOGIN ERROR: $error'); // Debug log
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

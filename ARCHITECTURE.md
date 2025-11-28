@@ -363,6 +363,12 @@ jwt.refresh-expiration-ms=86400000  # 24 hours
 - **CREATOR**: USER + upload/manage content
 - **ADMIN**: All permissions + analytics
 
+#### Registration Flow
+- **Endpoint**: `POST /api/v1/auth/register`
+- **Payload**: `username`, `email`, `password`, `role` (USER or CREATOR)
+- **UI**: Registration screen must allow role selection via Dropdown.
+- **Logic**: If CREATOR is selected, user is assigned CREATOR role immediately.
+
 ```java
 @PreAuthorize("hasRole('CREATOR')")
 @PostMapping("/api/v1/content")
@@ -1046,5 +1052,4 @@ Infrastructure as Code (IaC) is managed via Terraform in the `terraform/` direct
 **Author**: Tsungai  
 **Date**: 2025-11-24  
 **Version**: 1.0.0  
-**Copyright**: 2025 T3raTech Solutions (Pvt) Ltd
 **Copyright**: © 2025 T3raTech Solutions (Pvt) Ltd

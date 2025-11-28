@@ -29,11 +29,11 @@ public class PlaybackApiTest extends BaseApiTest {
     private static Long createContent(String title) {
         String body = String.format("{" +
                 "\"title\": \"%s\"," +
-                "\"description\": \"Caught up in a way\"," +
+                "\"description\": \"Caught up in a way Licoflat ft. Tich de Blak\"," +
                 "\"category\": \"Hip Hip\"," +
                 "\"creatorId\": 1," +
                 "\"videoUrl\": \"https://www.youtube.com/watch?v=GEeMjb0dd5U\"," +
-                "\"thumbnailUrl\": \"https://d3e6ckxkrs5ntg.cloudfront.net/artists/images/316898/original/resize:740x600/crop:x0y14w444h333/aspect:1.0/hash:1466574974/Blaklizt_Logo_Final.\"," +
+                "\"thumbnailUrl\": \"https://d3e6ckxkrs5ntg.cloudfront.net/artists/images/316898/original/resize:740x600/crop:x0y14w444h333/aspect:1.0/hash:1466574974/Blaklizt_Logo_Final.jpg?1466574974\"," +
                 "\"tags\": [\"playback\"]," +
                 "\"durationSeconds\": 300" +
                 "}", title);

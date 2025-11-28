@@ -1,5 +1,5 @@
 ---
-description: Make code consistent with the SYSTEM-DESIGN.md
+description: Make code consistent with the ARCHITECTURE.md
 auto_execution_mode: 1
 ---
 

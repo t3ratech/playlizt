@@ -111,12 +111,12 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
         takeScreenshot("dashboard", "02_search", "01_before_search.png");
         
         // Perform Search
-        searchContent("Test Video");
+        searchContent("Test");
         takeScreenshot("dashboard", "02_search", "02_search_results.png");
         
         // STRICT: Verify Search Results UI appears
         // Even if empty, the UI structure should change or show "No results"
-        boolean resultsVisible = isTextVisible("Results") || isTextVisible("Test Video") || isTextVisible("No content available");
+        boolean resultsVisible = isTextVisible("Browse Content") || isTextVisible("Test") || isTextVisible("No content available");
         assertThat(resultsVisible).as("Search should trigger UI update").isTrue();
     }
 

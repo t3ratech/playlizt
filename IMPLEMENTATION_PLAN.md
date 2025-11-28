@@ -23,7 +23,7 @@ This document tracks the outstanding tasks and features to be implemented.
 ### 3. AI Service (Port 4084)
 - [x] **Recommendation Engine**: Personalized content feed based on history and tags.
 - [x] **Metadata Enhancer Worker**: Async processing of new content.
-- [ ] **Watch Pattern Analysis**: Admin insights generation.
+- [x] **Watch Pattern Analysis**: Admin insights generation (Trending, Peak times).
 - [ ] **Sentiment Analysis**: Analyzing comments/reviews (if implemented).
 - [x] **Gemini API Fallback**: Handling API quotas/failures with fallback models.
 
@@ -39,8 +39,10 @@ This document tracks the outstanding tasks and features to be implemented.
 - [x] **Creator Dashboard**: UI for uploading and managing content.
 - [x] **Reverse Video Order**: Display videos with Episode 1 at the top and Episode 5 at the end.
 - [x] **YouTube Player Integration**: Implement video playback using `youtube_player_flutter`.
+- [x] **Creator Registration UI**: Add Role selector to Registration Screen.
 
 ### 6. Security & Authentication
+- [x] **Creator Registration**: Allow users to select CREATOR role during registration.
 - [x] **Flexible Login**: Support login via Username or Email.
 - [x] **Strong Hashing**: Enforce Argon2id for password storage.
 - [x] **UX Improvements**: Enter key submission and clear validation.
