@@ -74,16 +74,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _initializeYoutubePlayer(String videoId) {
-    print('VideoPlayerScreen: Initializing YouTube controller for $videoId using fromVideoId');
+    print('VideoPlayerScreen: Initializing YouTube controller for $videoId using default constructor');
     try {
-      _youtubeController = YoutubePlayerController.fromVideoId(
-        videoId: videoId,
-        autoPlay: true,
+      // Use default constructor instead of fromVideoId to avoid potential null check issues in factory
+      _youtubeController = YoutubePlayerController(
         params: const YoutubePlayerParams(
           showControls: true,
           showFullscreenButton: true,
+          mute: false,
         ),
       );
+      
+      // Load the video explicitly
+      _youtubeController!.loadVideoById(videoId: videoId);
       
       setState(() {
         _isControllerInitialized = true;
