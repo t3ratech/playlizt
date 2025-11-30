@@ -123,6 +123,10 @@ resource "google_cloud_run_v2_service" "content_service" {
         name  = "SPRING_JPA_PROPERTIES_HIBERNATE_HBM2DDL_CREATE_NAMESPACES"
         value = "false"
       }
+      env {
+        name  = "FORCE_DEPLOY"
+        value = "1"
+      }
     }
     volumes {
       name = "cloudsql"
