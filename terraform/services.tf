@@ -115,6 +115,10 @@ resource "google_cloud_run_v2_service" "content_service" {
         name  = "GEMINI_API_KEY"
         value = var.gemini_api_key
       }
+      env {
+        name  = "SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA"
+        value = "public"
+      }
     }
     volumes {
       name = "cloudsql"
