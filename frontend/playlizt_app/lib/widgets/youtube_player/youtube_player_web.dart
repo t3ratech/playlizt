@@ -1,5 +1,5 @@
 import 'dart:html' as html;
-import 'dart:ui' as ui;
+import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 
 class YoutubePlayerWidget extends StatelessWidget {
@@ -10,8 +10,7 @@ class YoutubePlayerWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final String viewType = 'youtube-iframe-$videoId-${DateTime.now().millisecondsSinceEpoch}';
     
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
+    ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
       final iframe = html.IFrameElement();
       iframe.src = 'https://www.youtube.com/embed/$videoId?autoplay=1&rel=0';
       iframe.style.border = 'none';
