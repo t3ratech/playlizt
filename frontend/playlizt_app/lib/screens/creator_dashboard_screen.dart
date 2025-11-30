@@ -150,9 +150,15 @@ class _CreatorDashboardScreenState extends State<CreatorDashboardScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Video URL',
                   border: OutlineInputBorder(),
-                  hintText: 'https://example.com/video.mp4',
+                  hintText: 'https://www.youtube.com/watch?v=...',
+                  helperText: 'Only YouTube URLs are supported',
                 ),
-                validator: (v) => v!.isEmpty ? 'Required' : null,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Required';
+                  final regex = RegExp(r'^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/)[a-zA-Z0-9_-]{11}.*$');
+                  if (!regex.hasMatch(v)) return 'Must be a valid YouTube URL';
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(
