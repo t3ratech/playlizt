@@ -14,7 +14,7 @@ dependencies {
     implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client")
     
     // Redis for Rate Limiting
-    implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
+    // implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
     
     // Actuator
     implementation("org.springframework.boot:spring-boot-starter-actuator")
