@@ -70,6 +70,10 @@ terraform apply -target=google_artifact_registry_repository.playlizt_repo \
 echo "Configuring Docker authentication..."
 gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
 
+# Generate Tag
+IMAGE_TAG=$(date +%s)
+echo "Deploying with TAG: $IMAGE_TAG"
+
 # Build and Push Images
 REPO_PREFIX="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/playlizt-repo"
 echo "Building and Pushing Images to ${REPO_PREFIX}..."
@@ -77,34 +81,20 @@ echo "Building and Pushing Images to ${REPO_PREFIX}..."
 build_push() {
     SERVICE=$1
     BUILD_ARGS=$2
-    IMAGE="${REPO_PREFIX}/${SERVICE}:latest"
+    IMAGE_LATEST="${REPO_PREFIX}/${SERVICE}:latest"
+    IMAGE_TAGGED="${REPO_PREFIX}/${SERVICE}:${IMAGE_TAG}"
 
     echo "------------------------------------------------"
-    echo "Checking if $SERVICE needs rebuild..."
+    echo "Building $SERVICE..."
     echo "------------------------------------------------"
 
     # Build locally (but DO NOT push yet)
-    (cd "$PROJECT_ROOT" && docker build --platform linux/amd64 -t "$IMAGE" -f "${SERVICE}/Dockerfile" $BUILD_ARGS .)
+    (cd "$PROJECT_ROOT" && docker build --platform linux/amd64 -t "$IMAGE_LATEST" -t "$IMAGE_TAGGED" -f "${SERVICE}/Dockerfile" $BUILD_ARGS .)
 
-    # Get local digest (safely handle case where RepoDigests might be empty)
-    LOCAL_DIGEST=$(docker inspect --format='{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$IMAGE" 2>/dev/null | sed 's/.*@//' || true)
-
-    # Get remote digest
-    REMOTE_DIGEST=$(gcloud artifacts docker images describe "$IMAGE" \
-        --project "$GCP_PROJECT_ID" \
-        --location "$GCP_REGION" \
-        --format="value(image_summary.digest)" 2>/dev/null || true)
-
-    echo "Local Digest : $LOCAL_DIGEST"
-    echo "Remote Digest: $REMOTE_DIGEST"
-
-    # Compare
-    if [[ "$LOCAL_DIGEST" == "$REMOTE_DIGEST" && -n "$LOCAL_DIGEST" ]]; then
-        echo "🚀 No changes detected in $SERVICE — skipping docker push."
-    else
-        echo "🆕 Changes detected — pushing new image..."
-        docker push "$IMAGE"
-    fi
+    # Push both tags
+    echo "Pushing images..."
+    docker push "$IMAGE_LATEST"
+    docker push "$IMAGE_TAGGED"
 }
 
 build_push "eureka-service" "--build-arg SERVER_PORT=4761"
@@ -123,6 +113,7 @@ terraform apply \
   -var="db_password=$DB_PASSWORD" \
   -var="jwt_secret=$JWT_SECRET" \
   -var="gemini_api_key=$GEMINI_API_KEY" \
+  -var="image_tag=$IMAGE_TAG" \
   -auto-approve
 
 echo "================================================"

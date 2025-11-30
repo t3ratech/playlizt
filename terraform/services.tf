@@ -6,7 +6,7 @@ resource "google_cloud_run_v2_service" "auth_service" {
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/auth-service:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/auth-service:${var.image_tag}"
       ports {
         container_port = 4081
       }
@@ -77,7 +77,7 @@ resource "google_cloud_run_v2_service" "content_service" {
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/content-service:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/content-service:${var.image_tag}"
       ports {
         container_port = 4082
       }
@@ -147,7 +147,7 @@ resource "google_cloud_run_v2_service" "playback_service" {
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/playback-service:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/playback-service:${var.image_tag}"
       ports {
         container_port = 4083
       }
@@ -201,7 +201,7 @@ resource "google_cloud_run_v2_service" "ai_service" {
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/ai-service:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/ai-service:${var.image_tag}"
       ports {
         container_port = 4084
       }
@@ -237,7 +237,7 @@ resource "google_cloud_run_v2_service" "api_gateway" {
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/api-gateway:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/api-gateway:${var.image_tag}"
       ports {
         container_port = 4080
       }
@@ -291,7 +291,7 @@ resource "google_cloud_run_v2_service" "frontend" {
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/frontend:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/playlizt-repo/frontend:${var.image_tag}"
       ports {
         container_port = 80
       }
