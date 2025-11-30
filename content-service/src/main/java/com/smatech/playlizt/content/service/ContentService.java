@@ -88,6 +88,62 @@ public class ContentService {
         }
     }
 
+    public ContentResponse getContent(Long id) {
+        Content content = contentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Content not found"));
+        return toResponse(content);
+    }
+
+    public Page<ContentResponse> getAllContent(Pageable pageable) {
+        return contentRepository.findByIsPublishedTrue(pageable)
+                .map(this::toResponse);
+    }
+
+    public Page<ContentResponse> searchContent(String query, String category, Integer minDuration, Integer maxDuration, Pageable pageable) {
+        Specification<Content> spec = (root, queryObj, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // Published only
+            predicates.add(cb.isTrue(root.get("isPublished")));
+            
+            // Query (Title or Description)
+            if (query != null && !query.trim().isEmpty()) {
+                String likePattern = "%" + query.toLowerCase() + "%";
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("title")), likePattern),
+                    cb.like(cb.lower(root.get("description")), likePattern)
+                ));
+            }
+            
+            // Category
+            if (category != null && !category.trim().isEmpty()) {
+                predicates.add(cb.equal(root.get("category"), category));
+            }
+            
+            // Duration
+            if (minDuration != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("durationSeconds"), minDuration));
+            }
+            if (maxDuration != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("durationSeconds"), maxDuration));
+            }
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        
+        return contentRepository.findAll(spec, pageable)
+                .map(this::toResponse);
+    }
+
+    public List<String> getAllCategories() {
+        return contentRepository.findAllCategories();
+    }
+
+    @Transactional
+    public void incrementViewCount(Long id) {
+        contentRepository.incrementViewCount(id);
+    }
+
 
     @Transactional
     public void deleteContent(Long id) {

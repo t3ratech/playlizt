@@ -7,7 +7,6 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 
 void main() {
-  print("PLAYLIZT APP VERSION: 2025-11-30-FINAL");
   runApp(const PlayliztApp());
 }
 
