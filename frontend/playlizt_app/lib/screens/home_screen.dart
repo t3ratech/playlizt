@@ -231,10 +231,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
+                    crossAxisCount: (MediaQuery.of(context).size.width / 200).floor().clamp(2, 6),
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.8,
+                    childAspectRatio: 1.0,
                   ),
                   itemCount: contentProvider.contentList.length,
                   itemBuilder: (context, index) {

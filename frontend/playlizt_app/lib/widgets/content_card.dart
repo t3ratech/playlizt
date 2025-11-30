@@ -22,8 +22,13 @@ class ContentCard extends StatelessWidget {
         width: width,
         child: InkWell(
           onTap: () {
-            // Increment view count
-            Provider.of<ContentProvider>(context, listen: false).incrementView(content.id);
+            print('ContentCard: Tapped content ${content.id} - ${content.title}');
+            try {
+              // Increment view count
+              Provider.of<ContentProvider>(context, listen: false).incrementView(content.id);
+            } catch (e) {
+              print('ContentCard: Error incrementing view: $e');
+            }
             
             Navigator.push(
               context,
