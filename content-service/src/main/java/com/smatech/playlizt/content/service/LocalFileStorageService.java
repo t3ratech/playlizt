@@ -16,7 +16,7 @@ public class LocalFileStorageService implements FileStorageService {
     private final Path fileStorageLocation;
 
     public LocalFileStorageService() {
-        this.fileStorageLocation = Paths.get("/uploads").toAbsolutePath().normalize();
+        this.fileStorageLocation = Paths.get(System.getProperty("java.io.tmpdir"), "uploads").toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.fileStorageLocation);
         } catch (Exception ex) {
