@@ -234,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisCount: (MediaQuery.of(context).size.width / 200).floor().clamp(2, 6),
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.0,
+                    childAspectRatio: 0.85,
                   ),
                   itemCount: contentProvider.contentList.length,
                   itemBuilder: (context, index) {

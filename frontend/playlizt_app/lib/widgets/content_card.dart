@@ -30,6 +30,14 @@ class ContentCard extends StatelessWidget {
               print('ContentCard: Error incrementing view: $e');
             }
             
+            // Show SnackBar for UI Test
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Selected: ${content.title}'),
+                duration: const Duration(seconds: 1),
+              ),
+            );
+            
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -61,7 +69,7 @@ class ContentCard extends StatelessWidget {
               
               // Content Info
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -71,7 +79,7 @@ class ContentCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         Container(

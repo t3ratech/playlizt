@@ -58,7 +58,7 @@ public class ContentServiceIntegrationTest {
                 .category("TEST")
                 .creatorId(1L)
                 .videoUrl("https://www.youtube.com/watch?v=lwxPKgEC1Io")
-                .tags(new String[]{"test", "integration"})
+                .tags(List.of("test", "integration"))
                 .build();
 
         ContentResponse created = contentService.createContent(request);
@@ -78,7 +78,7 @@ public class ContentServiceIntegrationTest {
                 .description("Original Description")
                 .category("TEST")
                 .creatorId(1L)
-                .tags(new String[]{"original"})
+                .tags(List.of("original"))
                 .build();
         ContentResponse created = contentService.createContent(createRequest);
 
@@ -88,7 +88,7 @@ public class ContentServiceIntegrationTest {
                 .description("Updated Description")
                 .category("TEST")
                 .creatorId(1L)
-                .tags(new String[]{"updated"})
+                .tags(List.of("updated"))
                 .build();
 
         ContentResponse updated = contentService.updateContent(created.getId(), updateRequest);
@@ -106,7 +106,7 @@ public class ContentServiceIntegrationTest {
                 .title("To Delete")
                 .category("TEST")
                 .creatorId(1L)
-                .tags(new String[]{"delete"})
+                .tags(List.of("delete"))
                 .build();
         ContentResponse created = contentService.createContent(request);
 
