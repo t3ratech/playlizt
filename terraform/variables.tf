@@ -38,3 +38,9 @@ variable "jwt_refresh_expiration_ms" {
   type        = string
   default     = "86400000"
 }
+
+variable "gemini_api_key" {
+  description = "Gemini API Key"
+  type        = string
+  sensitive   = true
+}

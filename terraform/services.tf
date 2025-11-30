@@ -111,6 +111,10 @@ resource "google_cloud_run_v2_service" "content_service" {
         name  = "EUREKA_CLIENT_ENABLED"
         value = "false" 
       }
+      env {
+        name  = "GEMINI_API_KEY"
+        value = var.gemini_api_key
+      }
     }
     volumes {
       name = "cloudsql"
@@ -202,6 +206,10 @@ resource "google_cloud_run_v2_service" "ai_service" {
       env {
         name  = "EUREKA_CLIENT_ENABLED"
         value = "false" 
+      }
+      env {
+        name  = "GEMINI_API_KEY"
+        value = var.gemini_api_key
       }
     }
   }

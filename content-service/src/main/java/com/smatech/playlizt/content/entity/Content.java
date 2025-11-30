@@ -7,6 +7,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "content", indexes = {
@@ -36,8 +38,11 @@ public class Content {
     @Column(nullable = false, length = 100)
     private String category;
 
-    @Column(columnDefinition = "TEXT[]")
-    private String[] tags;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "content_tags", joinColumns = @JoinColumn(name = "content_id"))
+    @Column(name = "tag")
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
 
     @Column(name = "thumbnail_url", length = 500)
     private String thumbnailUrl;

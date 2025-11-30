@@ -13,6 +13,11 @@ else
     exit 1
 fi
 
+if [ -z "$GEMINI_API_KEY" ]; then
+    echo "Error: GEMINI_API_KEY is not set in ~/gcp/credentials"
+    exit 1
+fi
+
 # Check dependencies
 if ! command -v gcloud &> /dev/null; then
     echo "Error: gcloud CLI is not installed. Please run $SCRIPT_DIR/setupLocal.sh first."
@@ -116,6 +121,7 @@ terraform apply \
   -var="region=$GCP_REGION" \
   -var="db_password=$DB_PASSWORD" \
   -var="jwt_secret=$JWT_SECRET" \
+  -var="gemini_api_key=$GEMINI_API_KEY" \
   -auto-approve
 
 echo "================================================"

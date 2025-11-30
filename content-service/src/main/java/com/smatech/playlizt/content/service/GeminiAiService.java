@@ -20,7 +20,7 @@ public class GeminiAiService {
     private final GeminiConfig geminiConfig;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public String enhanceMetadata(String title, String description, String[] tags) {
+    public String enhanceMetadata(String title, String description, List<String> tags) {
         Client client = Client.builder()
                 .apiKey(geminiConfig.getKey())
                 .build();
@@ -49,7 +49,7 @@ public class GeminiAiService {
         throw new IllegalStateException("Failed to enhance metadata with all available models");
     }
 
-    private String buildMetadataPrompt(String title, String description, String[] tags) {
+    private String buildMetadataPrompt(String title, String description, List<String> tags) {
         String tagsStr = tags != null ? String.join(", ", tags) : "";
         
         return String.format("""

@@ -45,7 +45,7 @@ public class AsyncContentEnhancer {
             if (metadata.has("suggestedTags") && metadata.get("suggestedTags").isArray()) {
                 List<String> suggestedTags = new ArrayList<>();
                 metadata.get("suggestedTags").forEach(tag -> suggestedTags.add(tag.asText()));
-                content.setTags(suggestedTags.toArray(new String[0]));
+                content.setTags(suggestedTags);
             }
 
             if (metadata.has("relevanceScore")) {

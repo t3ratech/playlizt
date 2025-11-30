@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -18,7 +19,7 @@ public class ContentResponse {
     private String title;
     private String description;
     private String category;
-    private String[] tags;
+    private List<String> tags;
     private String thumbnailUrl;
     private String videoUrl;
     private Integer durationSeconds;

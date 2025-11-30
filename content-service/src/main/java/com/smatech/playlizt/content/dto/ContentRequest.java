@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -27,7 +29,7 @@ public class ContentRequest {
     @NotBlank(message = "Category is required")
     private String category;
 
-    private String[] tags;
+    private List<String> tags;
 
     private String thumbnailUrl;
 
