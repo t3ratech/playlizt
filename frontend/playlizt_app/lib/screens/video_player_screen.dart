@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/content.dart';
 import '../widgets/themed_logo.dart';
+import '../widgets/youtube_player/youtube_player.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final Content content;
@@ -19,14 +19,12 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  // YouTube
-  YoutubePlayerController? _youtubeController;
-  
   // Direct Video (MP4/HLS)
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
   
   bool _isYoutube = false;
+  String? _youtubeVideoId;
   bool _isPlayerReady = false;
   bool _isControllerInitialized = false;
 
@@ -46,11 +44,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       
       if (videoId != null) {
         print('VideoPlayerScreen: Detected YouTube videoId=$videoId');
-        _isYoutube = true;
-        _initializeYoutubePlayer(videoId);
+        setState(() {
+          _isYoutube = true;
+          _youtubeVideoId = videoId;
+          _isControllerInitialized = true;
+          _isPlayerReady = true;
+        });
       } else {
         print('VideoPlayerScreen: Detected Direct Video URL');
-        _isYoutube = false;
+        setState(() {
+          _isYoutube = false;
+        });
         await _initializeDirectPlayer(rawUrl);
       }
     } catch (e) {
@@ -71,37 +75,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       print('Error parsing URL: $e');
     }
     return null;
-  }
-
-  void _initializeYoutubePlayer(String videoId) {
-    print('VideoPlayerScreen: Initializing YouTube controller for $videoId using default constructor');
-    try {
-      // Use default constructor instead of fromVideoId to avoid potential null check issues in factory
-      _youtubeController = YoutubePlayerController(
-        params: const YoutubePlayerParams(
-          showControls: true,
-          showFullscreenButton: true,
-          mute: false,
-        ),
-      );
-      
-      // Load the video explicitly
-      _youtubeController!.loadVideoById(videoId: videoId);
-      
-      setState(() {
-        _isControllerInitialized = true;
-        _isPlayerReady = true;
-      });
-      print('VideoPlayerScreen: YouTube Controller created successfully');
-    } catch (e, stack) {
-      print('VideoPlayerScreen: CRITICAL ERROR creating YouTube controller: $e');
-      print(stack);
-      // Ensure UI updates even if controller fails
-      setState(() {
-        _isControllerInitialized = true;
-        // Leave _youtubeController as null, so build() shows "Error loading player"
-      });
-    }
   }
 
   Future<void> _initializeDirectPlayer(String url) async {
@@ -136,9 +109,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void deactivate() {
     // Pauses video while navigating to next page.
-    if (_youtubeController != null) {
-      _youtubeController!.pauseVideo();
-    }
     if (_videoPlayerController != null) {
       _videoPlayerController!.pause();
     }
@@ -147,11 +117,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    if (_youtubeController != null) {
-      // YoutubePlayerController in iframe package usually doesn't need explicit dispose in this way, 
-      // or it might close the stream.
-      _youtubeController!.close();
-    }
     if (_videoPlayerController != null) {
       _videoPlayerController!.dispose();
     }
@@ -248,11 +213,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_isYoutube && _youtubeController != null) {
-      return YoutubePlayer(
-        controller: _youtubeController!,
-        aspectRatio: 16 / 9,
-      );
+    if (_isYoutube && _youtubeVideoId != null) {
+      return YoutubePlayerWidget(videoId: _youtubeVideoId!);
     } else if (!_isYoutube && _chewieController != null) {
       return Chewie(
         controller: _chewieController!,
