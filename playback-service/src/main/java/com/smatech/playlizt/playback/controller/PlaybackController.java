@@ -54,8 +54,15 @@ public class PlaybackController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         
-        PageRequest pageRequest = PageRequest.of(page, size);
-        return ResponseEntity.ok(playbackService.getContinueWatching(userId, pageRequest));
+        try {
+            PageRequest pageRequest = PageRequest.of(page, size);
+            return ResponseEntity.ok(playbackService.getContinueWatching(userId, pageRequest));
+        } catch (Exception e) {
+            // Log error but return empty page to prevent UI crash
+            System.err.println("Error fetching continue watching list: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.ok(Page.empty());
+        }
     }
 
     @GetMapping("/analytics/content/{contentId}")

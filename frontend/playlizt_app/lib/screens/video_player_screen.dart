@@ -78,7 +78,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     try {
       _youtubeController = YoutubePlayerController.fromVideoId(
         videoId: videoId,
-        autoPlay: false,
+        autoPlay: true,
         params: const YoutubePlayerParams(
           showControls: true,
           showFullscreenButton: true,

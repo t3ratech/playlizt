@@ -170,14 +170,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 200,
+                  height: 140,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: contentProvider.continueWatching.length,
                     itemBuilder: (context, index) {
                       return ContentCard(
                         content: contentProvider.continueWatching[index],
-                        width: 300,
+                        width: 240,
                       );
                     },
                   ),
@@ -234,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.2,
+                    childAspectRatio: 1.8,
                   ),
                   itemCount: contentProvider.contentList.length,
                   itemBuilder: (context, index) {
