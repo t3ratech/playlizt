@@ -63,6 +63,7 @@ terraform apply -target=google_artifact_registry_repository.playlizt_repo \
   -var="region=$GCP_REGION" \
   -var="db_password=$DB_PASSWORD" \
   -var="jwt_secret=$JWT_SECRET" \
+  -var="gemini_api_key=$GEMINI_API_KEY" \
   -auto-approve
 
 # Configure Docker
