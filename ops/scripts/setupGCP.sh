@@ -88,7 +88,6 @@ build_push() {
     echo "Building $SERVICE..."
     echo "------------------------------------------------"
 
-    # Build locally (but DO NOT push yet)
     (cd "$PROJECT_ROOT" && docker build --platform linux/amd64 -t "$IMAGE_LATEST" -t "$IMAGE_TAGGED" -f "${SERVICE}/Dockerfile" $BUILD_ARGS .)
 
     # Push both tags
