@@ -43,6 +43,10 @@ public class PlayliztRecommendationTest extends BasePlayliztTest {
         System.out.println("Playing Video 2...");
         playVideo("Episode 2"); 
         
+        // 3b. Play Video 1 AGAIN to reach 3 total views (Threshold is > 2)
+        System.out.println("Playing Video 1 again to increment view count...");
+        playVideo("Episode 1");
+        
         // 4. Verify Recommendations APPEAR
         System.out.println("Checking for Recommendations...");
         // Reload to fetch new recommendations
