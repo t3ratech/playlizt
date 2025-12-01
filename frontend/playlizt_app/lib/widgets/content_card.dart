@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/content.dart';
 import '../providers/content_provider.dart';
+import '../providers/auth_provider.dart';
 import '../screens/video_player_screen.dart';
 
 class ContentCard extends StatelessWidget {
@@ -21,7 +22,7 @@ class ContentCard extends StatelessWidget {
       child: SizedBox(
         width: width,
         child: InkWell(
-          onTap: () {
+          onTap: () async {
             print('ContentCard: Tapped content ${content.id} - ${content.title}');
             try {
               // Increment view count
