@@ -17,22 +17,34 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _searchController = TextEditingController();
+  int? _lastLoadedUserId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final contentProvider = Provider.of<ContentProvider>(context, listen: false);
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
       contentProvider.loadContent();
       contentProvider.loadCategories();
-      if (authProvider.userId != null) {
-        contentProvider.loadContinueWatching(authProvider.userId!);
-        contentProvider.loadRecommendations(authProvider.userId!);
-      }
+      // User specific data loading moved to didChangeDependencies to handle async auth loading
     });
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final authProvider = Provider.of<AuthProvider>(context);
+    final contentProvider = Provider.of<ContentProvider>(context, listen: false);
+
+    if (authProvider.userId != null && authProvider.userId != _lastLoadedUserId) {
+      print('HomeScreen: User loaded (${authProvider.userId}), fetching recommendations...');
+      _lastLoadedUserId = authProvider.userId;
+      contentProvider.loadContinueWatching(authProvider.userId!);
+      contentProvider.loadRecommendations(authProvider.userId!);
+    }
+  }
+
 
   @override
   void dispose() {
