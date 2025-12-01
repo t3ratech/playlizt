@@ -38,12 +38,20 @@ class ContentCard extends StatelessWidget {
               ),
             );
             
-            Navigator.push(
+            await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => VideoPlayerScreen(content: content),
               ),
             );
+
+            // Refresh Continue Watching on return
+            if (context.mounted) {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+               if (authProvider.userId != null) {
+                   Provider.of<ContentProvider>(context, listen: false).loadContinueWatching(authProvider.userId!);
+               }
+            }
           },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
