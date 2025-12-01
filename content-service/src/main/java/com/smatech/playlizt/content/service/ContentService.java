@@ -172,6 +172,8 @@ public class ContentService {
                 .aiGeneratedDescription(content.getAiGeneratedDescription())
                 .aiPredictedCategory(content.getAiPredictedCategory())
                 .aiRelevanceScore(content.getAiRelevanceScore())
+                .aiContentRating(content.getAiContentRating())
+                .aiSentiment(content.getAiSentiment())
                 .createdAt(content.getCreatedAt())
                 .updatedAt(content.getUpdatedAt())
                 .isPublished(content.getIsPublished())

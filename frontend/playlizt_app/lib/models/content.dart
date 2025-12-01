@@ -11,6 +11,8 @@ class Content {
   final String? aiGeneratedDescription;
   final String? aiPredictedCategory;
   final double? aiRelevanceScore;
+  final String? aiContentRating;
+  final String? aiSentiment;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isPublished;
@@ -29,6 +31,8 @@ class Content {
     this.aiGeneratedDescription,
     this.aiPredictedCategory,
     this.aiRelevanceScore,
+    this.aiContentRating,
+    this.aiSentiment,
     required this.createdAt,
     required this.updatedAt,
     required this.isPublished,
@@ -49,6 +53,8 @@ class Content {
       aiGeneratedDescription: json['aiGeneratedDescription'],
       aiPredictedCategory: json['aiPredictedCategory'],
       aiRelevanceScore: json['aiRelevanceScore']?.toDouble(),
+      aiContentRating: json['aiContentRating'],
+      aiSentiment: json['aiSentiment'],
       createdAt: json['createdAt'] != null 
           ? DateTime.parse(json['createdAt']) 
           : DateTime.now(),

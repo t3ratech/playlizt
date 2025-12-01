@@ -24,7 +24,7 @@ This document tracks the outstanding tasks and features to be implemented.
 - [x] **Recommendation Engine**: Personalized content feed based on history and tags.
 - [x] **Metadata Enhancer Worker**: Async processing of new content.
 - [x] **Watch Pattern Analysis**: Admin insights generation (Trending, Peak times).
-- [ ] **Sentiment Analysis**: Analyzing comments/reviews (if implemented).
+- [x] **Sentiment Analysis**: Analyzed content metadata (Rating/Sentiment) via Gemini.
 - [x] **Gemini API Fallback**: Handling API quotas/failures with fallback models.
 
 ### 4. API Gateway (Port 4080)
@@ -40,6 +40,9 @@ This document tracks the outstanding tasks and features to be implemented.
 - [x] **Reverse Video Order**: Display videos with Episode 1 at the top and Episode 5 at the end.
 - [x] **YouTube Player Integration**: Implement video playback using `youtube_player_flutter`.
 - [x] **Creator Registration UI**: Add Role selector to Registration Screen.
+- [ ] **AI Recommendations UI**: "Recommended for You" section based on AI.
+- [ ] **Category Browsing**: Filter content by category chips.
+- [ ] **Sentiment Display**: Show AI rating and sentiment on content cards.
 
 ### 6. Security & Authentication
 - [x] **Creator Registration**: Allow users to select CREATOR role during registration.

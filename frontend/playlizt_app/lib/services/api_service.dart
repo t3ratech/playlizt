@@ -142,10 +142,11 @@ class ApiService {
     }
   }
   
-  Future<Map<String, dynamic>> searchContent(String query, {int page = 0, int size = 20}) async {
+  Future<Map<String, dynamic>> searchContent(String query, {String? category, int page = 0, int size = 20}) async {
     try {
       final response = await _dio.get('/content/search', queryParameters: {
         'q': query,
+        'category': category,
         'page': page,
         'size': size,
       });

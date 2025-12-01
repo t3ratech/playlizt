@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../models/content.dart';
+import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/themed_logo.dart';
 import '../widgets/youtube_player/youtube_player.dart';
 
@@ -27,12 +31,62 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   String? _youtubeVideoId;
   bool _isPlayerReady = false;
   bool _isControllerInitialized = false;
+  
+  Timer? _playbackTimer;
+  int _currentPosition = 0;
 
   @override
   void initState() {
     super.initState();
     print('VideoPlayerScreen: initState');
     _initializePlayer();
+    _startPlaybackTracking();
+  }
+
+  void _startPlaybackTracking() {
+    // Delay slightly to ensure context is valid if needed, though Provider.of with listen:false is safe
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.userId == null) return;
+      
+      // Report initial start
+      _reportPlayback(authProvider.userId!, 0);
+      
+      // Report progress every 10 seconds
+      _playbackTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        
+        int position = _currentPosition;
+        
+        if (_videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+           position = _videoPlayerController!.value.position.inSeconds;
+        } else {
+           // For YouTube or other players where we might not have direct position access easily
+           // We simulate progress for history tracking purposes
+           position += 10;
+        }
+        
+        _currentPosition = position;
+        _reportPlayback(authProvider.userId!, position);
+      });
+    });
+  }
+
+  Future<void> _reportPlayback(int userId, int position) async {
+    try {
+      if (widget.content.id == null) return;
+      
+      await ApiService().trackPlayback(
+        userId: userId,
+        contentId: widget.content.id!,
+        positionSeconds: position,
+      );
+    } catch (e) {
+      print('Playback tracking error: $e');
+    }
   }
 
   Future<void> _initializePlayer() async {
@@ -117,6 +171,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _playbackTimer?.cancel();
     if (_videoPlayerController != null) {
       _videoPlayerController!.dispose();
     }

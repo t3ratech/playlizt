@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
       contentProvider.loadCategories();
       if (authProvider.userId != null) {
         contentProvider.loadContinueWatching(authProvider.userId!);
+        contentProvider.loadRecommendations(authProvider.userId!);
       }
     });
   }
@@ -160,6 +161,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 onSubmitted: (_) => _search(),
               ),
+              const SizedBox(height: 16),
+              
+              // Category Chips
+              if (contentProvider.categories.isNotEmpty) ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: contentProvider.categories.map((category) {
+                      final isSelected = contentProvider.selectedCategory == category;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text(category),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            contentProvider.selectCategory(selected ? category : null);
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              
               const SizedBox(height: 24),
 
               // Continue Watching
@@ -177,6 +203,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       return ContentCard(
                         content: contentProvider.continueWatching[index],
+                        width: 240,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Recommendations
+              if (contentProvider.recommendations.isNotEmpty) ...[
+                Text(
+                  'Recommended for You',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 140,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: contentProvider.recommendations.length,
+                    itemBuilder: (context, index) {
+                      return ContentCard(
+                        content: contentProvider.recommendations[index],
                         width: 240,
                       );
                     },

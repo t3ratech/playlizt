@@ -6,20 +6,25 @@ class ContentProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   
   List<Content> _contentList = [];
+  List<Content> _recommendations = [];
   List<Content> _continueWatching = [];
   List<String> _categories = [];
+  String? _selectedCategory;
   bool _isLoading = false;
   String? _error;
   
   List<Content> get contentList => _contentList;
+  List<Content> get recommendations => _recommendations;
   List<Content> get continueWatching => _continueWatching;
   List<String> get categories => _categories;
+  String? get selectedCategory => _selectedCategory;
   bool get isLoading => _isLoading;
   String? get error => _error;
   
   Future<void> loadContent({int page = 0, int size = 20}) async {
     _isLoading = true;
     _error = null;
+    _selectedCategory = null; // Reset category on load all
     notifyListeners();
     
     try {
@@ -46,7 +51,7 @@ class ContentProvider with ChangeNotifier {
     notifyListeners();
     
     try {
-      final response = await _apiService.searchContent(query, page: page);
+      final response = await _apiService.searchContent(query, category: _selectedCategory, page: page);
       _contentList = (response['content'] as List)
           .map((json) => Content.fromJson(json))
           .toList();
@@ -59,6 +64,16 @@ class ContentProvider with ChangeNotifier {
     }
   }
   
+  void selectCategory(String? category) {
+    if (_selectedCategory == category) {
+      _selectedCategory = null; // Toggle off
+    } else {
+      _selectedCategory = category;
+    }
+    notifyListeners();
+    searchContent(''); // Re-search with empty query but new category
+  }
+  
   Future<void> loadCategories() async {
     try {
       _categories = await _apiService.getCategories();
@@ -66,6 +81,18 @@ class ContentProvider with ChangeNotifier {
     } catch (e) {
       _error = e.toString();
       notifyListeners();
+    }
+  }
+
+  Future<void> loadRecommendations(int userId) async {
+    try {
+      final response = await _apiService.getRecommendations(userId);
+      _recommendations = (response)
+          .map((json) => Content.fromJson(json))
+          .toList();
+      notifyListeners();
+    } catch (e) {
+      print('Failed to load recommendations: $e');
     }
   }
   

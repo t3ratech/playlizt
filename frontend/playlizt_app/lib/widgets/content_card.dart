@@ -107,6 +107,34 @@ class ContentCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                         ),
+                        if (content.aiContentRating != null) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              content.aiContentRating!,
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                        if (content.aiSentiment != null) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              content.aiSentiment!,
+                              style: const TextStyle(fontSize: 10, color: Colors.blue),
+                            ),
+                          ),
+                        ],
                         const Spacer(),
                         if (content.formattedDuration.isNotEmpty)
                           Text(

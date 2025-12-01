@@ -26,6 +26,8 @@ public class ContentResponse {
     private String aiGeneratedDescription;
     private String aiPredictedCategory;
     private BigDecimal aiRelevanceScore;
+    private String aiContentRating;
+    private String aiSentiment;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Boolean isPublished;

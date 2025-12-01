@@ -58,6 +58,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       Icons.timer,
                       Colors.green,
                     ),
+                    const SizedBox(height: 16),
+                    _buildStatCard(
+                      'Peak Viewing Hour',
+                      _analytics?['peakViewingHour'] != null ? '${_analytics!['peakViewingHour']}:00' : 'N/A',
+                      Icons.access_time_filled,
+                      Colors.orange,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildStatCard(
+                      'Trending Category',
+                      _analytics?['trendingCategory']?.toString() ?? 'N/A',
+                      Icons.trending_up,
+                      Colors.purple,
+                    ),
                   ],
                 ),
     );

@@ -62,6 +62,12 @@ public class Content {
     @Column(name = "ai_relevance_score", precision = 3, scale = 2)
     private BigDecimal aiRelevanceScore;
 
+    @Column(name = "ai_content_rating", length = 20)
+    private String aiContentRating;
+
+    @Column(name = "ai_sentiment", length = 20)
+    private String aiSentiment;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false, name = "created_at")
     private LocalDateTime createdAt;

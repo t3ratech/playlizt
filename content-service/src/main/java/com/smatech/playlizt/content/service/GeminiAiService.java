@@ -64,6 +64,8 @@ public class GeminiAiService {
             2. "suggestedTags": Array of 5-10 relevant tags
             3. "predictedCategory": One of [EDUCATION, ENTERTAINMENT, TECHNOLOGY, MUSIC, SPORTS, NEWS, GAMING, LIFESTYLE, COOKING, TRAVEL]
             4. "relevanceScore": A decimal between 0 and 1 indicating content quality
+            5. "contentRating": Predicted rating [G, PG, PG-13, R, NC-17] based on description
+            6. "sentiment": Sentiment of the content [POSITIVE, NEUTRAL, NEGATIVE, INSPIRING, EDUCATIONAL]
             
             Return ONLY valid JSON, no additional text.
             """, title, description, tagsStr);

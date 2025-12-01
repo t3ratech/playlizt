@@ -52,6 +52,14 @@ public class AsyncContentEnhancer {
                 content.setAiRelevanceScore(new BigDecimal(metadata.get("relevanceScore").asText()));
             }
             
+            if (metadata.has("contentRating")) {
+                content.setAiContentRating(metadata.get("contentRating").asText());
+            }
+            
+            if (metadata.has("sentiment")) {
+                content.setAiSentiment(metadata.get("sentiment").asText());
+            }
+            
             contentRepository.save(content);
             log.info("Completed async AI enhancement for content id={}", content.getId());
             

@@ -45,7 +45,7 @@ public class SearchApiTest extends BaseApiTest {
                 "\"description\": \"%s\"," +
                 "\"category\": \"%s\"," +
                 "\"creatorId\": 1," +
-                "\"videoUrl\": \"http://example.com/vid\"," +
+                "\"videoUrl\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"," +
                 "\"thumbnailUrl\": \"http://example.com/thumb\"," +
                 "\"tags\": [\"test\"]," +
                 "\"durationSeconds\": %d" +

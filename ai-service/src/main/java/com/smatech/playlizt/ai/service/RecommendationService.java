@@ -24,12 +24,26 @@ public class RecommendationService {
         // 1. Get Viewing History
         JsonNode historyPage = playbackClient.getViewingHistory(userId);
         Set<Long> watchedContentIds = new HashSet<>();
-        if (historyPage != null && historyPage.has("content")) {
-            historyPage.get("content").forEach(node -> {
-                if (node.has("contentId")) {
-                    watchedContentIds.add(node.get("contentId").asLong());
-                }
-            });
+        long totalViews = 0;
+        
+        if (historyPage != null) {
+            if (historyPage.has("totalElements")) {
+                totalViews = historyPage.get("totalElements").asLong();
+            }
+            
+            if (historyPage.has("content")) {
+                historyPage.get("content").forEach(node -> {
+                    if (node.has("contentId")) {
+                        watchedContentIds.add(node.get("contentId").asLong());
+                    }
+                });
+            }
+        }
+
+        // Requirement: Recommendations only display after playing 2 videos (Total views > 2)
+        // "exceeds 2 views in total"
+        if (totalViews <= 2) {
+            return new ArrayList<>();
         }
 
         // 2. Get Categories
