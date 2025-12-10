@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+ext {
+    springCloudVersion = rootProject.ext.springCloudVersion
+    geminiVersion = rootProject.ext.geminiVersion
+    springdocVersion = rootProject.ext.springdocVersion
+}
+
+dependencies {
+    // Spring Boot starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Spring Cloud
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // Google Gemini AI
+    implementation "com.google.genai:google-genai:${geminiVersion}"
+
+    // OpenAPI Documentation
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
+
+    // Annotation processor
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+bootJar {
+    archiveBaseName = 'playlizt-content-processing'
+    archiveVersion = ''
+    archiveClassifier = ''
+}
+
+jar {
+    enabled = false
+}

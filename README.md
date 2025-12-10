@@ -1,28 +1,62 @@
-# Playlizt - AI-Powered Streaming Platform
+# Playlizt - Media Player, Streamer, Downloader & Converter
 
-Playlizt is a lightweight video/audio streaming platform that leverages artificial intelligence to provide intelligent content discovery, automated metadata enhancement, and behavioral analytics.
+Playlizt is a media player, streamer, downloader and converter for your own media collection. It plays local audio and video files, manages playlists and libraries, can stream from the Playlizt backend when available, and can download or convert media for offline use. When connected to the backend, it also offers AI-powered discovery, metadata enhancement and analytics.
 
-## Features
+Primary areas:
+- **Library**: Browse and search local audio/video files.
+- **Playlists**: Build playlists that can mix local and online items.
+- **Streaming**: When online, access the Playlizt backend catalog.
+- **Download**: Download external media to a configured or chosen folder, with optional Library integration.
+- **Convert**: Transcode/clip media into library-friendly formats.
+- **Devices**: Extensibility point for future sync/cast targets.
 
-### For Users (USER Role)
-- **Browse Content**: Discover videos by category, tags, or search
-- **AI-Powered Recommendations**: Get personalized content suggestions based on your viewing history
-- **Watch Videos**: Stream content with playback controls
-- **Viewing History**: Track what you've watched
-- **Continue Watching**: Pick up where you left off
-- **Rate & Review**: Provide feedback on content
+## Local Media Features (Offline)
 
-### For Creators (CREATOR Role)
-- **Upload Content**: Add new videos with title, description, and tags
-- **AI Metadata Enhancement**: Automatically generate improved descriptions, relevant tags, and predicted categories
-- **Manage Content**: Edit or remove your uploaded videos
-- **View Analytics**: Track views and engagement on your content
+These features work entirely on your local machine without any backend:
 
-### For Administrators (ADMIN Role)
-- **Platform Analytics**: Monitor overall platform usage
-- **AI Insights**: View trending themes, peak usage times, and engagement patterns
-- **User Management**: Manage user accounts and roles
-- **Content Moderation**: Review and moderate platform content
+### 1. Library
+- Scans configured folders for supported audio/video files.
+- Builds a lightweight index of your media collection.
+- Lets you browse by folder and search over basic metadata.
+
+### 2. Playlists
+- Stores ordered lists of Library items.
+- Supports purely local playlists and hybrid playlists (local + online entries).
+- Keeps playlist entries stable as long as the underlying files remain on disk.
+
+### 3. Offline Playback
+- Plays media directly from the filesystem.
+- Tracks last position per item to enable local "Continue Watching".
+- Persists minimal playback state so you can resume after restarts.
+
+### 4. Download
+- Downloads media to a configured or chosen folder using the original filename by default.
+- Optionally normalizes file names and target folders according to Library rules when enabled.
+- Optionally ingests successful downloads into the Library as first-class entries.
+
+### 5. Convert (Transcoding/Clipping)
+- Reads media from the Library and writes converted outputs back into it.
+- Supports format conversion, downsampling, or clipping segments.
+- Treats converted outputs as separate, trackable Library items.
+
+### 6. Devices (Extensibility Point)
+- Provides an abstraction layer for external playback targets.
+- Keeps device-specific logic separate from core Library/Player behaviour.
+- Designed so that future sync/cast features do not change Library semantics.
+
+## Optional Online Features
+
+### Online Features (Authenticated Users)
+- **Browse Content**: Discover videos by category, tags, or search.
+- **AI-Powered Recommendations**: Get personalized content suggestions based on your viewing history.
+- **Watch Videos**: Stream content with playback controls.
+- **Viewing History**: Track what you've watched.
+- **Continue Watching**: Pick up where you left off.
+- **Rate & Review**: Provide feedback on content.
+- **Upload Content**: Add new videos with title, description, and tags.
+- **AI Metadata Enhancement**: Automatically generate improved descriptions, relevant tags, and predicted categories.
+- **Manage Content**: Edit or remove your uploaded videos.
+- **Analytics & Insights**: View usage and engagement stats for your content and overall catalogue.
 
 ## AI-Powered Features
 
@@ -38,7 +72,7 @@ When creators upload content, AI automatically:
 *(Powered by async Metadata Enhancer Worker with Gemini API Fallback)*
 
 ### 3. Watch Pattern Analysis
-Administrators get AI-generated insights including:
+Playlizt provides AI-generated insights including:
 - Trending content themes
 - Peak usage times
 - Engagement anomalies
@@ -70,7 +104,7 @@ Analyzes user comments and ratings to determine sentiment (Positive, Neutral, Ne
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd Question5
+cd Playlizt
 ```
 
 2. Create `.env` file:
@@ -81,23 +115,23 @@ cp .env.example .env
 3. Configure environment variables in `.env`:
 ```properties
 # Database
-POSTGRES_DB=playlizt
-POSTGRES_USER=playlizt_user
-POSTGRES_PASSWORD=your_secure_password
+PLAYLIZT_DB_NAME=playlizt
+PLAYLIZT_DB_USER=playlizt_user
+PLAYLIZT_DB_PASSWORD=your_secure_password
 
 # JWT
-JWT_SECRET=your_jwt_secret_minimum_256_bits
+PLAYLIZT_JWT_SECRET=your_jwt_secret_minimum_256_bits
 
 # Gemini AI
-GEMINI_API_KEY=your_gemini_api_key
+PLAYLIZT_GEMINI_API_KEY=your_gemini_api_key
 
 # Ports
-EUREKA_PORT=4761
-AUTH_SERVICE_PORT=4081
-CONTENT_SERVICE_PORT=4082
-PLAYBACK_SERVICE_PORT=4083
-AI_SERVICE_PORT=4084
-API_GATEWAY_PORT=4080
+PLAYLIZT_EUREKA_PORT=4761
+PLAYLIZT_AUTH_PORT=4081
+PLAYLIZT_CONTENT_API_PORT=4082
+PLAYLIZT_PLAYBACK_PORT=4083
+PLAYLIZT_CONTENT_PROCESSING_PORT=4084
+PLAYLIZT_API_GATEWAY_PORT=4080
 ```
 
 ### Running the Platform
@@ -114,8 +148,8 @@ API_GATEWAY_PORT=4080
 
 **View logs**:
 ```bash
-./playlizt-docker.sh --logs auth-service
-./playlizt-docker.sh --logs --tail all -f content-service
+./playlizt-docker.sh --logs playlizt-authentication
+./playlizt-docker.sh --logs --tail all -f playlizt-content-api
 ```
 
 **Stop all services**:
@@ -128,13 +162,13 @@ API_GATEWAY_PORT=4080
 ### Google Cloud Platform (GCP)
 The project includes automated scripts for deploying the full stack to GCP using Terraform.
 
-1.  **Setup Credentials**: Configure `~/gcp/credentials` with your project details.
+1.  **Setup Credentials**: Configure `~/gcp/credentials_playlizt` with your project details.
 2.  **Provision & Deploy**:
     ```bash
     ./playlizt-docker.sh --deploy
     ```
 
-This script (invoking `ops/scripts/setupGCP.sh`) handles:
+This script (invoking `playlizt-ops/scripts/setupGCP.sh`) handles:
 - Artifact Registry creation
 - Docker image build and push
 - Cloud SQL (Postgres 17) provisioning
@@ -164,9 +198,9 @@ Once the services are running, access the API documentation:
 ### Content (`/api/v1/content`)
 - `GET /` - List all content (paginated)
 - `GET /{id}` - Get content details
-- `POST /` - Upload content (CREATOR)
-- `PUT /{id}` - Update content (CREATOR)
-- `DELETE /{id}` - Delete content (CREATOR/ADMIN)
+- `POST /` - Upload content (authenticated user)
+- `PUT /{id}` - Update content (authenticated owner of the content)
+- `DELETE /{id}` - Delete content (authenticated owner of the content)
 - `GET /search?q=keyword` - Search content
 - `GET /categories` - List all categories
 
@@ -179,8 +213,8 @@ Once the services are running, access the API documentation:
 
 ### AI (`/api/v1/ai`)
 - `GET /recommendations` - Get personalized recommendations
-- `POST /enhance` - Enhance content metadata (CREATOR)
-- `GET /insights` - Get admin insights (ADMIN)
+- `POST /enhance` - Enhance content metadata
+- `GET /insights` - Get insights and analytics (authenticated user)
 - `POST /sentiment` - Analyze sentiment
 
 ## Example API Usage
@@ -192,8 +226,7 @@ curl -X POST http://localhost:4080/api/v1/auth/register \
   -d '{
     "username": "john_doe",
     "email": "john@example.com",
-    "password": "SecurePass123!",
-    "role": "USER"
+    "password": "SecurePass123!"
   }'
 ```
 
@@ -207,7 +240,7 @@ curl -X POST http://localhost:4080/api/v1/auth/login \
   }'
 ```
 
-### Upload Content (as CREATOR)
+### Upload Content
 ```bash
 curl -X POST http://localhost:4080/api/v1/content \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -260,12 +293,12 @@ To reset the database to its clean, seeded state (wipes all user data!):
 
 1. **Restart the backend services**:
    ```bash
-   ./playlizt-docker.sh -r auth-service content-service playback-service
+   ./playlizt-docker.sh -r playlizt-authentication playlizt-content-api playlizt-playback
    ```
    
 2. **If schema changes were made (Rebuild & Restart)**:
    ```bash
-   ./playlizt-docker.sh -rrr auth-service content-service playback-service
+   ./playlizt-docker.sh -rrr playlizt-authentication playlizt-content-api playlizt-playback
    ```
 
 ## Troubleshooting
@@ -278,8 +311,8 @@ netstat -tuln | grep -E '4080|4081|4082|4083|4084|4761|5432'
 
 2. Check logs:
 ```bash
-./playlizt-docker.sh --logs database
-./playlizt-docker.sh --logs eureka-service
+./playlizt-docker.sh --logs playlizt-database
+./playlizt-docker.sh --logs playlizt-eureka-service
 ```
 
 3. Rebuild services:
@@ -288,22 +321,22 @@ netstat -tuln | grep -E '4080|4081|4082|4083|4084|4761|5432'
 ```
 
 ### Database Connection Issues
-- Verify `POSTGRES_*` variables in `.env`
+- Verify `PLAYLIZT_DB_*` variables in `.env`
 - Ensure database container is healthy:
 ```bash
 docker ps | grep playlizt-database
 ```
 
 ### AI Features Not Working
-- Verify `GEMINI_API_KEY` in `.env`
+- Verify `PLAYLIZT_GEMINI_API_KEY` in `.env`
 - Check AI service logs:
 ```bash
-./playlizt-docker.sh --logs ai-service
+./playlizt-docker.sh --logs playlizt-content-processing
 ```
-- Verify API key has appropriate permissions
+- Verify the API key has appropriate permissions
 
 ### JWT Token Errors
-- Ensure `JWT_SECRET` is at least 256 bits (32 characters)
+- Ensure `PLAYLIZT_JWT_SECRET` is at least 256 bits (32 characters)
 - Verify token hasn't expired (default: 1 hour)
 - Use `/auth/refresh` to get a new token
 
@@ -314,35 +347,38 @@ For detailed development information, see [ARCHITECTURE.md](ARCHITECTURE.md).
 ### Project Structure
 ```
 playlizt/
-├── eureka-service/       # Service discovery
-├── auth-service/         # Authentication & authorization
-├── content-service/      # Content management
-├── playback-service/     # Playback tracking
-├── ai-service/          # AI features
-├── api-gateway/         # API gateway
-├── frontend/            # Flutter frontend
-├── docker-compose.yml   # Service orchestration
-├── playlizt-docker.sh   # Management script
-├── .env                 # Environment configuration
-├── ARCHITECTURE.md      # Technical documentation
-└── README.md           # This file
+├── playlizt-eureka-service/       # Service discovery
+├── playlizt-authentication/       # Authentication & authorization
+├── playlizt-content/
+│   ├── playlizt-content-api/      # Content management
+│   └── playlizt-content-processing/ # AI features
+├── playlizt-playback/             # Playback tracking
+├── playlizt-api-gateway/          # API gateway
+├── playlizt-frontend/             # Flutter frontend
+├── playlizt-ops/                  # Ops & deployment scripts
+├── playlizt-terraform/            # Terraform infrastructure
+├── docker-compose.yml             # Service orchestration
+├── playlizt-docker.sh             # Management script
+├── .env                           # Environment configuration
+├── ARCHITECTURE.md                # Technical documentation
+└── README.md                      # This file
 ```
 
 ### Rebuild Specific Service
 ```bash
-./playlizt-docker.sh -rrr auth-service
+./playlizt-docker.sh -rrr playlizt-authentication
 ```
 
 ### View Service Logs in Real-Time
 ```bash
-./playlizt-docker.sh --logs -f content-service
+./playlizt-docker.sh --logs -f playlizt-content-api
 ```
 
 ## Security
 
 - **Passwords**: Hashed using Argon2id (quantum-resistant)
 - **Authentication**: JWT tokens with 1-hour expiration
-- **Authorization**: Role-based access control (RBAC)
+- **Authorization**: Generic authenticated user model (no roles); features are available to any authenticated user, while unauthenticated access is limited.
 - **Containers**: Run as non-root user
 - **Secrets**: Managed via environment variables
 

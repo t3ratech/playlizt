@@ -60,3 +60,8 @@ test {
 tasks.register('installPlaywrightBrowsers', Exec) {
     commandLine 'mvn', 'exec:java', '-e', '-D', 'exec.mainClass=com.microsoft.playwright.CLI', '-D', 'exec.args=install'
 }
+
+// This module is test-only; no Spring Boot executable JAR
+bootJar {
+    enabled = false
+}

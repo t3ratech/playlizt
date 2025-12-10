@@ -73,23 +73,30 @@ public abstract class BaseApiTest {
         
         if (envFile == null || !envFile.exists()) {
              // Fallback to checking environment variable if .env file not found
-             String envPort = System.getenv("API_GATEWAY_PORT");
+             String envPort = System.getenv("PLAYLIZT_API_GATEWAY_PORT");
+             if (envPort == null) {
+                 envPort = System.getenv("API_GATEWAY_PORT");
+             }
              if (envPort != null) return envPort;
-             throw new RuntimeException(".env file not found and API_GATEWAY_PORT environment variable not set");
+             throw new RuntimeException(".env file not found and PLAYLIZT_API_GATEWAY_PORT/API_GATEWAY_PORT environment variable not set");
         }
 
         try (BufferedReader reader = new BufferedReader(new FileReader(envFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.trim().startsWith("API_GATEWAY_PORT=")) {
-                    return line.split("=")[1].trim();
+                String trimmed = line.trim();
+                if (trimmed.startsWith("PLAYLIZT_API_GATEWAY_PORT=")) {
+                    return trimmed.split("=")[1].trim();
+                }
+                if (trimmed.startsWith("API_GATEWAY_PORT=")) {
+                    return trimmed.split("=")[1].trim();
                 }
             }
         } catch (IOException e) {
             throw new RuntimeException("Error reading .env file", e);
         }
         
-        throw new RuntimeException("API_GATEWAY_PORT not found in .env file");
+        throw new RuntimeException("PLAYLIZT_API_GATEWAY_PORT/API_GATEWAY_PORT not found in .env file");
     }
 
     private static void login() {

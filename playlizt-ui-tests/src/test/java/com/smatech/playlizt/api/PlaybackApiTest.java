@@ -21,12 +21,12 @@ public class PlaybackApiTest extends BaseApiTest {
     public static void setup() {
         // Base setup (login, properties) handled by BaseApiTest
         
-        // Create Content
-        contentId = createContent("Playback Test Video");
+        // Add Content
+        contentId = addContent("Playback Test Video");
         publishContent(contentId);
     }
 
-    private static Long createContent(String title) {
+    private static Long addContent(String title) {
         String body = String.format("{" +
                 "\"title\": \"%s\"," +
                 "\"description\": \"Caught up in a way Licoflat ft. Tich de Blak\"," +

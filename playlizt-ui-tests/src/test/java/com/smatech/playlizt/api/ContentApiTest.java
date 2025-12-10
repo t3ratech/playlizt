@@ -19,7 +19,7 @@ public class ContentApiTest extends BaseApiTest {
 
     @Test
     @Order(1)
-    public void testCreateContent() {
+    public void testAddContent() {
         String contentBody = "{" +
                 "\"title\": \"E2E Test Video\"," +
                 "\"description\": \"Created via API E2E Test\"," +

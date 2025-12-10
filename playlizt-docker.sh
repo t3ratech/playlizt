@@ -25,22 +25,22 @@ NC='\033[0m' # No Color
 # Service definitions - list in dependency order
 declare -a SERVICES=(
     "playlizt-database"
-    "eureka-service"
-    "auth-service"
-    "content-service"
-    "playback-service"
-    "ai-service"
-    "api-gateway"
+    "playlizt-eureka-service"
+    "playlizt-authentication"
+    "playlizt-content-api"
+    "playlizt-playback"
+    "playlizt-content-processing"
+    "playlizt-api-gateway"
 )
 
 # Services that have JAR files to build
 declare -A SERVICES_WITH_JAR=(
-    ["eureka-service"]=1
-    ["auth-service"]=1
-    ["content-service"]=1
-    ["playback-service"]=1
-    ["ai-service"]=1
-    ["api-gateway"]=1
+    ["playlizt-eureka-service"]=1
+    ["playlizt-authentication"]=1
+    ["playlizt-content-api"]=1
+    ["playlizt-playback"]=1
+    ["playlizt-content-processing"]=1
+    ["playlizt-api-gateway"]=1
 )
 
 # =============================================================================
@@ -91,12 +91,12 @@ print_usage() {
     echo "Services: ${SERVICES[*]}"
     echo ""
     echo "Examples:"
-    echo "  $0 -rrr auth-service content-service   # Rebuild auth and content services"
-    echo "  $0 -rr playlizt-database               # Redeploy database"
-    echo "  $0 --logs auth-service                 # Show auth service logs"
-    echo "  $0 --test-all                          # Run all tests"
-    echo "  $0 --coverage                          # Run tests with coverage"
-    echo "  $0 --recreate-all                      # Recreate all services"
+    echo "  $0 -rrr playlizt-authentication playlizt-content-api    # Rebuild auth and content services"
+    echo "  $0 -rr playlizt-database                                # Redeploy database"
+    echo "  $0 --logs playlizt-authentication                       # Show auth service logs"
+    echo "  $0 --test-all                                           # Run all tests"
+    echo "  $0 --coverage                                           # Run tests with coverage"
+    echo "  $0 --recreate-all                                       # Recreate all services"
 }
 
 # Use modern docker compose command
@@ -159,25 +159,25 @@ wait_for_service_health() {
         # Service-specific health checks
         case "$service" in
             playlizt-database)
-                if docker compose exec -T "$service" pg_isready -U playlizt_user >/dev/null 2>&1; then
+                if docker compose exec -T "$service" pg_isready -U "${PLAYLIZT_DB_USER}" >/dev/null 2>&1; then
                     echo -e "${GREEN}$service is healthy${NC}"
                     return 0
                 fi
                 ;;
-            eureka-service)
-                if docker compose exec -T "$service" curl -f http://localhost:${EUREKA_PORT}/actuator/health >/dev/null 2>&1; then
+            playlizt-eureka-service)
+                if docker compose exec -T "$service" curl -f http://localhost:${PLAYLIZT_EUREKA_PORT}/actuator/health >/dev/null 2>&1; then
                     echo -e "${GREEN}$service is healthy${NC}"
                     return 0
                 fi
                 ;;
-            auth-service|content-service|playback-service|ai-service|api-gateway)
+            playlizt-authentication|playlizt-content-api|playlizt-playback|playlizt-content-processing|playlizt-api-gateway)
                 local port=""
                 case "$service" in
-                    auth-service) port=${AUTH_SERVICE_PORT} ;;
-                    content-service) port=${CONTENT_SERVICE_PORT} ;;
-                    playback-service) port=${PLAYBACK_SERVICE_PORT} ;;
-                    ai-service) port=${AI_SERVICE_PORT} ;;
-                    api-gateway) port=${API_GATEWAY_PORT} ;;
+                    playlizt-authentication) port=${PLAYLIZT_AUTH_PORT} ;;
+                    playlizt-content-api) port=${PLAYLIZT_CONTENT_API_PORT} ;;
+                    playlizt-playback) port=${PLAYLIZT_PLAYBACK_PORT} ;;
+                    playlizt-content-processing) port=${PLAYLIZT_CONTENT_PROCESSING_PORT} ;;
+                    playlizt-api-gateway) port=${PLAYLIZT_API_GATEWAY_PORT} ;;
                 esac
                 if docker compose exec -T "$service" curl -f http://localhost:$port/actuator/health >/dev/null 2>&1; then
                     echo -e "${GREEN}$service is healthy${NC}"
@@ -219,7 +219,14 @@ build_service_jar() {
     local service=$1
     echo -e "${BLUE}Building JAR for $service...${NC}"
     cd "$SCRIPT_DIR"
-    ./gradlew ":$service:clean" ":$service:bootJar" --no-daemon
+
+    # Map Docker service name to Gradle project path
+    local projectPath=":$service"
+    if [ "$service" = "playlizt-content-processing" ]; then
+        projectPath=":playlizt-content:playlizt-content-processing"
+    fi
+
+    ./gradlew "${projectPath}:clean" "${projectPath}:bootJar" --no-daemon
 }
 
 # Build service Docker image
@@ -386,19 +393,29 @@ run_integration_tests() {
 setup_test_env() {
     echo -e "${CYAN}=== Setting up Test Environment ===${NC}"
     
-    # Start backend services
+    # Start backend services and build frontend for local API
     echo -e "${BLUE}Starting backend services...${NC}"
     source_env
+    
+    if [ -z "${PLAYLIZT_API_GATEWAY_PORT}" ]; then
+        echo -e "${RED}PLAYLIZT_API_GATEWAY_PORT is not set in .env; cannot build frontend for tests${NC}"
+        exit 1
+    fi
+    
+    local api_url="http://localhost:${PLAYLIZT_API_GATEWAY_PORT}/api/v1"
+    echo -e "${BLUE}Building Flutter web for local tests with API_URL: ${api_url}${NC}"
+    build_flutter_web "${api_url}"
+    
     docker compose up -d
     
     # Wait for critical services
     wait_for_service_health "playlizt-database"
-    wait_for_service_health "eureka-service"
-    wait_for_service_health "auth-service"
-    wait_for_service_health "content-service"
-    wait_for_service_health "playback-service"
-    wait_for_service_health "ai-service"
-    wait_for_service_health "api-gateway"
+    wait_for_service_health "playlizt-eureka-service"
+    wait_for_service_health "playlizt-authentication"
+    wait_for_service_health "playlizt-content-api"
+    wait_for_service_health "playlizt-playback"
+    wait_for_service_health "playlizt-content-processing"
+    wait_for_service_health "playlizt-api-gateway"
     
     # Start frontend
     serve_flutter_web 4090
@@ -466,7 +483,7 @@ run_coverage() {
 build_flutter_web() {
     local api_url=${1}
     echo -e "${CYAN}=== Building Flutter Web ===${NC}"
-    cd "$SCRIPT_DIR/frontend/playlizt_app"
+    cd "$SCRIPT_DIR/playlizt-frontend/playlizt_app"
     
     if ! command -v flutter &> /dev/null; then
         echo -e "${RED}Flutter not installed. Please install Flutter first.${NC}"
@@ -485,13 +502,13 @@ build_flutter_web() {
     fi
     
     echo -e "${GREEN}Flutter web build complete!${NC}"
-    echo -e "${BLUE}Output: $SCRIPT_DIR/frontend/playlizt_app/build/web${NC}"
+    echo -e "${BLUE}Output: $SCRIPT_DIR/playlizt-frontend/playlizt_app/build/web${NC}"
 }
 
 # Build Flutter APK
 build_flutter_apk() {
     echo -e "${CYAN}=== Building Flutter APK ===${NC}"
-    cd "$SCRIPT_DIR/frontend/playlizt_app"
+    cd "$SCRIPT_DIR/playlizt-frontend/playlizt_app"
     
     if ! command -v flutter &> /dev/null; then
         echo -e "${RED}Flutter not installed. Please install Flutter first.${NC}"
@@ -503,16 +520,16 @@ build_flutter_apk() {
     flutter build apk --release
     
     echo -e "${GREEN}Flutter APK build complete!${NC}"
-    echo -e "${BLUE}Output: $SCRIPT_DIR/frontend/playlizt_app/build/app/outputs/flutter-apk/app-release.apk${NC}"
+    echo -e "${BLUE}Output: $SCRIPT_DIR/playlizt-frontend/playlizt_app/build/app/outputs/flutter-apk/app-release.apk${NC}"
     
-    local apk_size=$(du -h "$SCRIPT_DIR/frontend/playlizt_app/build/app/outputs/flutter-apk/app-release.apk" 2>/dev/null | cut -f1)
+    local apk_size=$(du -h "$SCRIPT_DIR/playlizt-frontend/playlizt_app/build/app/outputs/flutter-apk/app-release.apk" 2>/dev/null | cut -f1)
     echo -e "${GREEN}APK Size: ${apk_size}${NC}"
 }
 
 # Build Flutter app bundle
 build_flutter_bundle() {
     echo -e "${CYAN}=== Building Flutter App Bundle ===${NC}"
-    cd "$SCRIPT_DIR/frontend/playlizt_app"
+    cd "$SCRIPT_DIR/playlizt-frontend/playlizt_app"
     
     if ! command -v flutter &> /dev/null; then
         echo -e "${RED}Flutter not installed. Please install Flutter first.${NC}"
@@ -523,7 +540,7 @@ build_flutter_bundle() {
     flutter build appbundle --release
     
     echo -e "${GREEN}Flutter App Bundle build complete!${NC}"
-    echo -e "${BLUE}Output: $SCRIPT_DIR/frontend/playlizt_app/build/app/outputs/bundle/release/app-release.aab${NC}"
+    echo -e "${BLUE}Output: $SCRIPT_DIR/playlizt-frontend/playlizt_app/build/app/outputs/bundle/release/app-release.aab${NC}"
 }
 
 # Deploy to GCP
@@ -532,20 +549,20 @@ deploy() {
     
     # Fetch API Gateway URL
     echo -e "${BLUE}Fetching API Gateway URL...${NC}"
-    local api_url=$(cd "$SCRIPT_DIR/terraform" && terraform output -raw api_gateway_url 2>/dev/null || echo "")
+    local api_url=$(cd "$SCRIPT_DIR/playlizt-terraform" && terraform output -raw api_gateway_url 2>/dev/null || echo "")
     
     if [ -n "$api_url" ]; then
         api_url="${api_url}/api/v1"
         echo -e "${GREEN}Found URL: $api_url${NC}"
     else
-        echo -e "${YELLOW}API Gateway URL not found. Using existing deployment URL.${NC}"
-        api_url="https://api-gateway-a2y2msttda-bq.a.run.app/api/v1"
+        echo -e "${RED}API Gateway URL not found in Terraform outputs. Aborting deploy.${NC}"
+        exit 1
     fi
     
     # Build Web with PROD URL
     build_flutter_web "$api_url"
 
-    local deploy_script="$SCRIPT_DIR/ops/scripts/setupGCP.sh"
+    local deploy_script="$SCRIPT_DIR/playlizt-ops/scripts/setupGCP.sh"
     
     if [ ! -f "$deploy_script" ]; then
         echo -e "${RED}Deployment script not found: $deploy_script${NC}"
@@ -562,8 +579,8 @@ deploy() {
 # Serve Flutter web
 serve_flutter_web() {
     local port=${1:-4090}
-    local web_dir="$SCRIPT_DIR/frontend/playlizt_app/build/web"
-    local pid_file="$SCRIPT_DIR/frontend/playlizt_app/.web_server.pid"
+    local web_dir="$SCRIPT_DIR/playlizt-frontend/playlizt_app/build/web"
+    local pid_file="$SCRIPT_DIR/playlizt-frontend/playlizt_app/.web_server.pid"
     
     if [ -f "$pid_file" ]; then
         if ps -p $(cat "$pid_file") > /dev/null; then
@@ -581,16 +598,16 @@ serve_flutter_web() {
     
     echo -e "${CYAN}=== Serving Flutter Web on port $port ===${NC}"
     cd "$web_dir"
-    nohup python3 -m http.server "$port" > "$SCRIPT_DIR/frontend/playlizt_app/web_server.log" 2>&1 &
+    nohup python3 -m http.server "$port" > "$SCRIPT_DIR/playlizt-frontend/playlizt_app/web_server.log" 2>&1 &
     echo $! > "$pid_file"
     
     echo -e "${GREEN}Web server started on port $port (PID: $(cat "$pid_file"))${NC}"
-    echo -e "${BLUE}Logs: $SCRIPT_DIR/frontend/playlizt_app/web_server.log${NC}"
+    echo -e "${BLUE}Logs: $SCRIPT_DIR/playlizt-frontend/playlizt_app/web_server.log${NC}"
 }
 
 # Stop Flutter web
 stop_flutter_web() {
-    local pid_file="$SCRIPT_DIR/frontend/playlizt_app/.web_server.pid"
+    local pid_file="$SCRIPT_DIR/playlizt-frontend/playlizt_app/.web_server.pid"
     
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")

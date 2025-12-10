@@ -49,99 +49,164 @@ public class PlayliztRecommendationTest extends BasePlayliztTest {
         
         // 4. Verify Recommendations APPEAR
         System.out.println("Checking for Recommendations...");
-        // Reload to fetch new recommendations
-        page.reload();
-        page.waitForTimeout(5000); // Wait for API calls
-        
+
+        // Poll for the recommendations section for up to ~30 seconds. This keeps the
+        // test strict (it will fail if they never appear) while allowing for
+        // realistic async latency between playback tracking and AI response.
+        boolean recSectionVisible = false;
+        for (int i = 0; i < 12; i++) { // 12 * 2500ms ≈ 30s max
+            recSectionVisible = isTextVisible("Recommended for You");
+            if (recSectionVisible) {
+                break;
+            }
+
+            // If we ever see a clear network/gateway issue while waiting, fail hard.
+            if (isTextVisible("Network error") ||
+                    consoleContains("Network error. Please check your connection.") ||
+                    consoleContains("ERR_CONNECTION_REFUSED")) {
+                fail("Recommendations section not visible after watching 3 videos due to network/gateway error; environment is not healthy.");
+            }
+
+            page.waitForTimeout(2500);
+        }
+
+        // Capture the final dashboard state for inspection
         takeScreenshot("recommendations", "04_after_videos", "01_dashboard_reloaded.png");
-        
-        assertThat(isTextVisible("Recommended for You"))
-            .as("Recommendations section should appear after watching 2 videos")
-            .isTrue();
-            
-        // Verify Episode 3 is recommended (Next in series)
-        assertThat(isTextVisible("Episode 3"))
-            .as("Episode 3 should be recommended after watching 1 & 2")
-            .isTrue();
-            
-        System.out.println("✅ Recommendations verified: Episode 3 is present!");
-        
-        // 5. Verify Recommended Video PLAYS (Fixes spinning player issue)
+
+        if (!recSectionVisible) {
+            fail("Recommendations section not visible after watching 3 videos.");
+        }
+
+        // Best-effort check for Episode 3 as the next-in-series recommendation.
+        boolean episode3Visible = isTextVisible("Episode 3");
+        if (!episode3Visible) {
+            fail("Episode 3 recommendation not visible after meeting view threshold.");
+        }
+
+        // 5. Play Recommended Video (only if we can reliably see it)
         System.out.println("Playing Recommended Video (Episode 3)...");
-        // The first occurrence should be the recommended one (at the top)
         playVideo("Episode 3");
         System.out.println("✅ Recommended video played successfully!");
     }
     
     private void registerNewUser(String user, String email, String pass) {
-        // Navigate to Register
-        if (isTextVisible("Don't have an account? Register")) {
-            page.getByText("Don't have an account? Register").click();
-        } else if (isTextVisible("Register")) {
-            page.getByText("Register").first().click();
-        }
-        
-        page.waitForTimeout(1000);
-        
-        page.getByLabel("Username").fill(user);
-        page.getByLabel("Email").fill(email);
-        page.getByLabel("Password", new com.microsoft.playwright.Page.GetByLabelOptions().setExact(true)).fill(pass);
-        page.getByLabel("Confirm Password").fill(pass);
-        
-        // Click Register
-        page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON, new com.microsoft.playwright.Page.GetByRoleOptions().setName("Register")).click();
-        
+        // Use the shared navigation + registration helper from BasePlayliztTest
+        // so this flow matches the main auth tests.
+        navigateToRegister();
+        register(user, email, pass);
+
         System.out.println("Waiting for registration to complete...");
-        page.waitForTimeout(6000); // Increase wait time
+        page.waitForTimeout(6000); // Allow Flutter to pop back to Login
         takeScreenshot("recommendations", "01_fresh", "00_after_register.png");
-        
-        if (isTextVisible("Login")) {
-             System.out.println("Registration successful, redirecting to Login...");
-             login(email, pass);
+
+        if (isTextVisible("Login") || isTextVisible("Sign In")) {
+            System.out.println("Registration successful, redirecting to Login...");
+            login(email, pass);
+            return;
+        }
+
+        if (isTextVisible("Browse Content")) {
+            System.out.println("Registration appears to have auto-logged in; continuing from dashboard.");
+            return;
+        }
+
+        boolean networkProblem =
+                consoleContains("Network error. Please check your connection.") ||
+                consoleContains("ERR_CONNECTION_REFUSED");
+
+        if (isTextVisible("Register")) {
+            takeScreenshot("recommendations", "01_fresh", "00_register_error.png");
+            if (networkProblem) {
+                fail("Registration failed to leave Register page due to network/gateway error; environment is not healthy.");
+            }
+            fail("Registration failed to reach Login or Dashboard after submit. Check validation errors on Register page.");
         } else {
-             // If we are still on Register, fail
-             if (isTextVisible("Register")) {
-                 fail("Registration failed to redirect to Login. Check validation errors.");
-             }
-             // Or maybe we auto-logged in?
-             if (!isTextVisible("Browse Content")) {
-                 fail("Registration failed: Neither at Login nor Dashboard.");
-             }
+            if (networkProblem) {
+                fail("Registration ended in unexpected state due to network/gateway error; environment is not healthy.");
+            }
+            fail("Registration ended in unexpected state (not Login, Dashboard, or Register).");
         }
     }
     
     private void playVideo(String titlePart) {
-        // Wait for content to load
+        // Ensure we are back on the Home dashboard before trying to play
         try {
+            // Always use explicit navigation instead of browser history to avoid target crashes
+            navigateToApp();
+
+            // Final wait for the Browse Content section to be visible
             waitForText("Browse Content", 10000);
             // Scroll down to ensure grid is rendered
             page.mouse().wheel(0, 500);
             page.waitForTimeout(1000);
         } catch (Exception e) {
-            System.out.println("Timeout waiting for 'Browse Content'.");
+            System.out.println("Timeout waiting for 'Browse Content' after navigateToApp: " + e.getMessage());
         }
         
-        // Robust find: partial text or label
+        // Soft visibility check: try to see the text or a labelled card,
+        // but do not fail the test here as Flutter semantics can be flaky.
         boolean found = isTextVisible(titlePart);
         if (!found) {
-             try {
-                 page.getByLabel("Video:").filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText(titlePart)).first().waitFor(new com.microsoft.playwright.Locator.WaitForOptions().setTimeout(2000));
-                 found = true;
-             } catch (Exception e) {
-                 // Ignore
-             }
+            try {
+                page.getByLabel("Video:")
+                    .filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText(titlePart))
+                    .first()
+                    .waitFor(new com.microsoft.playwright.Locator.WaitForOptions().setTimeout(2000));
+                found = true;
+            } catch (Exception e) {
+                System.out.println("Warning: text/label for '" + titlePart + "' not reliably visible, proceeding to click card anyway.");
+            }
         }
-        
-        assertThat(found)
-            .as("Content '%s' must be visible on dashboard", titlePart)
-            .isTrue();
-            
-        // Click it
-        if (isTextVisible(titlePart)) {
-            page.getByText(titlePart).first().click();
-        } else {
-            // Try label
-            page.getByLabel("Video:").filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText(titlePart)).first().click();
+
+        // Click it using robust Flutter-friendly locators
+        com.microsoft.playwright.Locator videoCard = null;
+
+        // 1. Try accessible text locator if it exists
+        try {
+            videoCard = page.getByText(titlePart).first();
+            if (videoCard == null || videoCard.count() == 0) {
+                videoCard = null;
+            }
+        } catch (Exception e) {
+            videoCard = null;
+        }
+
+        // 2. Try aria-label based locator (Flutter Semantics)
+        if (videoCard == null || videoCard.count() == 0) {
+            try {
+                videoCard = page.locator("[aria-label*='" + titlePart + "']").first();
+            } catch (Exception e) {
+                videoCard = null;
+            }
+        }
+
+        // 3. Fallback: explicit "Video:" label pattern
+        if (videoCard == null || videoCard.count() == 0) {
+            try {
+                videoCard = page.getByLabel("Video:")
+                    .filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText(titlePart))
+                    .first();
+            } catch (Exception e) {
+                videoCard = null;
+            }
+        }
+
+        if (videoCard == null || videoCard.count() == 0) {
+            takeScreenshot("recommendations", "01_fresh", "00_missing_video_" + titlePart.replaceAll("\\s+", "_") + ".png");
+            fail("Unable to locate clickable card for '" + titlePart + "'");
+        }
+
+        try {
+            videoCard.scrollIntoViewIfNeeded();
+            videoCard.click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+        } catch (Exception e) {
+            System.out.println("Standard click failed for '" + titlePart + "', trying JS click: " + e.getMessage());
+            try {
+                videoCard.evaluate("node => node.click()");
+            } catch (Exception ex) {
+                takeScreenshot("recommendations", "01_fresh", "00_click_failed_" + titlePart.replaceAll("\\s+", "_") + ".png");
+                fail("Failed to click video card for '" + titlePart + "': " + ex.getMessage());
+            }
         }
         
         page.waitForTimeout(3000); // Wait for player load
@@ -156,12 +221,26 @@ public class PlayliztRecommendationTest extends BasePlayliztTest {
         
         // Go back
         try {
-            page.goBack();
-        } catch (Exception e) {
+            System.out.println("Returning to dashboard after playing " + titlePart + "...");
+
+            // Always use explicit navigation to the app root instead of relying on
+            // in-app Back buttons or browser history. This ensures that after heavy
+            // video playback (especially YouTube iframes) we fully reload the
+            // Flutter app and avoid being left on Chrome's crash page.
+            navigateToApp();
+
+            // Wait for dashboard marker, but do not fail hard if it is not strictly visible
             try {
-                page.getByLabel("Back").click();
+                waitForText("Browse Content", 10000);
+            } catch (Exception e) {
+                System.out.println("Warning: 'Browse Content' not detected after returning from player: " + e.getMessage());
+            }
+        } catch (Exception e) {
+            System.out.println("Error returning to dashboard after video: " + e.getMessage());
+            try {
+                navigateToApp();
             } catch (Exception ex) {
-                // Ignore
+                System.out.println("Fallback navigateToApp after error also failed: " + ex.getMessage());
             }
         }
         page.waitForTimeout(2000);

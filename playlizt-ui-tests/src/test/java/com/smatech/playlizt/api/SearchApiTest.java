@@ -24,22 +24,22 @@ public class SearchApiTest extends BaseApiTest {
     @Test
     @Order(1)
     public void setupContent() {
-        // Create content with specific attributes for filtering
+        // Add content with specific attributes for filtering
         // Note: Need to publish content for it to be searchable by default (searchContent usually filters published=true)
-        // ContentService.createContent sets published=false.
+        // ContentService.addContent sets published=false.
         // I need to publish them.
         
-        Long id1 = createContent("Action Movie", "Fast paced", "Action", 120);
+        Long id1 = addContent("Action Movie", "Fast paced", "Action", 120);
         publishContent(id1);
         
-        Long id2 = createContent("Drama Movie", "Slow paced", "Drama", 60);
+        Long id2 = addContent("Drama Movie", "Slow paced", "Drama", 60);
         publishContent(id2);
         
-        Long id3 = createContent("Short Clip", "Very short", "Clips", 30);
+        Long id3 = addContent("Short Clip", "Very short", "Clips", 30);
         publishContent(id3);
     }
 
-    private Long createContent(String title, String desc, String category, int duration) {
+    private Long addContent(String title, String desc, String category, int duration) {
         String body = String.format("{" +
                 "\"title\": \"%s\"," +
                 "\"description\": \"%s\"," +

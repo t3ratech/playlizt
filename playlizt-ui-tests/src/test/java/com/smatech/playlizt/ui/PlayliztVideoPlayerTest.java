@@ -162,9 +162,9 @@ public class PlayliztVideoPlayerTest extends BasePlayliztTest {
             System.out.println("Skipping test03 because previous tests skipped.");
             return;
         }
-        // ... test03 logic ...
-        // Just click back
         try {
+            // ... test03 logic ...
+            // Just click back
             // ... click back logic ...
             Locator backButton = page.getByLabel("Back");
             boolean clicked = false;
@@ -177,10 +177,16 @@ public class PlayliztVideoPlayerTest extends BasePlayliztTest {
             if (!clicked) {
                 page.goBack();
             }
-            
-            page.waitForTimeout(2000);
+
+            // Wait for dashboard marker before capturing screenshot
+            try {
+                waitForText("Browse Content", 10000);
+            } catch (Exception e) {
+                System.out.println("Warning: 'Browse Content' not detected after back navigation: " + e.getMessage());
+            }
+
             takeScreenshot("videoplayer", "03_back", "01_dashboard_returned.png");
-            
+
             boolean dashVisible = isTextVisible("Browse Content") || isTextVisible("Search");
             if (!dashVisible) {
                  System.out.println("⚠️ Back navigation verification failed. Marking skipped.");

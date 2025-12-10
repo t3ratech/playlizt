@@ -17,55 +17,74 @@
 
 ## Overview
 
-Playlizt is a lightweight video/audio streaming platform built with microservices architecture using Java, Spring Boot, and Flutter. The platform leverages Google Gemini AI for intelligent content discovery, metadata enhancement, and behavioral analytics.
-
-**Core Principle**: All configuration follows strict "no defaults, no fallbacks" - services must fail fast if required configuration is missing.
+Playlizt is a media player, streamer, downloader and converter for your own media collection. It is implemented as a microservices-based system using Java, Spring Boot and Flutter, and uses Google Gemini AI for intelligent content discovery, metadata enhancement and behavioral analytics.
 
 ### Key Features
-- User authentication with roles (USER, CREATOR, ADMIN)
+- User authentication for a single generic user type (no roles)
 - AI-powered content recommendations
 - AI metadata enhancement for uploads
 - AI watch pattern analysis
 - Content browsing and search
 - Viewing history and "Continue Watching"
-- Creator content management
+- Content upload & management and usage analytics
 - API documentation via Swagger
 - Full Docker containerization
 
 ## System Architecture
 
+At a high level, Playlizt has:
+
+- A Flutter frontend that runs on the user's machine.
+- Local media files on disk that the frontend can play directly.
+- A backend composed of the API Gateway and microservices, plus PostgreSQL and Gemini, for online catalog, AI, and analytics.
+
+```text
++----------------------+           +---------------------------+
+|   Flutter Frontend   |  <----->  |   Local Media Filesystem |
++----------------------+           +---------------------------+
+
+            |
+            | HTTP (when backend is available)
+            v
+
++----------------------+           +--------------------------------------+
+| playlizt-api-gateway |  ----->   | Auth / Content / Playback / AI Svc  |
++----------------------+           +--------------------------------------+
+                                             |
+                                             v
+                                  +------------------------+
+                                  | PostgreSQL, Gemini API |
+                                  +------------------------+
 ```
-Flutter Frontend → API Gateway → [Auth, Content, Playback, AI Services] → Service Discovery
-                                                ↓
-                                    [PostgreSQL, Gemini API]
-```
+
+The frontend can act purely as a local media player using the filesystem. When the backend stack is running, the same frontend also talks to `playlizt-api-gateway` for authenticated access, online catalog features, AI-powered recommendations and usage analytics.
 
 ## Microservices
 
 ### Service Inventory
-1. **eureka-service** (4761) - Service discovery
-2. **auth-service** (4081) - Authentication & authorization
-3. **content-service** (4082) - Content management
-4. **playback-service** (4083) - View tracking & analytics
-5. **ai-service** (4084) - AI features
-6. **api-gateway** (4080) - Request routing
+1. **playlizt-eureka-service** (4761) - Service discovery
+2. **playlizt-authentication** (4081) - Authentication & authorization
+3. **playlizt-content-api** (4082) - Content management
+4. **playlizt-playback** (4083) - View tracking & analytics
+5. **playlizt-content-processing** (4084) - AI features
+6. **playlizt-api-gateway** (4080) - Request routing
 
 ### Startup Order
 ```
-database → eureka-service → auth-service → content-service → playback-service → ai-service → api-gateway
+database → playlizt-eureka-service → playlizt-authentication → playlizt-content-api → playlizt-playback → playlizt-content-processing → playlizt-api-gateway
 ```
 
 ## Technology Stack
 
 ### Backend
-- **Language**: Java 25, Kotlin 2.3.0-RC (Gradle scripts)
+- **Language**: Java 25
 - **Framework**: Spring Boot 3.4.0
 - **Service Discovery**: Spring Cloud Netflix Eureka
 - **API Gateway**: Spring Cloud Gateway
 - **Database**: PostgreSQL 17
 - **ORM**: Spring Data JPA
 - **API Docs**: Springdoc OpenAPI 3
-- **Build**: Gradle 8.11 with Kotlin DSL
+- **Build**: Gradle 9.2.1 with Groovy DSL
 - **Container**: Docker & Docker Compose
 
 ### Frontend
@@ -80,7 +99,7 @@ database → eureka-service → auth-service → content-service → playback-se
 ### Security
 - **Password**: Argon2id (quantum-resistant)
 - **Auth**: JWT tokens
-- **Authorization**: Spring Security RBAC
+- **Authorization**: Spring Security with a generic authenticated user (no roles)
 
 ### Testing
 - **Unit**: JUnit 5, Mockito
@@ -88,6 +107,8 @@ database → eureka-service → auth-service → content-service → playback-se
 - **Coverage**: 80% minimum
 
 ## Configuration Standards
+
+**Core Principle**: All configuration follows strict "no defaults, no fallbacks" – services must fail fast if required configuration is missing or inconsistent.
 
 ### Configuration Hierarchy
 ```
@@ -109,31 +130,39 @@ Database services:
 
 **.env**:
 ```properties
-AUTH_SERVICE_PORT=4081
-POSTGRES_HOST=playlizt-database
-POSTGRES_PORT=5432
-POSTGRES_DB=playlizt
-POSTGRES_USER=playlizt_user
-POSTGRES_PASSWORD=${DB_PASSWORD}
-JWT_SECRET=${JWT_SECRET}
-GEMINI_API_KEY=${GEMINI_API_KEY}
+PLAYLIZT_DB_HOST=playlizt-database
+PLAYLIZT_DB_PORT=5432
+PLAYLIZT_DB_NAME=playlizt
+PLAYLIZT_DB_USER=playlizt_user
+PLAYLIZT_DB_PASSWORD=${DB_PASSWORD}
+
+PLAYLIZT_EUREKA_PORT=4761
+PLAYLIZT_AUTH_PORT=4081
+PLAYLIZT_CONTENT_API_PORT=4082
+PLAYLIZT_PLAYBACK_PORT=4083
+PLAYLIZT_CONTENT_PROCESSING_PORT=4084
+PLAYLIZT_API_GATEWAY_PORT=4080
+
+PLAYLIZT_JWT_SECRET=${JWT_SECRET}
+PLAYLIZT_GEMINI_API_KEY=${GEMINI_API_KEY}
 ```
 
 **docker-compose.yml**:
 ```yaml
 services:
-  auth-service:
+  playlizt-authentication:
     environment:
-      - SERVER_PORT=${AUTH_SERVICE_PORT}
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-      - JWT_SECRET=${JWT_SECRET}
+      - SERVER_PORT=${PLAYLIZT_AUTH_PORT}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${PLAYLIZT_DB_HOST}:${PLAYLIZT_DB_PORT}/${PLAYLIZT_DB_NAME}
+      - PLAYLIZT_JWT_SECRET=${PLAYLIZT_JWT_SECRET}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${PLAYLIZT_EUREKA_URL}
 ```
 
 **application-docker.properties**:
 ```properties
 server.port=${SERVER_PORT}
 spring.datasource.url=${SPRING_DATASOURCE_URL}
-jwt.secret=${JWT_SECRET}
+jwt.secret=${PLAYLIZT_JWT_SECRET}
 ```
 
 ## Build System
@@ -141,45 +170,48 @@ jwt.secret=${JWT_SECRET}
 ### Project Structure
 ```
 playlizt/
-├── build.gradle.kts
-├── settings.gradle.kts
+├── build.gradle
+├── settings.gradle
 ├── gradlew
 ├── .env
 ├── docker-compose.yml
 ├── playlizt-docker.sh
-├── eureka-service/
-├── auth-service/
-├── content-service/
-├── playback-service/
-├── ai-service/
-├── api-gateway/
-└── frontend/
+├── playlizt-eureka-service/
+├── playlizt-authentication/
+├── playlizt-content/
+│   ├── playlizt-content-api/
+│   └── playlizt-content-processing/
+├── playlizt-playback/
+├── playlizt-api-gateway/
+├── playlizt-frontend/
+├── playlizt-ops/
+└── playlizt-terraform/
 ```
 
 ### Gradle Commands
 ```bash
-./gradlew clean build           # Build all
-./gradlew :auth-service:build   # Build specific service
-./gradlew test                  # Run all tests
-./gradlew :auth-service:test    # Test specific service
-./gradlew bootJar               # Generate JARs
+./gradlew clean build                     # Build all
+./gradlew :playlizt-authentication:build  # Build specific service
+./gradlew test                            # Run all tests
+./gradlew :playlizt-authentication:test   # Test specific service
+./gradlew bootJar                         # Generate JARs
 ```
 
 ### JAR Naming
-Each service generates uniquely named JAR:
-- `eureka-service.jar`
-- `auth-service.jar`
-- `content-service.jar`
-- `playback-service.jar`
-- `ai-service.jar`
-- `api-gateway.jar`
+Each service generates a uniquely named, fully prefixed JAR, for example:
+- `playlizt-eureka-service.jar`
+- `playlizt-authentication.jar`
+- `playlizt-content-api.jar`
+- `playlizt-playback.jar`
+- `playlizt-content-processing.jar`
+- `playlizt-api-gateway.jar`
 
-**build.gradle.kts**:
-```kotlin
-tasks.bootJar {
-    archiveBaseName.set("auth-service")
-    archiveVersion.set("")
-    archiveClassifier.set("")
+**build.gradle** (Groovy):
+```groovy
+bootJar {
+    archiveBaseName = 'playlizt-authentication'
+    archiveVersion = ''
+    archiveClassifier = ''
 }
 ```
 
@@ -193,22 +225,21 @@ tasks.bootJar {
 
 ### Schema
 ```sql
--- Users (auth-service)
+-- Users (playlizt-authentication)
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('USER', 'CREATOR', 'ADMIN')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP,
     is_active BOOLEAN DEFAULT true
 );
 
--- Content (content-service)
+-- Content (playlizt-content-api)
 CREATE TABLE content (
     id BIGSERIAL PRIMARY KEY,
-    creator_id BIGINT REFERENCES users(id),
+    owner_user_id BIGINT REFERENCES users(id),
     title VARCHAR(255) NOT NULL,
     description TEXT,
     category VARCHAR(100) NOT NULL,
@@ -223,7 +254,7 @@ CREATE TABLE content (
     is_published BOOLEAN DEFAULT false
 );
 
--- Viewing History (playback-service)
+-- Viewing History (playlizt-playback)
 CREATE TABLE viewing_history (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(id),
@@ -235,7 +266,7 @@ CREATE TABLE viewing_history (
     UNIQUE(user_id, content_id)
 );
 
--- Ratings (ai-service)
+-- Ratings (playlizt-content-processing)
 CREATE TABLE content_ratings (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(id),
@@ -250,7 +281,7 @@ CREATE TABLE content_ratings (
 
 ### Indexes
 ```sql
-CREATE INDEX idx_content_creator ON content(creator_id);
+CREATE INDEX idx_content_owner ON content(owner_user_id);
 CREATE INDEX idx_content_category ON content(category);
 CREATE INDEX idx_viewing_history_user ON viewing_history(user_id);
 CREATE INDEX idx_ratings_content ON content_ratings(content_id);
@@ -345,7 +376,6 @@ public PasswordEncoder passwordEncoder() {
 {
   "sub": "user@example.com",
   "userId": 123,
-  "role": "USER",
   "iat": 1234567890,
   "exp": 1234571490
 }
@@ -358,26 +388,15 @@ jwt.expiration-ms=3600000        # 1 hour
 jwt.refresh-expiration-ms=86400000  # 24 hours
 ```
 
-### Role-Based Access Control
-- **USER**: Browse, view, manage history
-- **CREATOR**: USER + upload/manage content
-- **ADMIN**: All permissions + analytics
+### Authorization Model (No Roles)
+- Single generic authenticated user type; no `role` claim in the JWT.
+- All authenticated users can browse content, upload and manage their own content, and view analytics.
+- Authorization rules distinguish only between anonymous and authenticated requests (for example, using `isAuthenticated()` in Spring Security).
 
 #### Registration Flow
 - **Endpoint**: `POST /api/v1/auth/register`
-- **Payload**: `username`, `email`, `password`, `role` (USER or CREATOR)
-- **UI**: Registration screen must allow role selection via Dropdown.
-- **Logic**: If CREATOR is selected, user is assigned CREATOR role immediately.
-
-```java
-@PreAuthorize("hasRole('CREATOR')")
-@PostMapping("/api/v1/content")
-public ResponseEntity<ContentResponse> uploadContent() { }
-
-@PreAuthorize("hasRole('ADMIN')")
-@GetMapping("/api/v1/admin/insights")
-public ResponseEntity<AdminInsights> getInsights() { }
-```
+- **Payload**: `username`, `email`, `password`
+- **UI**: Registration screen collects credentials only; there is no role selector.
 
 ### Container Security
 ```dockerfile
@@ -432,7 +451,7 @@ class ContentServiceIntegrationTest {
     @Autowired private MockMvc mockMvc;
     
     @Test
-    void shouldCreateContent() throws Exception {
+    void shouldAddContent() throws Exception {
         mockMvc.perform(post("/api/v1/content")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"title\":\"Test\"}"))
@@ -708,9 +727,9 @@ POST /api/v1/auth/logout
 ```
 GET    /api/v1/content
 GET    /api/v1/content/{id}
-POST   /api/v1/content             # CREATOR
-PUT    /api/v1/content/{id}        # CREATOR
-DELETE /api/v1/content/{id}        # CREATOR/ADMIN
+POST   /api/v1/content             # authenticated user (upload)
+PUT    /api/v1/content/{id}        # authenticated owner of the content
+DELETE /api/v1/content/{id}        # authenticated owner of the content
 GET    /api/v1/content/search
 GET    /api/v1/content/categories
 ```
@@ -728,7 +747,7 @@ GET  /api/v1/playback/continue
 ```
 GET  /api/v1/ai/recommendations
 POST /api/v1/ai/enhance
-GET  /api/v1/ai/insights           # ADMIN
+GET  /api/v1/ai/insights           # authenticated user
 POST /api/v1/ai/sentiment
 ```
 
@@ -768,21 +787,21 @@ implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 ```dockerfile
 FROM eclipse-temurin:25-jdk-jammy AS build
 WORKDIR /workspace
-COPY gradlew gradle/ settings.gradle.kts build.gradle.kts ./
-COPY auth-service/ auth-service/
-RUN ./gradlew :auth-service:bootJar -x test
+COPY gradlew gradle/ settings.gradle build.gradle ./
+COPY playlizt-authentication/ playlizt-authentication/
+RUN ./gradlew :playlizt-authentication:bootJar -x test
 
 FROM eclipse-temurin:25-jre-jammy
 RUN groupadd -r playlizt -g 1000 && \
     useradd -r -g playlizt -u 1000 -m playlizt
 WORKDIR /app
-COPY --from=build /workspace/auth-service/build/libs/auth-service.jar app.jar
+COPY --from=build /workspace/playlizt-authentication/build/libs/playlizt-authentication.jar playlizt-authentication.jar
 RUN mkdir -p /var/log/playlizt && chown -R playlizt:playlizt /var/log/playlizt
 USER playlizt:playlizt
 EXPOSE 4081
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:4081/actuator/health || exit 1
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "playlizt-authentication.jar"]
 ```
 
 ### Docker Compose
@@ -790,44 +809,45 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 version: '3.8'
 
 services:
-  database:
+  playlizt-database:
     image: postgres:17
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PLAYLIZT_DB_NAME}
+      POSTGRES_USER: ${PLAYLIZT_DB_USER}
+      POSTGRES_PASSWORD: ${PLAYLIZT_DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "${PLAYLIZT_DB_PORT}:${PLAYLIZT_DB_PORT}"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${PLAYLIZT_DB_USER} -d ${PLAYLIZT_DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  eureka-service:
+  playlizt-eureka-service:
     build:
       context: .
-      dockerfile: eureka-service/Dockerfile
+      dockerfile: playlizt-eureka-service/Dockerfile
     ports:
-      - "4761:4761"
+      - "${PLAYLIZT_EUREKA_PORT}:${PLAYLIZT_EUREKA_PORT}"
     depends_on:
-      - database
+      - playlizt-database
 
-  auth-service:
+  playlizt-authentication:
     build:
       context: .
-      dockerfile: auth-service/Dockerfile
+      dockerfile: playlizt-authentication/Dockerfile
     ports:
-      - "${AUTH_SERVICE_PORT}:4081"
+      - "${PLAYLIZT_AUTH_PORT}:${PLAYLIZT_AUTH_PORT}"
     environment:
-      - SERVER_PORT=${AUTH_SERVICE_PORT}
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-      - JWT_SECRET=${JWT_SECRET}
+      - SERVER_PORT=${PLAYLIZT_AUTH_PORT}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${PLAYLIZT_DB_HOST}:${PLAYLIZT_DB_PORT}/${PLAYLIZT_DB_NAME}
+      - PLAYLIZT_JWT_SECRET=${PLAYLIZT_JWT_SECRET}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${PLAYLIZT_EUREKA_URL}
     depends_on:
-      - database
-      - eureka-service
+      - playlizt-database
+      - playlizt-eureka-service
 
 volumes:
   postgres_data:
@@ -858,8 +878,8 @@ volumes:
 
 **Examples**:
 ```bash
-./playlizt-docker.sh -rrr auth-service content-service
-./playlizt-docker.sh --logs --tail 200 auth-service
+./playlizt-docker.sh -rrr playlizt-authentication playlizt-content-api
+./playlizt-docker.sh --logs --tail 200 playlizt-authentication
 ./playlizt-docker.sh --test unit
 ./playlizt-docker.sh --rebuild-all
 ```
@@ -876,14 +896,14 @@ volumes:
 # Start development
 ./playlizt-docker.sh --rebuild-all
 
-# Make changes to auth-service
-./playlizt-docker.sh -rrr auth-service
+# Make changes to playlizt-authentication
+./playlizt-docker.sh -rrr playlizt-authentication
 
 # Run tests
 ./playlizt-docker.sh --test unit
 
 # View logs
-./playlizt-docker.sh --logs -f auth-service
+./playlizt-docker.sh --logs -f playlizt-authentication
 
 # Cleanup
 ./playlizt-docker.sh --cleanup
@@ -936,12 +956,12 @@ public interface ContentMapper {
 ```java
 @Slf4j
 public class ContentService {
-    public Content create(ContentRequest request) {
-        log.info("Creating content: title={}", request.getTitle());
+    public Content add(ContentRequest request) {
+        log.info("Adding content: title={}", request.getTitle());
         try {
             return contentRepository.save(entity);
         } catch (Exception e) {
-            log.error("Failed to create content", e);
+            log.error("Failed to add content", e);
             throw e;
         }
     }
@@ -963,9 +983,9 @@ public class GlobalExceptionHandler {
 ## End-to-End Deployment
 
 ### 1. Credential Management
-All deployment scripts rely on a centralized credentials file located at `~/gcp/credentials`. This file contains sensitive configuration for GCP, Database, and GitHub.
+All deployment scripts rely on a centralized credentials file located at `~/gcp/credentials_playlizt`. This file contains sensitive configuration for GCP, Database, and GitHub.
 
-**File Structure (`~/gcp/credentials`)**:
+**File Structure (`~/gcp/credentials_playlizt`)**:
 ```bash
 # Google Cloud Configuration
 export GCP_PROJECT_ID="playlizt-production-123"
@@ -990,14 +1010,14 @@ export ANDROID_SDK_ROOT="/opt/android/sdk"
 ```
 
 ### 2. Deployment Scripts
-The project includes automated scripts for setting up the environment from scratch, located in `ops/scripts/`:
+The project includes automated scripts for setting up the environment from scratch, located in `playlizt-ops/scripts/`:
 
-#### A. `ops/scripts/setupGIT.sh`
+#### A. `playlizt-ops/scripts/setupGIT.sh`
 - **Purpose**: Clones the repository using the provided GitHub token.
-- **Usage**: `./ops/scripts/setupGIT.sh`
-- **Pre-requisites**: `~/gcp/credentials` must exist.
+- **Usage**: `./playlizt-ops/scripts/setupGIT.sh`
+- **Pre-requisites**: `~/gcp/credentials_playlizt` must exist.
 
-#### B. `ops/scripts/setupLocal.sh`
+#### B. `playlizt-ops/scripts/setupLocal.sh`
 - **Purpose**: Installs all necessary development tools on a fresh Ubuntu machine.
 - **Installs**:
   - Java 25 (Temurin)
@@ -1005,9 +1025,9 @@ The project includes automated scripts for setting up the environment from scrat
   - Terraform
   - Google Cloud SDK (via Snap)
   - Android SDK (Command Line Tools)
-- **Usage**: `./ops/scripts/setupLocal.sh` (requires sudo)
+- **Usage**: `./playlizt-ops/scripts/setupLocal.sh` (requires sudo)
 
-#### C. `ops/scripts/setupGCP.sh` (Invoked via playlizt-docker.sh)
+#### C. `playlizt-ops/scripts/setupGCP.sh` (Invoked via playlizt-docker.sh)
 - **Purpose**: Provisions GCP infrastructure and deploys the application.
 - **Actions**:
   1.  Initializes Terraform.
@@ -1043,7 +1063,7 @@ Infrastructure as Code (IaC) is managed via Terraform in the `terraform/` direct
 - [x] Non-root containers
 - [x] Rate Limiting (Redis)
 - [x] Centralized File Logging
-- [x] Admin Analytics
+- [x] Analytics dashboard & insights
 - [x] Content Upload & Storage
 - [x] Profile Management
 

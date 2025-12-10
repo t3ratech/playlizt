@@ -1,11 +1,15 @@
 rootProject.name = 'playlizt'
 
-include(
-    'eureka-service',
-    'auth-service',
-    'content-service',
-    'playback-service',
-    'ai-service',
-    'api-gateway'
-)
+// Core services
+include 'playlizt-eureka-service'
+include 'playlizt-authentication'
+include 'playlizt-playback'
+include 'playlizt-api-gateway'
+
+// Content domain (logical parent with nested modules)
+include 'playlizt-content'
+include 'playlizt-content:playlizt-content-api'
+include 'playlizt-content:playlizt-content-processing'
+
+// UI tests
 include 'playlizt-ui-tests'
