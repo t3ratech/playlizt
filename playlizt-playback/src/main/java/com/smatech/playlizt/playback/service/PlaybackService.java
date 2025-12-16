@@ -1,9 +1,16 @@
-package com.smatech.playlizt.playback.service;
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+package zw.co.t3ratech.playlizt.playback.service;
 
-import com.smatech.playlizt.playback.dto.PlaybackRequest;
-import com.smatech.playlizt.playback.dto.PlaybackResponse;
-import com.smatech.playlizt.playback.entity.ViewingHistory;
-import com.smatech.playlizt.playback.repository.ViewingHistoryRepository;
+import zw.co.t3ratech.playlizt.playback.dto.PlaybackRequest;
+import zw.co.t3ratech.playlizt.playback.dto.PlaybackResponse;
+import zw.co.t3ratech.playlizt.playback.entity.ViewingHistory;
+import zw.co.t3ratech.playlizt.playback.repository.ViewingHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

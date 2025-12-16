@@ -1,6 +1,13 @@
-package com.smatech.playlizt.playback.repository;
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+package zw.co.t3ratech.playlizt.playback.repository;
 
-import com.smatech.playlizt.playback.entity.ViewingHistory;
+import zw.co.t3ratech.playlizt.playback.entity.ViewingHistory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,4 +1,4 @@
-package com.smatech.playlizt.playback;
+package zw.co.t3ratech.playlizt.playback;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

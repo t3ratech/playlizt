@@ -1,4 +1,4 @@
-package com.smatech.playlizt.eureka;
+package zw.co.t3ratech.playlizt.eureka;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

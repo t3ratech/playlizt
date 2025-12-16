@@ -1,4 +1,4 @@
-package com.smatech.playlizt.ui;
+package zw.co.t3ratech.playlizt.ui;
 
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.AriaRole;
@@ -33,6 +33,8 @@ public abstract class BasePlayliztTest {
     protected static Browser browser;
     protected static BrowserContext context;
     protected static Page page;
+
+    private static volatile boolean FLUTTER_CACHE_PURGED = false;
     
     // Bounded buffer of recent browser console messages to help tests
     // distinguish between real application failures and environment/network issues.
@@ -73,7 +75,19 @@ public abstract class BasePlayliztTest {
     
     @BeforeAll
     static void launchBrowser() {
-        // Re-read properties after loading file
+        if (WEB_URL == null || WEB_URL.trim().isEmpty()) {
+            throw new AssertionError("Missing required test property: test.web.url");
+        }
+        if (FLUTTER_URL == null || FLUTTER_URL.trim().isEmpty()) {
+            throw new AssertionError("Missing required test property: test.flutter.url");
+        }
+        if (TEST_USER_EMAIL == null || TEST_USER_EMAIL.trim().isEmpty()) {
+            throw new AssertionError("Missing required test property: test.user.email");
+        }
+        if (TEST_USER_PASSWORD == null || TEST_USER_PASSWORD.trim().isEmpty()) {
+            throw new AssertionError("Missing required test property: test.user.password");
+        }
+
         boolean headless = Boolean.parseBoolean(System.getProperty("playwright.headless"));
         int slowmo = Integer.parseInt(System.getProperty("playwright.slowmo"));
         
@@ -81,28 +95,50 @@ public abstract class BasePlayliztTest {
         browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
                 .setHeadless(headless)
                 .setSlowMo(slowmo)
-                .setArgs(java.util.Arrays.asList("--force-renderer-accessibility")));
+                .setArgs(java.util.Arrays.asList(
+                        "--force-renderer-accessibility",
+                        "--disable-quic"
+                )));
                 
         System.out.println("Browser launched. Headless: " + headless);
         
-        // Add context and page once for the whole class
-        // This preserves the accessibility tree hydration across tests
         context = browser.newContext(new Browser.NewContextOptions()
                 .setViewportSize(1920, 1080)
                 .setLocale("en-US"));
+
+        context.addInitScript("() => {" +
+                "  try {" +
+                "    if (navigator && navigator.serviceWorker) {" +
+                "      try {" +
+                "        navigator.serviceWorker.getRegistrations()" +
+                "          .then(regs => Promise.all(regs.map(r => r.unregister())))" +
+                "          .catch(() => {});" +
+                "      } catch(e) {}" +
+                "      try {" +
+                "        const sw = navigator.serviceWorker;" +
+                "        const proto = Object.getPrototypeOf(sw);" +
+                "        const blocker = () => Promise.reject(new Error('ServiceWorker disabled in UI tests'));" +
+                "        try {" +
+                "          if (proto && proto.register) {" +
+                "            Object.defineProperty(proto, 'register', { configurable: true, value: blocker });" +
+                "          }" +
+                "        } catch(e) {}" +
+                "        try {" +
+                "          Object.defineProperty(sw, 'register', { configurable: true, value: blocker });" +
+                "        } catch(e) {}" +
+                "      } catch(e) {}" +
+                "    }" +
+                "  } catch(e) {}" +
+                "}");
+
+        context.route("**/flutter_service_worker.js*", route -> route.abort());
+        context.route("**/*flutter_service_worker.js*", route -> route.abort());
+        context.route("**/*service_worker.js*", route -> route.abort());
         
         context.setDefaultTimeout(TIMEOUT);
         page = context.newPage();
-        
-        // Enable console logging and capture recent messages for diagnostics
-        page.onConsoleMessage(msg -> {
-            String text = msg.text();
-            System.out.println("Browser Console: " + text);
-            if ("error".equalsIgnoreCase(msg.type())) {
-                System.err.println("SEVERE BROWSER ERROR: " + text);
-            }
-            recordConsoleMessage(text);
-        });
+
+        attachConsoleLogging(page);
     }
     
     @AfterAll
@@ -126,6 +162,7 @@ public abstract class BasePlayliztTest {
         // Ensure we have a page (in case a test closed it)
         if (page == null || page.isClosed()) {
             page = context.newPage();
+            attachConsoleLogging(page);
         }
         // We do NOT create new context here. We reuse it.
         // Instead, we ensure we are in a clean state (Login Page)
@@ -150,6 +187,87 @@ public abstract class BasePlayliztTest {
         }
     }
 
+    protected static void attachConsoleLogging(Page targetPage) {
+        if (targetPage == null) return;
+        targetPage.onConsoleMessage(msg -> {
+            String text = msg.text();
+            System.out.println("Browser Console: " + text);
+            if ("error".equalsIgnoreCase(msg.type())) {
+                System.err.println("SEVERE BROWSER ERROR: " + text);
+            }
+            recordConsoleMessage(text);
+        });
+    }
+
+    protected void purgeFlutterServiceWorkersAndCachesIfNeeded() {
+        if (FLUTTER_CACHE_PURGED) {
+            return;
+        }
+
+        synchronized (BasePlayliztTest.class) {
+            if (FLUTTER_CACHE_PURGED) {
+                return;
+            }
+
+            try {
+                Object unregistered = page.evaluate("() => {" +
+                        "  const sw = navigator.serviceWorker;" +
+                        "  if (!sw || !sw.getRegistrations) return false;" +
+                        "  return sw.getRegistrations()" +
+                        "    .then(regs => Promise.all(regs.map(r => r.unregister())))" +
+                        "    .then(() => true)" +
+                        "    .catch(() => false);" +
+                        "}");
+                System.out.println("DEBUG: Service worker unregister attempted: " + unregistered);
+            } catch (Exception e) {
+                System.out.println("DEBUG: Service worker unregister failed: " + e.getMessage());
+            }
+
+            try {
+                Object cachesCleared = page.evaluate("() => {" +
+                        "  if (typeof caches === 'undefined' || !caches.keys) return false;" +
+                        "  return caches.keys()" +
+                        "    .then(keys => Promise.all(keys.map(k => caches.delete(k))))" +
+                        "    .then(() => true)" +
+                        "    .catch(() => false);" +
+                        "}");
+                System.out.println("DEBUG: CacheStorage clear attempted: " + cachesCleared);
+            } catch (Exception e) {
+                System.out.println("DEBUG: CacheStorage clear failed: " + e.getMessage());
+            }
+
+            try {
+                page.evaluate("() => { try { localStorage.clear(); } catch(e) {} try { sessionStorage.clear(); } catch(e) {} return true; }");
+            } catch (Exception e) {
+                System.out.println("DEBUG: Storage clear failed: " + e.getMessage());
+            }
+
+            try {
+                Object dbCleared = page.evaluate("() => {" +
+                        "  try {" +
+                        "    if (!('indexedDB' in window)) return false;" +
+                        "    if (!indexedDB.databases) return false;" +
+                        "    return indexedDB.databases()" +
+                        "      .then(dbs => Promise.all(dbs.map(db => db && db.name ? new Promise(res => { const req = indexedDB.deleteDatabase(db.name); req.onsuccess = () => res(true); req.onerror = () => res(false); req.onblocked = () => res(false); }) : Promise.resolve(true))))" +
+                        "      .then(() => true)" +
+                        "      .catch(() => false);" +
+                        "  } catch(e) { return false; }" +
+                        "}");
+                System.out.println("DEBUG: IndexedDB clear attempted: " + dbCleared);
+            } catch (Exception e) {
+                System.out.println("DEBUG: IndexedDB clear failed: " + e.getMessage());
+            }
+
+            try {
+                page.reload();
+            } catch (Exception e) {
+                System.out.println("DEBUG: Reload after cache purge failed: " + e.getMessage());
+            }
+
+            FLUTTER_CACHE_PURGED = true;
+        }
+    }
+
     /**
      * Check whether any recent console message contains the given text
      * (case-insensitive).
@@ -169,36 +287,141 @@ public abstract class BasePlayliztTest {
      * Resets the app to the Login page without reloading if possible
      */
     protected void resetToLoginPage() {
-        // If not on app at all, navigate
-        if (!page.url().contains(FLUTTER_URL) && !page.url().contains("localhost")) {
+        // If the page is crashed/closed, recreate and navigate.
+        try {
+            if (page == null || page.isClosed()) {
+                page = context.newPage();
+                attachConsoleLogging(page);
+                navigateToApp();
+                return;
+            }
+        } catch (Exception ignored) {
+            page = context.newPage();
+            attachConsoleLogging(page);
             navigateToApp();
             return;
         }
-        
-        // If already on Login page (check for Login button)
-        if (isTextVisible("Login") && elementExists("button:has-text('Login')")) {
-            return; // Already there
-        }
-        
-        // If logged in (Logout button visible)
-        if (isTextVisible("Logout") || isTextVisible("Sign Out")) {
-             try { logout(); } catch (Exception e) {}
-        }
-        
-        // If on Register page
-        if (isTextVisible("Already have an account")) {
-             page.getByText("Already have an account").click();
-        }
-        
-        // If "Login" not visible after attempts, force clear and reload
-        if (!isTextVisible("Login")) {
-            System.out.println("State unclean, clearing storage and reloading app...");
-            try {
-                page.evaluate("window.localStorage.clear()");
-            } catch (Exception e) {
-                System.out.println("Error clearing local storage: " + e.getMessage());
+
+        // If not on app at all, navigate
+        try {
+            if (!page.url().contains(FLUTTER_URL) && !page.url().contains("localhost")) {
+                navigateToApp();
+                return;
             }
-            page.reload();
+        } catch (Exception ignored) {
+            navigateToApp();
+            return;
+        }
+
+        boolean hasPasswordInput = false;
+        boolean onRegisterForm = false;
+        boolean onDashboard = false;
+        boolean loginTextVisible = false;
+
+        try {
+            com.microsoft.playwright.Locator pwd = page.locator("input[type='password']");
+            hasPasswordInput = pwd.count() > 0 && pwd.first().isVisible();
+        } catch (Exception ignored) {
+            hasPasswordInput = false;
+        }
+
+        try {
+            loginTextVisible = isTextVisible("Login") || isTextVisible("Sign In");
+        } catch (Exception ignored) {
+            loginTextVisible = false;
+        }
+
+        try {
+            onRegisterForm = isTextVisible("Confirm Password") ||
+                    isTextVisible("Repeat Password") ||
+                    (page.getByLabel("Confirm Password").count() > 0) ||
+                    (page.getByLabel("Repeat Password").count() > 0);
+        } catch (Exception ignored) {
+            onRegisterForm = false;
+        }
+
+        try {
+            onDashboard = isTextVisible("Browse Content") ||
+                    elementExists("[aria-label^='Video:']") ||
+                    elementExists("input[aria-label='Search content...']") ||
+                    elementExists("[aria-label='Settings']");
+        } catch (Exception ignored) {
+            onDashboard = false;
+        }
+
+        // Already on Login form
+        if (loginTextVisible && hasPasswordInput && !onRegisterForm) {
+            return;
+        }
+
+        // 1) If on Register, go back to Login
+        if (onRegisterForm || isTextVisible("Already have an account")) {
+            try {
+                if (isTextVisible("Already have an account")) {
+                    page.getByText("Already have an account").click();
+                }
+            } catch (Exception ignored) {
+            }
+            page.waitForTimeout(500);
+
+            // Re-evaluate after switching views
+            try {
+                com.microsoft.playwright.Locator pwd = page.locator("input[type='password']");
+                hasPasswordInput = pwd.count() > 0 && pwd.first().isVisible();
+            } catch (Exception ignored) {
+                hasPasswordInput = false;
+            }
+            try {
+                loginTextVisible = isTextVisible("Login") || isTextVisible("Sign In");
+            } catch (Exception ignored) {
+                loginTextVisible = false;
+            }
+            try {
+                onRegisterForm = isTextVisible("Confirm Password") || isTextVisible("Repeat Password");
+            } catch (Exception ignored) {
+                onRegisterForm = false;
+            }
+            if (loginTextVisible && hasPasswordInput && !onRegisterForm) {
+                return;
+            }
+        }
+
+        // 3) If on dashboard or logged in, attempt logout
+        if (onDashboard || isTextVisible("Logout") || isTextVisible("Sign Out")) {
+            try {
+                logout();
+                page.waitForTimeout(1000);
+            } catch (Exception ignored) {
+            }
+
+            try {
+                com.microsoft.playwright.Locator pwd = page.locator("input[type='password']");
+                if (pwd.count() > 0 && pwd.first().isVisible()) {
+                    return;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 4) Hard reset only if we couldn't reach the login form.
+        System.out.println("State unclean, clearing storage and reloading app...");
+        try {
+            page.evaluate("() => { try { localStorage.clear(); } catch(e) {} try { sessionStorage.clear(); } catch(e) {} return true; }");
+        } catch (Exception e) {
+            System.out.println("Error clearing storage: " + e.getMessage());
+        }
+        try {
+            navigateToApp();
+        } catch (Exception ignored) {
+            // If navigation failed due to a crash, recreate the page and retry.
+            try {
+                if (page != null && !page.isClosed()) {
+                    page.close();
+                }
+            } catch (Exception closeIgnored) {
+            }
+            page = context.newPage();
+            attachConsoleLogging(page);
             navigateToApp();
         }
     }
@@ -212,13 +435,32 @@ public abstract class BasePlayliztTest {
             if (page == null || page.isClosed()) {
                 System.out.println("navigateToApp: page was null/closed, creating new page...");
                 page = context.newPage();
+                attachConsoleLogging(page);
             }
 
             // Always navigate explicitly to the app root. This guarantees that we
             // recover from any intermediate Chrome error pages (e.g. "Aw, Snap!")
             // or unstable in-app states after heavy video playback.
             page.navigate(FLUTTER_URL);
-            waitForFlutterReady();
+            purgeFlutterServiceWorkersAndCachesIfNeeded();
+            try {
+                waitForFlutterReady();
+            } catch (AssertionError ae) {
+                System.out.println("navigateToApp: Flutter readiness assertion failed, retrying with fresh page: " + ae.getMessage());
+                try {
+                    if (page != null && !page.isClosed()) {
+                        page.close();
+                    }
+                } catch (Exception closeEx) {
+                    System.out.println("navigateToApp: error while closing page after readiness failure: " + closeEx.getMessage());
+                }
+
+                page = context.newPage();
+                attachConsoleLogging(page);
+                page.navigate(FLUTTER_URL);
+                purgeFlutterServiceWorkersAndCachesIfNeeded();
+                waitForFlutterReady();
+            }
         } catch (com.microsoft.playwright.PlaywrightException e) {
             // Recover from Chromium target crashes by recreating the page
             System.out.println("navigateToApp encountered PlaywrightException, recreating page: " + e.getMessage());
@@ -231,7 +473,9 @@ public abstract class BasePlayliztTest {
             }
 
             page = context.newPage();
+            attachConsoleLogging(page);
             page.navigate(FLUTTER_URL);
+            purgeFlutterServiceWorkersAndCachesIfNeeded();
             waitForFlutterReady();
         }
     }
@@ -242,7 +486,7 @@ public abstract class BasePlayliztTest {
      */
     protected void waitForFlutterReady() {
         // Wait for page load event
-        page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE);
+        page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
 
         // Detect Chrome's "Aw, Snap!" crash page and recover by reloading once.
         // This avoids leaving the test stuck on a crashed tab after heavy video
@@ -260,70 +504,57 @@ public abstract class BasePlayliztTest {
             if (Boolean.TRUE.equals(isCrash)) {
                 System.out.println("Detected Chrome 'Aw, Snap!' crash page; reloading Playlizt app...");
                 page.reload();
-                page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE);
+                page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
             }
         } catch (Exception e) {
             System.out.println("Error while checking for Chrome crash page: " + e.getMessage());
         }
 
-        // Enable accessibility if prompted (common in Flutter Web CanvasKit)
-        // We do NOT skip this check even if text is visible, because partial hydration can occur.
         try {
-            // Check for the button explicitly
-            com.microsoft.playwright.Locator accessBtn = page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Enable accessibility"));
-            
-            // If button exists, we MUST click it
-            if (accessBtn.count() > 0 && accessBtn.first().isVisible()) {
-                System.out.println("✓ Found 'Enable accessibility' button. Clicking it to hydrate DOM...");
-                try {
-                    accessBtn.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true).setDelay(100));
-                    page.waitForTimeout(1000);
-                    
-                    // If button still exists, try pressing Enter
-                    if (accessBtn.count() > 0) {
-                        System.out.println("⚠️ 'Enable accessibility' button still present. Trying Focus + Enter...");
+            boolean hydrated = false;
+            for (int attempt = 0; attempt < 2; attempt++) {
+                com.microsoft.playwright.Locator host = page.locator("flt-semantics-host");
+                com.microsoft.playwright.Locator enable = page.locator("[aria-label='Enable accessibility']");
+
+                for (int i = 0; i < 120; i++) {
+                    if (host.count() > 0) {
+                        hydrated = true;
+                        break;
+                    }
+
+                    if (enable.count() > 0) {
                         try {
-                            accessBtn.first().focus();
-                            page.keyboard().press("Enter");
-                            page.waitForTimeout(1000);
-                        } catch (Exception e) {
-                            System.out.println("Failed to press Enter on button: " + e.getMessage());
+                            enable.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+                        } catch (com.microsoft.playwright.PlaywrightException ignored) {
                         }
                     }
-                } catch (Exception e) {
-                    System.out.println("⚠️ Click/Enter failed: " + e.getMessage());
+
+                    page.waitForTimeout(250);
                 }
-                
-                // Wait for hydration - look for app title or login text
-                try {
-                    page.getByText("Playlizt").or(page.getByText("Login")).waitFor(
-                        new com.microsoft.playwright.Locator.WaitForOptions().setTimeout(5000));
-                    System.out.println("✓ Accessibility tree hydrated.");
-                } catch (Exception e) {
-                    System.out.println("⚠️ Waited for text after enabling accessibility but timed out. Continuing...");
+
+                if (hydrated) {
+                    break;
                 }
-                
-                // Robust check: If accessibility button persists, use JS to force click it
-                if (accessBtn.count() > 0) {
-                    System.out.println("⚠️ Accessibility button still visible. Attempting JS click...");
-                    try {
-                        accessBtn.first().evaluate("node => node.click()");
-                        page.waitForTimeout(1000);
-                        System.out.println("✓ JS Click executed.");
-                    } catch (Exception e) {
-                         System.out.println("JS click failed: " + e.getMessage());
-                    }
+
+                if (attempt == 0) {
+                    page.reload();
+                    page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
                 }
             }
+
+            if (!hydrated) {
+                takeScreenshot("failures", "flutter_semantics", "missing_aria_labels.png");
+                throw new AssertionError("Flutter Web accessibility tree did not hydrate. Unable to run UI tests reliably.");
+            }
         } catch (com.microsoft.playwright.PlaywrightException e) {
-            System.out.println("⚠️ Playwright exception while interacting with accessibility button: " + e.getMessage());
-            // If the underlying Chromium target crashed, bubble up so that
-            // navigateToApp() can recreate the page and fully reload the app.
+            System.out.println("⚠️ Playwright exception while enabling Flutter accessibility: " + e.getMessage());
             if (e.getMessage() != null && e.getMessage().contains("Target crashed")) {
                 throw e;
             }
+            throw e;
         } catch (Exception e) {
-            System.out.println("⚠️ Error interacting with accessibility button: " + e.getMessage());
+            takeScreenshot("failures", "flutter_semantics", "enable_accessibility_error.png");
+            throw new AssertionError("Failed while enabling Flutter Web accessibility tree; unable to run UI tests reliably.", e);
         }
         
         // Log page content for debugging
@@ -428,7 +659,8 @@ public abstract class BasePlayliztTest {
             confirmInput.first().waitFor(new com.microsoft.playwright.Locator.WaitForOptions().setTimeout(5000));
             System.out.println("✓ Successfully navigated to Register page");
         } catch (Exception e) {
-            System.out.println("⚠️ Warning: Did not detect Register page elements after navigation attempt.");
+            takeScreenshot("failures", "auth", "register_page_not_detected.png");
+            throw new AssertionError("Did not detect Register page elements after navigation attempt.", e);
         }
     }
 
@@ -704,8 +936,26 @@ public abstract class BasePlayliztTest {
             page.waitForTimeout(1000);
             return;
         }
+
+        // 2. Try Settings drawer -> Logout (current app UX)
+        try {
+            openSettingsDrawer();
+            page.waitForTimeout(500);
+
+            com.microsoft.playwright.Locator drawerLogout = page.getByText("Logout")
+                    .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Logout")))
+                    .first();
+
+            if (drawerLogout.count() > 0 && drawerLogout.isVisible()) {
+                drawerLogout.click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+                page.waitForTimeout(1000);
+                return;
+            }
+        } catch (Exception e) {
+            System.out.println("Settings drawer logout attempt failed: " + e.getMessage());
+        }
         
-        // 2. Try Profile Menu -> Logout
+        // 3. Try Profile Menu -> Logout (legacy)
         System.out.println("Direct logout not visible. Checking Profile menu...");
         com.microsoft.playwright.Locator profileBtn = page.getByLabel("Profile")
             .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Profile")));
@@ -759,20 +1009,39 @@ public abstract class BasePlayliztTest {
             System.out.println("Error dumping buttons: " + e.getMessage());
         }
 
-        // As a last resort, simulate logout by clearing local storage and returning to the app root.
-        System.out.println("Logout button not found, forcing logout via localStorage clear + navigateToApp()...");
+        takeScreenshot("failures", "logout", "unable_to_logout.png");
+        throw new AssertionError("Unable to locate a Logout action in the UI");
+    }
+
+    protected void openSettingsDrawer() {
         try {
-            page.evaluate("window.localStorage.clear()");
+            com.microsoft.playwright.Locator settingsBtn = page.getByLabel("Settings")
+                    .or(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Settings")));
+
+            if (settingsBtn.count() > 0 && settingsBtn.first().isVisible()) {
+                settingsBtn.first().click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+                page.waitForTimeout(500);
+                return;
+            }
         } catch (Exception e) {
-            System.out.println("Error clearing local storage during forced logout: " + e.getMessage());
+            System.out.println("Primary Settings button click failed: " + e.getMessage());
         }
 
-        // Navigate back to app; resetToLoginPage()/navigateToApp will ensure login page if possible.
         try {
-            navigateToApp();
+            com.microsoft.playwright.Locator buttons = page.getByRole(AriaRole.BUTTON);
+            int count = buttons.count();
+            if (count > 0) {
+                int index = Math.max(0, count - 3);
+                buttons.nth(index).click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+                page.waitForTimeout(500);
+                return;
+            }
         } catch (Exception e) {
-            System.out.println("Error navigating to app during forced logout: " + e.getMessage());
+            System.out.println("Fallback Settings button click failed: " + e.getMessage());
         }
+
+        takeScreenshot("failures", "settings_drawer", "missing_settings_button.png");
+        throw new AssertionError("Unable to locate Settings button to open settings drawer");
     }
     
     /**
@@ -781,21 +1050,51 @@ public abstract class BasePlayliztTest {
      * @param query Search query
      */
     protected void searchContent(String query) {
+        boolean set = false;
+
         try {
-            page.getByPlaceholder("Search content...")
-                .or(page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Search")))
-                .first() // Use first if multiple matches (e.g. desktop/mobile layout)
-                .fill(query);
+            String script = "args => {" +
+                    "  const q = String(args.q || '');" +
+                    "  const inputs = Array.from(document.querySelectorAll('input'));" +
+                    "  const input = inputs.find(i => {" +
+                    "    const a = (i.getAttribute('aria-label') || '');" +
+                    "    const p = (i.getAttribute('placeholder') || '');" +
+                    "    return a.includes('Search') || p.includes('Search');" +
+                    "  });" +
+                    "  if (!input) return false;" +
+                    "  input.focus();" +
+                    "  input.value = q;" +
+                    "  input.dispatchEvent(new Event('input', { bubbles: true }));" +
+                    "  input.dispatchEvent(new Event('change', { bubbles: true }));" +
+                    "  return true;" +
+                    "}";
+
+            Object ok = page.evaluate(script, java.util.Map.of("q", query));
+            set = Boolean.TRUE.equals(ok);
         } catch (Exception e) {
-            System.out.println("Specific search input not found. Trying generic textbox...");
-            // Fallback: Try first textbox
-            if (page.getByRole(AriaRole.TEXTBOX).count() > 0) {
-                page.getByRole(AriaRole.TEXTBOX).first().fill(query);
-            } else {
-                throw e; // Rethrow if no textboxes at all
+            set = false;
+        }
+
+        if (!set) {
+            try {
+                page.getByLabel("Search content...")
+                    .or(page.locator("input[aria-label='Search content...']"))
+                    .or(page.getByPlaceholder("Search content..."))
+                    .or(page.getByRole(AriaRole.TEXTBOX))
+                    .first()
+                    .fill(query);
+            } catch (Exception e) {
+                System.out.println("Unable to set search query; no compatible textbox found: " + e.getMessage());
+                throw e;
             }
         }
-        page.keyboard().press("Enter");
+
+        try {
+            page.keyboard().press("Enter");
+        } catch (Exception e) {
+            throw e;
+        }
+
         page.waitForTimeout(1500);
     }
     

@@ -1,7 +1,14 @@
-package com.smatech.playlizt.auth.security;
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+package zw.co.t3ratech.playlizt.auth.security;
 
-import com.smatech.playlizt.auth.config.JwtConfig;
-import com.smatech.playlizt.auth.entity.User;
+import zw.co.t3ratech.playlizt.auth.config.JwtConfig;
+import zw.co.t3ratech.playlizt.auth.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +38,23 @@ public class JwtUtil {
 
     public String generateRefreshToken(User user) {
         return generateToken(user, jwtConfig.getRefreshExpirationMs());
+    }
+
+    public String generateGuestToken() {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtConfig.getExpirationMs());
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", "GUEST");
+        claims.put("isGuest", true);
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject("guest")
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
     }
 
     private String generateToken(User user, Long expirationMs) {

@@ -1,4 +1,4 @@
-package com.smatech.playlizt.ui;
+package zw.co.t3ratech.playlizt.ui;
 
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.ColorScheme;
@@ -43,7 +43,6 @@ public class PlayliztThemeTest extends BasePlayliztTest {
 
         // Check if we are still logged in
         if (isTextVisible("Login")) {
-            System.out.println("⚠️ App state reset to Login after theme switch (possibly reload).");
             // Capture Login Dark first
             takeScreenshot("theme", "switching", "03_login_dark.png");
             
@@ -57,13 +56,7 @@ public class PlayliztThemeTest extends BasePlayliztTest {
             takeScreenshot("theme", "switching", "03_dashboard_dark.png");
 
             // Logout to check Login screen in Dark Mode
-            try {
-                logout();
-            } catch (Exception e) {
-                System.out.println("Logout failed, force navigating to base URL");
-                page.evaluate("window.localStorage.clear()");
-                page.reload();
-            }
+            logout();
             page.waitForTimeout(3000);
 
             // Screenshot 4: Login Screen (Dark)

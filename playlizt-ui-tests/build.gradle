@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group = 'com.smatech.playlizt'
+group = 'zw.co.t3ratech.playlizt'
 version = '1.0.0'
 
 repositories {
@@ -57,8 +57,10 @@ test {
 }
 
 // Task to install Playwright browsers
-tasks.register('installPlaywrightBrowsers', Exec) {
-    commandLine 'mvn', 'exec:java', '-e', '-D', 'exec.mainClass=com.microsoft.playwright.CLI', '-D', 'exec.args=install'
+tasks.register('installPlaywrightBrowsers', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+    args 'install', 'chromium'
 }
 
 // This module is test-only; no Spring Boot executable JAR

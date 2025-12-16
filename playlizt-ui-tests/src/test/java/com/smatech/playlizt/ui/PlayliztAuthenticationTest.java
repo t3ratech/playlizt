@@ -1,4 +1,4 @@
-package com.smatech.playlizt.ui;
+package zw.co.t3ratech.playlizt.ui;
 
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
@@ -26,23 +26,13 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
 
     @Test
     @Order(1)
-    @DisplayName("01 - Initial Seeded Login Verification")
-    void test01_InitialSeededLogin() {
+    @DisplayName("01 - Initial Seeded Email Login Verification")
+    void test01_InitialSeededEmailLogin() {
         navigateToApp();
         
-        // 1. Test Email Login
-        System.out.println("Testing seeded login with EMAIL: testuser@t3ratech.co.zw");
-        performLogin("testuser@t3ratech.co.zw", "testpass");
+        System.out.println("Testing seeded login with EMAIL: " + TEST_USER_EMAIL);
+        performLogin(TEST_USER_EMAIL, TEST_USER_PASSWORD);
         verifyDashboardAndLogout("01_seeded_email_login");
-
-        // 2. Test Username Login (best-effort: log and capture screenshot but do not fail suite)
-        System.out.println("Testing seeded login with USERNAME: tkaviya");
-        try {
-            performLogin("tkaviya", "testpass");
-            verifyDashboardAndLogout("01_seeded_username_login");
-        } catch (AssertionError | Exception e) {
-            System.out.println("⚠️ Seeded username login failed non-fatally: " + e.getMessage());
-        }
     }
 
     @Test
@@ -50,6 +40,15 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
     @DisplayName("02 - Login Page Load & Elements Verification")
     void test02_LoginPageLoad() {
         navigateToApp();
+
+        // Ensure we are actually on the login form (previous tests may have authenticated).
+        if (!isLoginFormVisible()) {
+            try {
+                logout();
+                page.waitForTimeout(1000);
+            } catch (Exception ignored) {
+            }
+        }
         
         // STRICT: Check URL and Title
         assertThat(getCurrentUrl()).contains("localhost");
@@ -57,15 +56,11 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
 
         takeScreenshot("auth", "02_login_load", "01_initial_load.png");
         
-        // STRICT: Check key elements (focus on the actual Login/Sign In button to avoid strict mode text collisions)
-        com.microsoft.playwright.Locator loginButton = page.getByRole(
-                com.microsoft.playwright.options.AriaRole.BUTTON,
-                new com.microsoft.playwright.Page.GetByRoleOptions().setName("Login"))
-            .or(page.getByRole(
-                com.microsoft.playwright.options.AriaRole.BUTTON,
-                new com.microsoft.playwright.Page.GetByRoleOptions().setName("Sign In")));
+        // STRICT: Wait for login form controls instead of relying on role/button semantics.
+        page.locator("input[type='password']")
+                .first()
+                .waitFor(new com.microsoft.playwright.Locator.WaitForOptions().setTimeout(20000));
 
-        loginButton.first().waitFor();
         boolean loginTextVisible = isTextVisible("Login") || isTextVisible("Sign In");
         assertThat(loginTextVisible).as("Login button/text should be visible").isTrue();
 
@@ -81,8 +76,19 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
 
     @Test
     @Order(3)
-    @DisplayName("03 - Registration: Navigate & Form Validation")
-    void test03_RegistrationValidation() {
+    @DisplayName("03 - Initial Seeded Username Login Verification")
+    void test03_InitialSeededUsernameLogin() {
+        navigateToApp();
+
+        System.out.println("Testing seeded login with USERNAME: " + TEST_USER_USERNAME);
+        performLogin(TEST_USER_USERNAME, TEST_USER_PASSWORD);
+        verifyDashboardAndLogout("03_seeded_username_login");
+    }
+
+    @Test
+    @Order(4)
+    @DisplayName("04 - Registration: Navigate & Form Validation")
+    void test04_RegistrationValidation() {
         navigateToApp();
         navigateToRegister();
         
@@ -98,9 +104,9 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
     }
 
     @Test
-    @Order(4)
-    @DisplayName("04 - Registration: Success")
-    void test04_RegistrationSuccess() {
+    @Order(5)
+    @DisplayName("05 - Registration: Success")
+    void test05_RegistrationSuccess() {
         navigateToApp();
         navigateToRegister();
 
@@ -119,9 +125,9 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
     }
 
     @Test
-    @Order(5)
-    @DisplayName("05 - Login: Validation & Invalid Credentials")
-    void test05_LoginValidation() {
+    @Order(6)
+    @DisplayName("06 - Login: Validation & Invalid Credentials")
+    void test06_LoginValidation() {
         navigateToApp();
         
         // 1. Empty Submit
@@ -164,23 +170,14 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
     }
 
     @Test
-    @Order(6)
-    @DisplayName("06 - Login: Success & Logout")
-    void test06_LoginSuccessAndLogout() {
+    @Order(7)
+    @DisplayName("07 - Login: Success & Logout")
+    void test07_LoginSuccessAndLogout() {
         navigateToApp();
-        
-        String freshUser = "logout_test_" + System.currentTimeMillis();
-        String freshEmail = freshUser + "@playlizt.com";
-        
-        navigateToRegister();
-        register(freshUser, freshEmail, TEST_PASSWORD);
-        
-        // 2. Verify we are on Dashboard
-        page.waitForTimeout(3000);
-        if (isTextVisible("Login") || isTextVisible("Sign In")) {
-            login(freshEmail, TEST_PASSWORD);
-            page.waitForTimeout(3000);
-        }
+
+        // Use seeded user for logout verification to keep tests deterministic.
+        performLogin(TEST_USER_EMAIL, TEST_USER_PASSWORD);
+        page.waitForTimeout(1500);
         
         takeScreenshot("auth", "06_login_success", "01_dashboard.png");
         verifyDashboardElements();
@@ -189,8 +186,9 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
         logout();
         page.waitForTimeout(2000);
         takeScreenshot("auth", "06_login_success", "02_logged_out.png");
-        
-        boolean onLoginPage = isTextVisible("Login") || isTextVisible("Sign In");
+
+        boolean onLoginPage = (isTextVisible("Login") || isTextVisible("Sign In"))
+                && (elementExists("input[type='password']") || elementExists("input"));
 
         if (!onLoginPage && isTextVisible("Network error")) {
             fail("Network error visible after logout; environment is not healthy.");
@@ -210,14 +208,42 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
              }
         }
         login(user, pass);
-        page.waitForTimeout(3000);
+
+        for (int i = 0; i < 20; i++) {
+            boolean onDashboard = isTextVisible("Browse Content") ||
+                    elementExists("[aria-label^='Video:']") ||
+                    elementExists("input[aria-label='Search content...']");
+            if (onDashboard) {
+                break;
+            }
+
+            if (!isLoginFormVisible()) {
+                break;
+            }
+            page.waitForTimeout(500);
+        }
     }
 
     private void verifyDashboardAndLogout(String screenshotName) {
         takeScreenshot("auth", "seeded_login", screenshotName + ".png");
-        
-        boolean onLoginPage = isTextVisible("Login") && elementExists("input[type='password']");
-        if (onLoginPage) {
+
+        boolean onLoginPage = false;
+        boolean onDashboard = false;
+        for (int i = 0; i < 30; i++) {
+            onLoginPage = isLoginFormVisible();
+            onDashboard = isTextVisible("Browse Content") ||
+                    elementExists("[aria-label^='Video:']") ||
+                    elementExists("input[aria-label='Search content...']");
+            if (onDashboard) {
+                break;
+            }
+            if (!onLoginPage) {
+                break;
+            }
+            page.waitForTimeout(500);
+        }
+
+        if (onLoginPage && !onDashboard) {
             // Environment is not allowed to hide behind network errors; surface them as hard failures.
             if (isTextVisible("Network error") ||
                     consoleContains("Network error. Please check your connection.") ||
@@ -232,6 +258,13 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
             }
             throw new AssertionError("Login failed: Still on login page.");
         }
+
+        if (!onDashboard) {
+            if (consoleContains("Error while trying to load an asset") || consoleContains("Failed to fetch")) {
+                fail("UI did not reach dashboard due to Flutter web asset fetch error; environment is not healthy.");
+            }
+            fail("Login flow did not reach dashboard state; unable to verify seeded login.");
+        }
         
         verifyDashboardElements();
         logout();
@@ -240,5 +273,20 @@ public class PlayliztAuthenticationTest extends BasePlayliztTest {
     private void verifyDashboardElements() {
         boolean homeElements = isTextVisible("Browse") || isTextVisible("Home") || isTextVisible("Playlizt");
         assertThat(homeElements).as("Should be on dashboard").isTrue();
+    }
+
+    private boolean isLoginFormVisible() {
+        try {
+            com.microsoft.playwright.Locator pwd = page.locator("input[type='password']");
+            if (pwd.count() == 0) return false;
+            if (!pwd.first().isVisible()) return false;
+            boolean loginTextVisible = isTextVisible("Login") || isTextVisible("Sign In");
+            if (!loginTextVisible) return false;
+            // Register form also contains password inputs; exclude it.
+            if (isTextVisible("Confirm Password") || isTextVisible("Repeat Password")) return false;
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

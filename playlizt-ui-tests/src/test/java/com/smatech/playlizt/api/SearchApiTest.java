@@ -1,4 +1,4 @@
-package com.smatech.playlizt.api;
+package zw.co.t3ratech.playlizt.api;
 
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;

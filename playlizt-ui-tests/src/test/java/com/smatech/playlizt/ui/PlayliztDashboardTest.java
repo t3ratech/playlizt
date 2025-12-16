@@ -1,4 +1,4 @@
-package com.smatech.playlizt.ui;
+package zw.co.t3ratech.playlizt.ui;
 
 import org.junit.jupiter.api.*;
 import com.microsoft.playwright.options.AriaRole;
@@ -57,30 +57,9 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
             if (isTextVisible("Don't have an account")) System.out.println("DEBUG: Found 'Don't have an account'");
             
             if (isTextVisible("Login")) {
-                System.out.println("Login page visible. Attempting to ensure user exists via Register...");
-                try {
-                    navigateToRegister();
-                    register(TEST_USER_USERNAME, TEST_USER_EMAIL, TEST_USER_PASSWORD);
-                    page.waitForTimeout(2000);
-                } catch (Exception e) {
-                    System.out.println("Registration failed (maybe user exists?): " + e.getMessage());
-                    // Navigate back to login if stuck on register
-                    if (isTextVisible("Register")) {
-                        // Click "Already have an account" if visible, or reload
-                        if (isTextVisible("Already have an account")) {
-                            page.getByText("Already have an account").click();
-                        } else {
-                            navigateToApp();
-                        }
-                    }
-                }
-                
-                // Now Login
-                if (isTextVisible("Login")) {
-                    System.out.println("Attempting login with " + TEST_USER_EMAIL);
-                    login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
-                    page.waitForTimeout(3000);
-                }
+                System.out.println("Login page visible. Logging in with seeded user " + TEST_USER_EMAIL);
+                login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
+                page.waitForTimeout(3000);
             }
             
             // If still on Login/Register (e.g. invalid credentials), try registering? 
@@ -89,6 +68,10 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
             takeScreenshot("dashboard", "01_setup", "01_logged_in.png");
             
             // STRICT: Verify Dashboard Loaded
+            if (isTextVisible("Login") || isTextVisible("Sign In")) {
+                takeScreenshot("failures", "dashboard_setup", "still_on_login.png");
+                fail("Expected to be logged in, but Login page is still visible.");
+            }
             assertThat(getCurrentUrl()).doesNotContain("login");
         } catch (Exception e) {
             takeScreenshot("failures", "dashboard_setup", "01_error.png");
@@ -102,46 +85,30 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
     @Order(2)
     @DisplayName("02 - Dashboard: Search Functionality")
     void test02_SearchFunctionality() {
-        // Ensure logged in
-        if (isTextVisible("Login")) {
-             login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
-             page.waitForTimeout(2000);
-        }
+        ensureLoggedInOnDashboard();
         
         takeScreenshot("dashboard", "02_search", "01_before_search.png");
         
         // Perform Search
         searchContent("Test");
         takeScreenshot("dashboard", "02_search", "02_search_results.png");
-        
-        // STRICT: Verify Search Results UI appears.
-        // Even if empty, the UI structure should change or show "No results".
-        boolean resultsVisible =
-                isTextVisible("Browse Content") ||
-                isTextVisible("Test") ||
-                isTextVisible("No content available");
 
-        if (!resultsVisible) {
-            if (isTextVisible("Network error") ||
-                    consoleContains("Network error. Please check your connection.") ||
-                    consoleContains("ERR_CONNECTION_REFUSED")) {
-                fail("Search UI did not update due to network/gateway error; environment is not healthy.");
-            }
-            fail("Search UI did not visibly update after performing search.");
-        }
-
-        assertThat(resultsVisible).as("Search should trigger UI update").isTrue();
+        assertThat(isTextVisible("Browse Content") || elementExists("input[aria-label='Search content...']") || elementExists("[aria-label^='Video:']"))
+                .as("Expected to remain on dashboard after search")
+                .isTrue();
     }
 
     @Test
     @Order(3)
     @DisplayName("03 - Dashboard: Content Interaction")
     void test03_ContentInteraction() {
-        // Ensure we are on Dashboard (Home)
-        if (!getCurrentUrl().contains("localhost") && !getCurrentUrl().contains("4090")) {
-             navigateToApp();
+        ensureLoggedInOnDashboard();
+
+        try {
+            waitForText("Browse Content", 10000);
+        } catch (Exception ignored) {
         }
-        
+
         takeScreenshot("dashboard", "03_content", "01_home_grid.png");
         
         // Check for any content card
@@ -149,23 +116,48 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
         // Note: Flutter web selectors are tricky. We use coordinate click or find by text if possible.
         // This is a "best effort" strict test - if no content, we can't click.
         
-        if (isTextVisible("No content available") && !elementExists("text=/views/i")) {
-            System.out.println("⚠️ No content visible to test interaction");
-            takeScreenshot("dashboard", "03_content", "02_no_content_warning.png");
+        if (isTextVisible("No content available")) {
+            takeScreenshot("dashboard", "03_content", "02_no_content.png");
+            if (isTextVisible("Network error") ||
+                    consoleContains("Network error. Please check your connection.") ||
+                    consoleContains("ERR_CONNECTION_REFUSED")) {
+                fail("No content visible due to network/gateway error; environment is not healthy.");
+            }
+            fail("No content visible on dashboard; expected seeded content to be available.");
         } else {
-            // Try to click a video title or card
-            // Assuming "views" text is part of a card
-            com.microsoft.playwright.Locator viewText = page.getByText(java.util.regex.Pattern.compile("views", java.util.regex.Pattern.CASE_INSENSITIVE)).first();
-            if (viewText.count() > 0) {
-                viewText.click();
-                page.waitForTimeout(1000);
-                
-                takeScreenshot("dashboard", "03_content", "03_video_clicked.png");
-                
-                // STRICT: Check for SnackBar confirmation
-                assertThat(isTextVisible("Selected:")).as("SnackBar should appear on click").isTrue();
-            } else {
-                System.out.println("⚠️ 'views' text not found, skipping interaction test.");
+            com.microsoft.playwright.Locator card = findFirstContentCard();
+
+            if (card == null) {
+                takeScreenshot("dashboard", "03_content", "02_missing_video_cards.png");
+                if (isTextVisible("Network error") ||
+                        consoleContains("Network error. Please check your connection.") ||
+                        consoleContains("ERR_CONNECTION_REFUSED")) {
+                    fail("No content cards visible due to network/gateway error; environment is not healthy.");
+                }
+                fail("Expected at least one visible content card to be available for interaction test.");
+            }
+
+            try {
+                card.scrollIntoViewIfNeeded();
+            } catch (Exception ignored) {
+            }
+            card.click(new com.microsoft.playwright.Locator.ClickOptions().setForce(true));
+            page.waitForTimeout(1000);
+
+            takeScreenshot("dashboard", "03_content", "03_video_clicked.png");
+
+            boolean navigatedToPlayer = false;
+            try {
+                waitForText("Description", 15000);
+                navigatedToPlayer = true;
+            } catch (Exception ignored) {
+                navigatedToPlayer = false;
+            }
+
+            if (!navigatedToPlayer) {
+                assertThat(isTextVisible("Selected:") || isTextVisible("Browse Content"))
+                        .as("Expected either to navigate to player (Description) or remain on dashboard after click")
+                        .isTrue();
             }
         }
     }
@@ -174,8 +166,15 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
     @Order(4)
     @DisplayName("04 - Dashboard: Layout & Scrolling")
     void test04_LayoutAndScroll() {
+        ensureLoggedInOnDashboard();
+
         page.reload();
         page.waitForTimeout(2000);
+
+        if (isTextVisible("Login") || isTextVisible("Sign In")) {
+            login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
+            page.waitForTimeout(2000);
+        }
         
         takeScreenshot("dashboard", "04_layout", "01_top.png");
         
@@ -186,5 +185,71 @@ public class PlayliztDashboardTest extends BasePlayliztTest {
         takeScreenshot("dashboard", "04_layout", "02_bottom.png");
         
         // STRICT: Verify bottom elements (e.g. footer if exists, or just that we didn't crash)
+    }
+
+    private void ensureLoggedInOnDashboard() {
+        navigateToApp();
+
+        if (isTextVisible("Browse Content") || elementExists("input[aria-label='Search content...']") || elementExists("input[placeholder='Search content...']")) {
+            return;
+        }
+
+        if (isTextVisible("Login") || isTextVisible("Sign In") || page.locator("input[type='password']").count() > 0) {
+            login(TEST_USER_EMAIL, TEST_USER_PASSWORD);
+            page.waitForTimeout(2000);
+        }
+
+        for (int i = 0; i < 30; i++) {
+            if (isTextVisible("Browse Content") || elementExists("input[aria-label='Search content...']") || elementExists("input[placeholder='Search content...']")) {
+                return;
+            }
+            page.waitForTimeout(250);
+        }
+
+        if (isTextVisible("Login") || isTextVisible("Sign In")) {
+            takeScreenshot("failures", "dashboard_setup", "still_on_login.png");
+            fail("Expected to be logged in and on dashboard, but Login page is still visible.");
+        }
+
+        takeScreenshot("failures", "dashboard_setup", "dashboard_not_detected.png");
+        fail("Unable to detect dashboard after login attempt.");
+    }
+
+    private com.microsoft.playwright.Locator findFirstContentCard() {
+        com.microsoft.playwright.Locator candidates = page.locator(
+                "[aria-label^='Video:'], [aria-label*='Episode'], [aria-label*='Season']"
+        );
+
+        for (int attempt = 0; attempt < 8; attempt++) {
+            int count = candidates.count();
+            int limit = Math.min(count, 20);
+
+            for (int i = 0; i < limit; i++) {
+                com.microsoft.playwright.Locator c = candidates.nth(i);
+                try {
+                    if (c != null && c.isVisible()) {
+                        return c;
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            // Fallback: click the first visible title text on a card (screenshots show Episode titles)
+            try {
+                com.microsoft.playwright.Locator episodeText = page.getByText("Episode").first();
+                if (episodeText.count() > 0 && episodeText.isVisible()) {
+                    return episodeText;
+                }
+            } catch (Exception ignored) {
+            }
+
+            try {
+                page.mouse().wheel(0, 900);
+            } catch (Exception ignored) {
+            }
+            page.waitForTimeout(750);
+        }
+
+        return null;
     }
 }

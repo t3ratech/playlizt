@@ -1,4 +1,11 @@
-package com.smatech.playlizt.ai.controller;
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/28 23:30
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+package zw.co.t3ratech.playlizt.ai.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

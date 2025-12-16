@@ -347,12 +347,50 @@ recreate_all() {
 # TESTING FUNCTIONS
 # =============================================================================
 
+require_playwright_chromium_installed() {
+    local cache_dir="${HOME}/.cache/ms-playwright"
+    local chromium_dir=""
+
+    if [ ! -d "$cache_dir" ]; then
+        echo -e "${RED}Playwright browser cache directory not found: ${cache_dir}${NC}"
+        echo -e "${RED}UI tests require Playwright Chromium to be installed before running tests.${NC}"
+        echo -e "${YELLOW}Run: (cd playlizt-ui-tests && ./install-browsers.sh)${NC}"
+        exit 1
+    fi
+
+    chromium_dir=$(ls -d "$cache_dir"/chromium-* 2>/dev/null | head -n 1)
+
+    if [ -z "$chromium_dir" ]; then
+        echo -e "${RED}Playwright Chromium is not installed in: ${cache_dir}${NC}"
+        echo -e "${YELLOW}Run: (cd playlizt-ui-tests && ./install-browsers.sh)${NC}"
+        exit 1
+    fi
+}
+
 # Run unit tests
 run_unit_tests() {
     local test_pattern=${1:-""}
     local module=${2:-""}
     echo -e "${CYAN}=== Running unit tests ===${NC}"
     cd "$SCRIPT_DIR"
+
+    local needs_env=false
+    if [ "$module" = "playlizt-ui-tests" ]; then
+        if [ -z "$test_pattern" ] || [[ "$test_pattern" == *"zw.co.t3ratech.playlizt.ui"* ]]; then
+            require_playwright_chromium_installed
+        fi
+        export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+        if [ -z "$test_pattern" ] || [[ "$test_pattern" == *"zw.co.t3ratech.playlizt.ui"* ]]; then
+            needs_env=true
+        fi
+    fi
+
+    local env_started=false
+    if [ "$needs_env" = true ]; then
+        setup_test_env
+        env_started=true
+    fi
     
     local gradle_task="test"
     if [ -n "$module" ]; then
@@ -360,11 +398,34 @@ run_unit_tests() {
         echo -e "${BLUE}Targeting module: $module${NC}"
     fi
     
+    local exit_code=0
     if [ -n "$test_pattern" ]; then
         echo -e "${BLUE}Running tests matching: $test_pattern${NC}"
-        ./gradlew "$gradle_task" --tests "$test_pattern" --no-daemon
+
+        # setup_test_env may have changed the working directory (e.g. serve_flutter_web).
+        cd "$SCRIPT_DIR"
+
+        local -a test_args=()
+        IFS=',' read -r -a test_patterns <<< "$test_pattern"
+        for p in "${test_patterns[@]}"; do
+            p="$(echo "$p" | xargs)"
+            if [ -n "$p" ]; then
+                test_args+=(--tests "$p")
+            fi
+        done
+
+        "$SCRIPT_DIR/gradlew" "$gradle_task" "${test_args[@]}" --no-daemon --no-parallel --max-workers=1 || exit_code=$?
     else
-        ./gradlew "$gradle_task" --no-daemon
+        cd "$SCRIPT_DIR"
+        "$SCRIPT_DIR/gradlew" "$gradle_task" --no-daemon --no-parallel --max-workers=1 || exit_code=$?
+    fi
+
+    if [ "$env_started" = true ]; then
+        teardown_test_env
+    fi
+
+    if [ $exit_code -ne 0 ]; then
+        return $exit_code
     fi
 }
 
@@ -374,6 +435,24 @@ run_integration_tests() {
     local module=${2:-""}
     echo -e "${CYAN}=== Running integration tests ===${NC}"
     cd "$SCRIPT_DIR"
+
+    local needs_env=false
+    if [ "$module" = "playlizt-ui-tests" ]; then
+        if [ -z "$test_pattern" ] || [[ "$test_pattern" == *"zw.co.t3ratech.playlizt.ui"* ]]; then
+            require_playwright_chromium_installed
+        fi
+        export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+        if [ -z "$test_pattern" ] || [[ "$test_pattern" == *"zw.co.t3ratech.playlizt.ui"* ]]; then
+            needs_env=true
+        fi
+    fi
+
+    local env_started=false
+    if [ "$needs_env" = true ]; then
+        setup_test_env
+        env_started=true
+    fi
     
     local gradle_task="integrationTest"
     if [ -n "$module" ]; then
@@ -381,11 +460,32 @@ run_integration_tests() {
         echo -e "${BLUE}Targeting module: $module${NC}"
     fi
     
+    local exit_code=0
     if [ -n "$test_pattern" ]; then
         echo -e "${BLUE}Running integration tests matching: $test_pattern${NC}"
-        ./gradlew "$gradle_task" --tests "$test_pattern" --no-daemon 2>/dev/null || echo -e "${YELLOW}No integration tests configured yet${NC}"
+
+        cd "$SCRIPT_DIR"
+
+        local -a test_args=()
+        IFS=',' read -r -a test_patterns <<< "$test_pattern"
+        for p in "${test_patterns[@]}"; do
+            p="$(echo "$p" | xargs)"
+            if [ -n "$p" ]; then
+                test_args+=(--tests "$p")
+            fi
+        done
+
+        "$SCRIPT_DIR/gradlew" "$gradle_task" "${test_args[@]}" --no-daemon --no-parallel --max-workers=1 || exit_code=$?
     else
-        ./gradlew "$gradle_task" --no-daemon 2>/dev/null || echo -e "${YELLOW}No integration tests configured yet${NC}"
+        "$SCRIPT_DIR/gradlew" "$gradle_task" --no-daemon --no-parallel --max-workers=1 || exit_code=$?
+    fi
+
+    if [ "$env_started" = true ]; then
+        teardown_test_env
+    fi
+
+    if [ $exit_code -ne 0 ]; then
+        return $exit_code
     fi
 }
 
@@ -405,7 +505,8 @@ setup_test_env() {
     local api_url="http://localhost:${PLAYLIZT_API_GATEWAY_PORT}/api/v1"
     echo -e "${BLUE}Building Flutter web for local tests with API_URL: ${api_url}${NC}"
     build_flutter_web "${api_url}"
-    
+
+    docker compose stop
     docker compose up -d
     
     # Wait for critical services
@@ -437,6 +538,13 @@ run_all_tests() {
     local module=${2:-""}
     
     echo -e "${CYAN}=== Running all tests with environment ===${NC}"
+
+    if [ "$module" = "playlizt-ui-tests" ]; then
+        if [ -z "$test_pattern" ] || [[ "$test_pattern" == *"zw.co.t3ratech.playlizt.ui"* ]]; then
+            require_playwright_chromium_installed
+        fi
+        export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+    fi
     
     # Setup environment
     setup_test_env
@@ -452,9 +560,19 @@ run_all_tests() {
     local exit_code=0
     if [ -n "$test_pattern" ]; then
         echo -e "${BLUE}Running all tests matching: $test_pattern${NC}"
-        ./gradlew $tasks --tests "$test_pattern" --no-daemon || exit_code=$?
+
+        local -a test_args=()
+        IFS=',' read -r -a test_patterns <<< "$test_pattern"
+        for p in "${test_patterns[@]}"; do
+            p="$(echo "$p" | xargs)"
+            if [ -n "$p" ]; then
+                test_args+=(--tests "$p")
+            fi
+        done
+
+        "$SCRIPT_DIR/gradlew" $tasks "${test_args[@]}" --no-daemon --no-parallel --max-workers=1 || exit_code=$?
     else
-        ./gradlew $tasks --no-daemon || exit_code=$?
+        "$SCRIPT_DIR/gradlew" $tasks --no-daemon --no-parallel --max-workers=1 || exit_code=$?
     fi
     
     # Teardown
@@ -471,7 +589,7 @@ run_all_tests() {
 run_coverage() {
     echo -e "${CYAN}=== Running tests with coverage ===${NC}"
     cd "$SCRIPT_DIR"
-    ./gradlew test jacocoTestReport --no-daemon
+    "$SCRIPT_DIR/gradlew" test jacocoTestReport --no-daemon
     
     echo -e "${GREEN}Coverage reports generated:${NC}"
     find . -name "index.html" -path "*/jacocoHtml/*" | while read -r report; do
@@ -492,14 +610,18 @@ build_flutter_web() {
     fi
     
     flutter pub get
-    
-    if [ -n "$api_url" ]; then
-        echo -e "${BLUE}Building with API_URL: $api_url${NC}"
-        flutter build web --release --dart-define=API_URL="$api_url"
-    else
-        echo -e "${BLUE}Building with default API URL (localhost)${NC}"
-        flutter build web --release
+
+    if [ -z "$api_url" ]; then
+        source_env
+        if [ -z "${PLAYLIZT_API_GATEWAY_PORT}" ]; then
+            echo -e "${RED}Error: PLAYLIZT_API_GATEWAY_PORT is not set; cannot derive API_URL for web build${NC}"
+            exit 1
+        fi
+        api_url="http://localhost:${PLAYLIZT_API_GATEWAY_PORT}/api/v1"
     fi
+
+    echo -e "${BLUE}Building with API_URL: $api_url${NC}"
+    flutter build web --release --dart-define=API_URL="$api_url"
     
     echo -e "${GREEN}Flutter web build complete!${NC}"
     echo -e "${BLUE}Output: $SCRIPT_DIR/playlizt-frontend/playlizt_app/build/web${NC}"
@@ -597,9 +719,12 @@ serve_flutter_web() {
     fi
     
     echo -e "${CYAN}=== Serving Flutter Web on port $port ===${NC}"
-    cd "$web_dir"
-    nohup python3 -m http.server "$port" > "$SCRIPT_DIR/playlizt-frontend/playlizt_app/web_server.log" 2>&1 &
-    echo $! > "$pid_file"
+
+    (
+        cd "$web_dir"
+        nohup python3 -m http.server "$port" > "$SCRIPT_DIR/playlizt-frontend/playlizt_app/web_server.log" 2>&1 &
+        echo $! > "$pid_file"
+    )
     
     echo -e "${GREEN}Web server started on port $port (PID: $(cat "$pid_file"))${NC}"
     echo -e "${BLUE}Logs: $SCRIPT_DIR/playlizt-frontend/playlizt_app/web_server.log${NC}"
@@ -679,8 +804,6 @@ full_cleanup() {
     docker system prune -f
     echo -e "${GREEN}Full cleanup complete${NC}"
 }
-
-# =============================================================================
 # MAIN SCRIPT LOGIC
 # =============================================================================
 
@@ -695,6 +818,7 @@ main() {
     local detach_mode="-d"
     local test_pattern=""
     local test_module=""
+    local requested_test_kind=""
     local tail_lines=500
     local follow_logs=false
     local api_url=""
@@ -765,15 +889,15 @@ main() {
                 ;;
             --test)
                 shift
-                local test_type=${1:-unit}
-                shift
+                local test_type="unit"
+                if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+                    test_type="$1"
+                    shift
+                fi
                 case "$test_type" in
-                    unit) run_unit_tests "$test_pattern" "$test_module" ;;
-                    integration) run_integration_tests "$test_pattern" "$test_module" ;;
-                    all) run_all_tests "$test_pattern" "$test_module" ;;
+                    unit|integration|all) requested_test_kind="$test_type" ;;
                     *) echo -e "${RED}Invalid test type: $test_type${NC}"; exit 1 ;;
                 esac
-                exit 0
                 ;;
             --tests)
                 shift
@@ -786,16 +910,16 @@ main() {
                 shift
                 ;;
             --test-unit)
-                run_unit_tests "$test_pattern" "$test_module"
-                exit 0
+                requested_test_kind="unit"
+                shift
                 ;;
             --test-integration)
-                run_integration_tests "$test_pattern" "$test_module"
-                exit 0
+                requested_test_kind="integration"
+                shift
                 ;;
             --test-all)
-                run_all_tests "$test_pattern" "$test_module"
-                exit 0
+                requested_test_kind="all"
+                shift
                 ;;
             --coverage)
                 run_coverage
@@ -855,6 +979,16 @@ main() {
                 ;;
         esac
     done
+
+    if [ -n "$requested_test_kind" ]; then
+        case "$requested_test_kind" in
+            unit) run_unit_tests "$test_pattern" "$test_module" ;;
+            integration) run_integration_tests "$test_pattern" "$test_module" ;;
+            all) run_all_tests "$test_pattern" "$test_module" ;;
+            *) echo -e "${RED}Invalid test type: $requested_test_kind${NC}"; exit 1 ;;
+        esac
+        exit $?
+    fi
     
     # Execute action on services
     if [ -n "$action" ]; then

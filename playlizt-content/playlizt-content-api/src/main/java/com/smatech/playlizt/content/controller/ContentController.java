@@ -1,8 +1,15 @@
-package com.smatech.playlizt.content.controller;
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+package zw.co.t3ratech.playlizt.content.controller;
 
-import com.smatech.playlizt.content.dto.ContentRequest;
-import com.smatech.playlizt.content.dto.ContentResponse;
-import com.smatech.playlizt.content.service.ContentService;
+import zw.co.t3ratech.playlizt.content.dto.ContentRequest;
+import zw.co.t3ratech.playlizt.content.dto.ContentResponse;
+import zw.co.t3ratech.playlizt.content.service.ContentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

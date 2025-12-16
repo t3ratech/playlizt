@@ -1,12 +1,26 @@
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/content_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/settings_provider.dart';
+import 'services/download_manager_platform.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_shell_screen.dart';
+
+late final SemanticsHandle _playliztSemanticsHandle;
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  _playliztSemanticsHandle = SemanticsBinding.instance.ensureSemantics();
   runApp(const PlayliztApp());
 }
 
@@ -20,6 +34,12 @@ class PlayliztApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ContentProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(
+          create: (ctx) => DownloadManager(
+            settingsProvider: Provider.of<SettingsProvider>(ctx, listen: false),
+          ),
+        ),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
@@ -60,7 +80,7 @@ class PlayliztApp extends StatelessWidget {
               scaffoldBackgroundColor: Colors.black,
             ),
             home: authProvider.isAuthenticated 
-                ? const HomeScreen() 
+                ? const MainShellScreen() 
                 : const LoginScreen(),
           );
         },

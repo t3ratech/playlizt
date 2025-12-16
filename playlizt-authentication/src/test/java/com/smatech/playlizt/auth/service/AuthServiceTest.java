@@ -1,11 +1,15 @@
-package com.smatech.playlizt.auth.service;
+package zw.co.t3ratech.playlizt.auth.service;
 
-import com.smatech.playlizt.auth.dto.AuthResponse;
-import com.smatech.playlizt.auth.dto.LoginRequest;
-import com.smatech.playlizt.auth.dto.RegisterRequest;
-import com.smatech.playlizt.auth.entity.User;
-import com.smatech.playlizt.auth.repository.UserRepository;
-import com.smatech.playlizt.auth.security.JwtUtil;
+import zw.co.t3ratech.playlizt.auth.dto.AuthResponse;
+import zw.co.t3ratech.playlizt.auth.dto.LoginRequest;
+import zw.co.t3ratech.playlizt.auth.dto.RegisterRequest;
+import zw.co.t3ratech.playlizt.auth.entity.PlayliztUserSettings;
+import zw.co.t3ratech.playlizt.auth.entity.User;
+import zw.co.t3ratech.playlizt.auth.model.PlayliztTab;
+import zw.co.t3ratech.playlizt.auth.model.PlayliztTheme;
+import zw.co.t3ratech.playlizt.auth.repository.PlayliztUserSettingsRepository;
+import zw.co.t3ratech.playlizt.auth.repository.UserRepository;
+import zw.co.t3ratech.playlizt.auth.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +35,9 @@ class AuthServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
+    private PlayliztUserSettingsRepository userSettingsRepository;
+
+    @Mock
     private JwtUtil jwtUtil;
 
     @InjectMocks
@@ -39,6 +46,7 @@ class AuthServiceTest {
     private RegisterRequest registerRequest;
     private LoginRequest loginRequest;
     private User user;
+    private PlayliztUserSettings settings;
 
     @BeforeEach
     void setUp() {
@@ -60,6 +68,15 @@ class AuthServiceTest {
                 .passwordHash("hashedPassword")
                 .isActive(true)
                 .build();
+
+        settings = PlayliztUserSettings.builder()
+                .id(1L)
+                .user(user)
+                .theme(PlayliztTheme.DARK)
+                .startupTab(PlayliztTab.STREAMING)
+                .downloadDirectory("~/Downloads")
+                .maxConcurrentDownloads(2)
+                .build();
     }
 
     @Test
@@ -70,6 +87,7 @@ class AuthServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(user);
         when(jwtUtil.generateToken(any(User.class))).thenReturn("token");
         when(jwtUtil.generateRefreshToken(any(User.class))).thenReturn("refreshToken");
+        when(userSettingsRepository.findByUser(any(User.class))).thenReturn(Optional.of(settings));
 
         AuthResponse response = authService.register(registerRequest);
 
@@ -94,6 +112,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
         when(jwtUtil.generateToken(any(User.class))).thenReturn("token");
         when(jwtUtil.generateRefreshToken(any(User.class))).thenReturn("refreshToken");
+        when(userSettingsRepository.findByUser(any(User.class))).thenReturn(Optional.of(settings));
 
         AuthResponse response = authService.login(loginRequest);
 

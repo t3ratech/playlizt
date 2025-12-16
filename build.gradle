@@ -6,7 +6,7 @@ plugins {
 }
 
 allprojects {
-    group = 'com.smatech.playlizt'
+    group = 'zw.co.t3ratech.playlizt'
     version = '1.0.0'
     
     repositories {

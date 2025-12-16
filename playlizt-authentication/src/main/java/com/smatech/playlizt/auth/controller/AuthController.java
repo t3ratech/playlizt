@@ -1,10 +1,17 @@
-package com.smatech.playlizt.auth.controller;
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+package zw.co.t3ratech.playlizt.auth.controller;
 
-import com.smatech.playlizt.auth.dto.ApiResponse;
-import com.smatech.playlizt.auth.dto.AuthResponse;
-import com.smatech.playlizt.auth.dto.LoginRequest;
-import com.smatech.playlizt.auth.dto.RegisterRequest;
-import com.smatech.playlizt.auth.service.AuthService;
+import zw.co.t3ratech.playlizt.auth.dto.ApiResponse;
+import zw.co.t3ratech.playlizt.auth.dto.AuthResponse;
+import zw.co.t3ratech.playlizt.auth.dto.LoginRequest;
+import zw.co.t3ratech.playlizt.auth.dto.RegisterRequest;
+import zw.co.t3ratech.playlizt.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,6 +46,13 @@ public class AuthController {
     @Operation(summary = "Refresh token", description = "Get new access token using refresh token")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(@RequestHeader("Refresh-Token") String refreshToken) {
         AuthResponse response = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/guest-token")
+    @Operation(summary = "Guest Token", description = "Get a limited token for anonymous access")
+    public ResponseEntity<ApiResponse<AuthResponse>> guestToken() {
+        AuthResponse response = authService.createGuestSession();
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

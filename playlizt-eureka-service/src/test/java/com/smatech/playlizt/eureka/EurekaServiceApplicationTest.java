@@ -1,4 +1,4 @@
-package com.smatech.playlizt.eureka;
+package zw.co.t3ratech.playlizt.eureka;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

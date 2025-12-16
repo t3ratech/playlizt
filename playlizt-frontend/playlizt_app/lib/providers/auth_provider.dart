@@ -1,6 +1,16 @@
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import 'settings_provider.dart';
 
 class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -51,7 +61,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
   
-  Future<String?> login(String email, String password) async {
+  Future<String?> login(String email, String password, {required BuildContext context}) async {
     try {
       final response = await _apiService.login(email, password);
       
@@ -64,6 +74,22 @@ class AuthProvider with ChangeNotifier {
       
       _apiService.setToken(_token!);
       await _saveToStorage();
+
+      final settings = response['settings'];
+      if (settings is Map<String, dynamic>) {
+        final settingsProvider =
+            Provider.of<SettingsProvider>(context, listen: false);
+        await settingsProvider.applyRemoteSettings(
+          downloadDirectory:
+              settings['downloadDirectory'] as String? ?? '~/Downloads',
+          libraryScanFolders:
+              List<String>.from(settings['libraryScanFolders'] ?? const []),
+          maxConcurrentDownloads:
+              settings['maxConcurrentDownloads'] as int? ?? 2,
+          visibleTabs: List<String>.from(settings['visibleTabs'] ?? const []),
+          startupTab: settings['startupTab'] as String? ?? 'STREAMING',
+        );
+      }
       
       notifyListeners();
       return null; // Success
@@ -72,6 +98,50 @@ class AuthProvider with ChangeNotifier {
     }
   }
   
+  Future<String?> loginAsGuest({required BuildContext context}) async {
+    try {
+      final response = await _apiService.guestToken();
+
+      _token = response['token'];
+      // Guest sessions might not return refreshToken/userId/username/email
+      _refreshToken = response['refreshToken'];
+      _userId = response['userId'];
+      _username = response['username'];
+      _email = response['email'];
+      _isAuthenticated = true; // Guest is technically authenticated with a limited token
+
+      _apiService.setToken(_token!);
+      // Don't save guest tokens to long-term storage or clear previous user data?
+      // For now, we treat guest session as a session that doesn't survive restart or we do?
+      // Let's not persist guest session to SharedPreferences to allow easy "logout" by restart if desired,
+      // OR persist it if we want "Continue without login" to be remembered.
+      // Given instructions: "Anonymous users... blocked from any operation that requires database access"
+      // We'll treat it as a session.
+      await _saveToStorage();
+
+      final settings = response['settings'];
+      if (settings is Map<String, dynamic>) {
+        final settingsProvider =
+            Provider.of<SettingsProvider>(context, listen: false);
+        await settingsProvider.applyRemoteSettings(
+          downloadDirectory:
+              settings['downloadDirectory'] as String? ?? '~/Downloads',
+          libraryScanFolders:
+              List<String>.from(settings['libraryScanFolders'] ?? const []),
+          maxConcurrentDownloads:
+              settings['maxConcurrentDownloads'] as int? ?? 2,
+          visibleTabs: List<String>.from(settings['visibleTabs'] ?? const []),
+          startupTab: settings['startupTab'] as String? ?? 'STREAMING',
+        );
+      }
+
+      notifyListeners();
+      return null; // Success
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   Future<String?> register({
     required String username,
     required String email,

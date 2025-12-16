@@ -1,12 +1,24 @@
-package com.smatech.playlizt.auth.service;
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+package zw.co.t3ratech.playlizt.auth.service;
 
-import com.smatech.playlizt.auth.dto.AuthResponse;
-import com.smatech.playlizt.auth.dto.LoginRequest;
-import com.smatech.playlizt.auth.dto.RegisterRequest;
-import com.smatech.playlizt.auth.dto.UpdateProfileRequest;
-import com.smatech.playlizt.auth.entity.User;
-import com.smatech.playlizt.auth.repository.UserRepository;
-import com.smatech.playlizt.auth.security.JwtUtil;
+import zw.co.t3ratech.playlizt.auth.dto.AuthResponse;
+import zw.co.t3ratech.playlizt.auth.dto.LoginRequest;
+import zw.co.t3ratech.playlizt.auth.dto.RegisterRequest;
+import zw.co.t3ratech.playlizt.auth.dto.UpdateProfileRequest;
+import zw.co.t3ratech.playlizt.auth.dto.UserSettingsDto;
+import zw.co.t3ratech.playlizt.auth.entity.PlayliztUserSettings;
+import zw.co.t3ratech.playlizt.auth.entity.User;
+import zw.co.t3ratech.playlizt.auth.model.PlayliztTab;
+import zw.co.t3ratech.playlizt.auth.model.PlayliztTheme;
+import zw.co.t3ratech.playlizt.auth.repository.PlayliztUserSettingsRepository;
+import zw.co.t3ratech.playlizt.auth.repository.UserRepository;
+import zw.co.t3ratech.playlizt.auth.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -21,8 +35,29 @@ import java.time.LocalDateTime;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PlayliztUserSettingsRepository userSettingsRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+
+    public AuthResponse createGuestSession() {
+        String guestToken = jwtUtil.generateGuestToken();
+        // Return minimal response with token; no user ID/username/email for guest
+        return AuthResponse.builder()
+                .token(guestToken)
+                .expiresIn(3600000L)
+                // Use defaults for settings, but mapped to DTO
+                .settings(
+                        UserSettingsDto.builder()
+                                .theme(PlayliztTheme.DARK)
+                                .startupTab(PlayliztTab.STREAMING)
+                                .visibleTabs(defaultVisibleTabs())
+                                .downloadDirectory("~/Downloads")
+                                .libraryScanFolders(new ArrayList<>())
+                                .maxConcurrentDownloads(2)
+                                .build()
+                )
+                .build();
+    }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -58,19 +93,6 @@ public class AuthService {
                 .filter(User::getIsActive)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
-        // Debug-only: compare encoded attempt with stored hash without logging raw password
-        try {
-            String rawPassword = request.getPassword();
-            String encodedAttempt = passwordEncoder.encode(rawPassword);
-            log.warn("DEBUG_LOGIN_PASSWORD_HASH email={}, rawLength={}, encodedAttempt={}, storedHash={}",
-                    request.getEmail(),
-                    rawPassword != null ? rawPassword.length() : -1,
-                    encodedAttempt,
-                    user.getPasswordHash());
-        } catch (Exception e) {
-            log.warn("DEBUG_LOGIN_PASSWORD_HASH failed to encode password for {}: {}", request.getEmail(), e.getMessage());
-        }
-
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid credentials");
         }
@@ -100,10 +122,10 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid token");
         }
         String email = jwtUtil.getEmailFromToken(token);
-        
+
         User user = userRepository.findActiveByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-                
+
         if (request.getUsername() != null && !request.getUsername().isEmpty()) {
             user.setUsername(request.getUsername());
         }
@@ -113,7 +135,7 @@ public class AuthService {
         if (request.getPassword() != null && !request.getPassword().isEmpty()) {
             user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         }
-        
+
         user = userRepository.save(user);
         return buildAuthResponse(user);
     }
@@ -122,6 +144,16 @@ public class AuthService {
         String token = jwtUtil.generateToken(user);
         String refreshToken = jwtUtil.generateRefreshToken(user);
 
+        PlayliztUserSettings settings = loadOrCreateSettings(user);
+        UserSettingsDto settingsDto = UserSettingsDto.builder()
+                .theme(settings.getTheme())
+                .startupTab(settings.getStartupTab())
+                .visibleTabs(new ArrayList<>(settings.getVisibleTabs()))
+                .downloadDirectory(settings.getDownloadDirectory())
+                .libraryScanFolders(new ArrayList<>(settings.getLibraryScanFolders()))
+                .maxConcurrentDownloads(settings.getMaxConcurrentDownloads())
+                .build();
+
         return AuthResponse.builder()
                 .userId(user.getId())
                 .username(user.getUsername())
@@ -129,6 +161,35 @@ public class AuthService {
                 .token(token)
                 .refreshToken(refreshToken)
                 .expiresIn(3600000L) // 1 hour in milliseconds
+                .settings(settingsDto)
                 .build();
+    }
+
+    private PlayliztUserSettings loadOrCreateSettings(User user) {
+        return userSettingsRepository.findByUser(user)
+                .orElseGet(() -> {
+                    PlayliztUserSettings defaults = PlayliztUserSettings.builder()
+                            .user(user)
+                            .theme(PlayliztTheme.DARK)
+                            .startupTab(PlayliztTab.STREAMING)
+                            .visibleTabs(defaultVisibleTabs())
+                            .downloadDirectory("~/Downloads")
+                            .libraryScanFolders(new ArrayList<>())
+                            .maxConcurrentDownloads(2)
+                            .build();
+                    return userSettingsRepository.save(defaults);
+                });
+    }
+
+    private List<PlayliztTab> defaultVisibleTabs() {
+        // Order: LIBRARY, PLAYLISTS, STREAMING, DOWNLOAD, CONVERT, DEVICES
+        List<PlayliztTab> tabs = new ArrayList<>();
+        tabs.add(PlayliztTab.LIBRARY);
+        tabs.add(PlayliztTab.PLAYLISTS);
+        tabs.add(PlayliztTab.STREAMING);
+        tabs.add(PlayliztTab.DOWNLOAD);
+        tabs.add(PlayliztTab.CONVERT);
+        tabs.add(PlayliztTab.DEVICES);
+        return tabs;
     }
 }

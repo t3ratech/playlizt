@@ -11,6 +11,7 @@ services:
       POSTGRES_DB: ${PLAYLIZT_DB_NAME}
       POSTGRES_USER: ${PLAYLIZT_DB_USER}
       POSTGRES_PASSWORD: ${PLAYLIZT_DB_PASSWORD}
+      PGPORT: ${PLAYLIZT_DB_PORT}
       TZ: ${TZ}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -32,12 +33,13 @@ services:
   redis:
     image: redis:alpine
     container_name: playlizt-redis
+    command: redis-server --port 4379
     ports:
-      - "6379:6379"
+      - "4379:4379"
     networks:
       - playlizt-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-p", "4379", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3

@@ -1,4 +1,4 @@
-package com.smatech.playlizt.ui;
+package zw.co.t3ratech.playlizt.ui;
 
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
@@ -14,9 +14,7 @@ public class PlayliztAdminTest extends BasePlayliztTest {
 
         // Ensure fresh login as a generic user
         if (isTextVisible("Logout") || isTextVisible("Sign Out")) {
-             try { logout(); } catch (Exception e) {
-                 System.out.println("Logout failed, trying to force login flow anyway");
-             }
+            logout();
         }
 
         if (isTextVisible("Login")) {
@@ -27,19 +25,15 @@ public class PlayliztAdminTest extends BasePlayliztTest {
 
         takeScreenshot("analytics", "01_home", "01_dashboard.png");
 
-        // Open Profile - wait for button
-        com.microsoft.playwright.Locator profileBtn = page.getByLabel("Profile")
-            .or(page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON, new com.microsoft.playwright.Page.GetByRoleOptions().setName("Profile")));
-
-        if (profileBtn.count() == 0) profileBtn = page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON).last();
-
-        profileBtn.click();
+        // Open Settings drawer instead of legacy Profile dialog
+        openSettingsDrawer();
         page.waitForTimeout(1000);
 
-        takeScreenshot("analytics", "01_home", "02_profile_dialog.png");
+        takeScreenshot("analytics", "01_home", "02_settings_drawer.png");
 
-        // Check for Analytics Dashboard button
-        boolean hasAnalyticsLink = isTextVisible("Analytics Dashboard");
+        // Check for Analytics dashboard button (drawer label uses lowercase 'd')
+        boolean hasAnalyticsLink = isTextVisible("Analytics dashboard")
+                || isTextVisible("Analytics Dashboard");
 
         if (!hasAnalyticsLink) {
             if (isTextVisible("Network error") ||
@@ -49,9 +43,12 @@ public class PlayliztAdminTest extends BasePlayliztTest {
             }
         }
 
-        assertThat(hasAnalyticsLink).as("Analytics Dashboard link should be visible for any authenticated user").isTrue();
+        assertThat(hasAnalyticsLink).as("Analytics dashboard link should be visible for any authenticated user").isTrue();
 
-        page.getByText("Analytics Dashboard").click();
+        page.getByText("Analytics dashboard")
+                .or(page.getByText("Analytics Dashboard"))
+                .first()
+                .click();
         page.waitForTimeout(2000);
 
         takeScreenshot("analytics", "02_dashboard", "01_analytics_dashboard.png");
@@ -61,13 +58,8 @@ public class PlayliztAdminTest extends BasePlayliztTest {
         boolean hasPeak = isTextVisible("Peak Viewing Hour");
         boolean hasTrend = isTextVisible("Trending Category");
 
-        if (hasStats && hasPeak && hasTrend) {
-            System.out.println("✅ Analytics Dashboard loaded with all metrics");
-        } else {
-            System.out.println("⚠️ Analytics Dashboard loaded but missing some metrics: " +
-                "Stats=" + hasStats + ", Peak=" + hasPeak + ", Trend=" + hasTrend);
-        }
-
         assertThat(hasStats).as("Analytics Dashboard should show stats").isTrue();
+        assertThat(hasPeak).as("Analytics Dashboard should show peak viewing hour").isTrue();
+        assertThat(hasTrend).as("Analytics Dashboard should show trending category").isTrue();
     }
 }

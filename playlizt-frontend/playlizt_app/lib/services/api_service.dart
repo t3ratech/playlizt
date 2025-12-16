@@ -1,11 +1,22 @@
-import 'dart:io';
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 class ApiService {
-  static const String baseUrl = String.fromEnvironment(
-    'API_URL',
-    defaultValue: 'http://localhost:4080/api/v1'
-  );
+  static const String _envApiUrl = String.fromEnvironment('API_URL');
+
+  static String get baseUrl {
+    if (_envApiUrl.trim().isEmpty) {
+      throw StateError('Missing required dart define: API_URL');
+    }
+    return _envApiUrl;
+  }
   
   // Singleton instance
   static final ApiService _instance = ApiService._internal();
@@ -60,6 +71,15 @@ class ApiService {
     }
   }
   
+  Future<Map<String, dynamic>> guestToken() async {
+    try {
+      final response = await _dio.post('/auth/guest-token');
+      return response.data['data'];
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<void> logout() async {
     try {
       await _dio.post('/auth/logout');
@@ -99,12 +119,28 @@ class ApiService {
     }
   }
   
-  Future<Map<String, dynamic>> uploadFile(File file) async {
-    String fileName = file.path.split('/').last;
-    FormData formData = FormData.fromMap({
-      "file": await MultipartFile.fromFile(file.path, filename: fileName),
+  Future<Map<String, dynamic>> uploadFilePath(String filePath) async {
+    final fileName = filePath.split('/').last;
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath, filename: fileName),
     });
     
+    try {
+      final response = await _dio.post('/content/upload', data: formData);
+      return Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadFileBytes({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: fileName),
+    });
+
     try {
       final response = await _dio.post('/content/upload', data: formData);
       return Map<String, dynamic>.from(response.data);

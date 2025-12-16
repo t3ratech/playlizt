@@ -20,14 +20,20 @@
 Playlizt is a media player, streamer, downloader and converter for your own media collection. It is implemented as a microservices-based system using Java, Spring Boot and Flutter, and uses Google Gemini AI for intelligent content discovery, metadata enhancement and behavioral analytics.
 
 ### Key Features
+- Unified multimedia player shell with Library, Playlists, Streaming, Download, Convert and Devices tabs
+- Local Library indexing and playback for on-disk audio/video files
+- Playlist management for local and online items
+- URL-based media downloading into a configurable download folder with queue management
+- Media conversion and clipping pipeline for library-friendly formats
+- Extensible device abstraction for future sync/cast targets
 - User authentication for a single generic user type (no roles)
 - AI-powered content recommendations
 - AI metadata enhancement for uploads
-- AI watch pattern analysis
-- Content browsing and search
+- AI watch pattern analysis and insights
+- Content browsing and search (online catalogue)
 - Viewing history and "Continue Watching"
 - Content upload & management and usage analytics
-- API documentation via Swagger
+- REST APIs documented via OpenAPI/Swagger
 - Full Docker containerization
 
 ## System Architecture
@@ -86,10 +92,30 @@ database → playlizt-eureka-service → playlizt-authentication → playlizt-co
 - **API Docs**: Springdoc OpenAPI 3
 - **Build**: Gradle 9.2.1 with Groovy DSL
 - **Container**: Docker & Docker Compose
+ - **Base Package & Naming**: All backend code lives under `zw.co.t3ratech.playlizt` packages, and every Java type (entities, DTOs, repositories, services, controllers and tests) is prefixed with `Playlizt` (for example, `PlayliztUser`, `PlayliztAuthService`, `PlayliztContentController`).
 
 ### Frontend
 - **Framework**: Flutter 3.24+
 - **Language**: Dart 3.5+
+
+#### Frontend Navigation Model
+
+The Flutter application hosts a unified multimedia shell with a **single navigation surface**:
+
+- A minimal **global app bar** containing Playlizt/Blaklizt branding and a hamburger icon that opens the Settings drawer. Theme, upload, analytics, profile and logout actions are all accessed from Settings rather than the app bar.
+- A **left navigation rail** that is present on all platforms (desktop, tablet and web/mobile) with fixed tabs:
+  1. Library – local filesystem browser and future index for offline media.
+  2. Playlists – editor for local/online/hybrid playlists.
+  3. Streaming – authenticated dashboard that hosts search, category chips, AI recommendations, continue-watching and the main online content grid.
+  4. Download – URL-based downloader that writes media to a configured folder and exposes a download manager queue.
+  5. Convert – shell for future transcoding/clipping UI backed by ffmpeg-style workers.
+  6. Devices – shell for future sync/cast targets.
+
+All tab content is **top‑aligned** within its scrollable area to match traditional desktop media players. The **"Powered by Blaklizt Entertainment"** footer (logo, line and text) is the only element that is deliberately bottom‑aligned, and it appears only inside the Streaming tab.
+
+The selected tab indicator is rendered as a pill/oval highlight that surrounds the icon and label without obscuring them in either Light or Dark theme; in particular, light‑mode colours are chosen so the icon remains clearly visible.
+
+The **Download** tab is backed by a `DownloadManager` service that uses `dio` for HTTP transfers, honours a per-user concurrency limit from `SettingsProvider`, and persists task metadata via `SharedPreferences` so active and completed downloads are visible after restarts.
 
 ### AI
 - **Provider**: Google Gemini API
@@ -131,7 +157,7 @@ Database services:
 **.env**:
 ```properties
 PLAYLIZT_DB_HOST=playlizt-database
-PLAYLIZT_DB_PORT=5432
+PLAYLIZT_DB_PORT=4432
 PLAYLIZT_DB_NAME=playlizt
 PLAYLIZT_DB_USER=playlizt_user
 PLAYLIZT_DB_PASSWORD=${DB_PASSWORD}
@@ -277,6 +303,20 @@ CREATE TABLE content_ratings (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, content_id)
 );
+
+-- Per-user UI & behaviour settings (playlizt-authentication)
+CREATE TABLE playlizt_user_settings (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) UNIQUE,
+    theme VARCHAR(20) NOT NULL,
+    startup_tab VARCHAR(50) NOT NULL,
+    visible_tabs TEXT[] NOT NULL,
+    download_directory VARCHAR(500) NOT NULL,
+    library_scan_folders TEXT[] NOT NULL,
+    max_concurrent_downloads INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ### Indexes
@@ -391,7 +431,12 @@ jwt.refresh-expiration-ms=86400000  # 24 hours
 ### Authorization Model (No Roles)
 - Single generic authenticated user type; no `role` claim in the JWT.
 - All authenticated users can browse content, upload and manage their own content, and view analytics.
-- Authorization rules distinguish only between anonymous and authenticated requests (for example, using `isAuthenticated()` in Spring Security).
+- Authorization rules distinguish between **anonymous sessions** and authenticated requests. Anonymous users may browse public catalogue data and use purely local features (Library, Playlists, Download playback), but any operation that requires database access (such as uploading content, persisting playlists to the server, editing profiles or viewing personalised analytics) requires authentication.
+
+#### Optional Login & User Settings Handshake
+- The login screen exposes a **"Continue without login"** option that starts an anonymous session while clearly indicating which capabilities are disabled.
+- On successful login, the authentication service loads or creates a `PlayliztUserSettings` record for the user and returns the effective settings (theme, startup tab, visible tabs, download directory, library scan folders, max concurrent downloads) alongside the JWT.
+- The Flutter `SettingsProvider` initialises from these server-provided settings instead of hardcoded defaults. When no user is logged in, it falls back to environment-driven defaults defined in configuration (`application-*.properties`, `.env`), not to inline constants in code.
 
 #### Registration Flow
 - **Endpoint**: `POST /api/v1/auth/register`
@@ -627,40 +672,25 @@ class PlayliztVisualE2ETest extends BasePlayliztTest {
 #### Running UI Tests
 
 ```bash
-# Run all UI tests (NON-HEADLESS)
-./gradlew :playlizt-ui-tests:test \
-  -Dplaywright.headless=false \
-  -Dplaywright.slowmo=500 \
-  --rerun-tasks
+# All UI tests (full environment via playlizt-docker.sh)
+./playlizt-docker.sh --tests "zw.co.t3ratech.playlizt.ui.*Test" --module playlizt-ui-tests --test-all
 
-# Run specific test class
-./gradlew :playlizt-ui-tests:test \
-  --tests "PlayliztVisualE2ETest" \
-  -Dplaywright.headless=false
+# Specific UI test class
+./playlizt-docker.sh --tests "zw.co.t3ratech.playlizt.ui.PlayliztRecommendationTest" --module playlizt-ui-tests --test-all
 
-# Run single test method
-./gradlew :playlizt-ui-tests:test \
-  --tests "PlayliztVisualE2ETest.visualTest01_LoginPage" \
-  -Dplaywright.headless=false
+# Single UI test method
+./playlizt-docker.sh --tests "zw.co.t3ratech.playlizt.ui.PlayliztRecommendationTest.test01_VerifyRecommendationsLogic" --module playlizt-ui-tests --test-all
 ```
 
 #### Prerequisites
 
-1. Backend services running and healthy:
-   ```bash
-   ./playlizt-docker.sh --status
-   ```
-
-2. Flutter web app running on port 4090:
-   ```bash
-   curl -I http://localhost:4090
-   ```
-
-3. Playwright browsers installed:
+1. Playwright browsers installed:
    ```bash
    cd playlizt-ui-tests
    ./install-browsers.sh
    ```
+
+2. Docker, Docker Compose and Flutter SDK installed (required by `playlizt-docker.sh`). The test workflow script will build the Flutter web app, start all backend services, run the UI tests, and tear everything down.
 
 #### Quality Standards
 
@@ -925,6 +955,27 @@ management.health.readinessState.enabled=true
 
 ## Development Standards
 
+### File Header Template
+
+All Java files and any other source files that support comments must include the following header at the very top of the file, using the appropriate comment syntax for that language (Java / Kotlin style shown here):
+
+```java
+/**
+ * Created in Windsurf Editor @WindsurfVersion
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : @Date @Time
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+```
+
+For this project:
+
+- `@WindsurfVersion` **must** be set to `"1.12.41 - GPT 5.1 (High Reasoning)"`.
+- `@Date @Time` must reflect the **actual file creation timestamp** in the format `YYYY/MM/DD HH:MM` for each individual file.
+
+Automated refactors and new files must preserve or correctly initialise this header so that it remains consistent across the codebase.
+
 ### Lombok Usage (Mandatory)
 ```java
 @Data
@@ -1040,7 +1091,7 @@ The project includes automated scripts for setting up the environment from scrat
 Infrastructure as Code (IaC) is managed via Terraform in the `terraform/` directory.
 
 - **Resources**:
-  - **Cloud SQL**: PostgreSQL 17 (Production Grade)
+  - **Cloud SQL**: PostgreSQL 17 (Production Grade) - Port 4432
   - **Cloud Run**: Serverless compute for microservices
   - **Artifact Registry**: Docker image storage
   - **Secret Manager**: (Optional) For storing sensitive config

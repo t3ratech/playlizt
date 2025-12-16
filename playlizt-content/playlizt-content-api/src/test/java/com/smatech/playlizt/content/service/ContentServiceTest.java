@@ -1,9 +1,9 @@
-package com.smatech.playlizt.content.service;
+package zw.co.t3ratech.playlizt.content.service;
 
-import com.smatech.playlizt.content.dto.ContentRequest;
-import com.smatech.playlizt.content.dto.ContentResponse;
-import com.smatech.playlizt.content.entity.Content;
-import com.smatech.playlizt.content.repository.ContentRepository;
+import zw.co.t3ratech.playlizt.content.dto.ContentRequest;
+import zw.co.t3ratech.playlizt.content.dto.ContentResponse;
+import zw.co.t3ratech.playlizt.content.entity.Content;
+import zw.co.t3ratech.playlizt.content.repository.ContentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

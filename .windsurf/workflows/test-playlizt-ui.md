@@ -10,7 +10,7 @@ This workflow defines the rigorous process for validating the Playlizt platform'
 ## Core Principles
 
 1.  **Strict Assertions**: Tests must fail if text, elements, or URLs are not exactly as expected.
-2.  **Screenshot Verification**: Every critical step generates a screenshot. These MUST be manually reviewed.
+2.  **Per-Screenshot Manual Verification**: Every critical step generates a screenshot. After running a test class, you must open **each resulting PNG one by one** and visually confirm that the UI exactly matches the expected state for that step before moving on.
 3.  **Fail Fast**: Stop at the first sign of failure. Do not ignore "minor" visual glitches.
 4.  **Real Environment**: Tests run against the full Dockerized backend and Flutter web frontend.
 
@@ -36,9 +36,9 @@ If `curl -I http://localhost:4090` fails:
 ./playlizt-docker.sh --serve-web 4090
 ```
 
-### 2. Execute Tests Sequentially
+### 2. Execute Tests Sequentially (One Class at a Time)
 
-Run tests one class at a time to ensure isolation and focus.
+Run **exactly one** test class at a time to ensure isolation and focused verification. Do not start the next test class until you have manually inspected all screenshots produced by the previous one.
 
 #### A. Authentication Tests (Strict)
 
@@ -74,9 +74,13 @@ Validates Dashboard structure, Search, and Content interaction.
     - `03_content`: Content grid visible? Details page loaded?
     - `04_layout`: Footer/Header correct?
 
-### 3. Manual Screenshot Audit (MANDATORY)
+### 3. Manual Screenshot Audit (MANDATORY, PER-CLASS)
 
-You must manually review the generated screenshots. Do not skip this step.
+After each test class finishes:
+
+- Identify the screenshots generated for that class (typically under `playlizt-ui-tests/src/test/output/{category}/{scenario}/`).
+- Open **every PNG individually** and visually compare it with the expected UI for that scenario.
+- Only after all screenshots for that class are approved should you proceed to run the next test class.
 
 ```bash
 # List all screenshots

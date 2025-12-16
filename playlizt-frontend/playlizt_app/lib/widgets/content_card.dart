@@ -1,3 +1,10 @@
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/content.dart';
@@ -21,41 +28,44 @@ class ContentCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: width,
-        child: InkWell(
-          onTap: () async {
-            print('ContentCard: Tapped content ${content.id} - ${content.title}');
-            try {
-              // Increment view count
-              Provider.of<ContentProvider>(context, listen: false).incrementView(content.id);
-            } catch (e) {
-              print('ContentCard: Error incrementing view: $e');
-            }
-            
-            // Show SnackBar for UI Test
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Selected: ${content.title}'),
-                duration: const Duration(seconds: 1),
-              ),
-            );
-            
-            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        child: Semantics(
+          label: 'Video: ${content.title}',
+          button: true,
+          child: InkWell(
+            onTap: () async {
+              print('ContentCard: Tapped content ${content.id} - ${content.title}');
+              try {
+                // Increment view count
+                Provider.of<ContentProvider>(context, listen: false).incrementView(content.id);
+              } catch (e) {
+                print('ContentCard: Error incrementing view: $e');
+              }
+              
+              // Show SnackBar for UI Test
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Selected: ${content.title}'),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+              
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => VideoPlayerScreen(content: content),
-              ),
-            );
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => VideoPlayerScreen(content: content),
+                ),
+              );
 
-            // Refresh personalized sections on return
-            if (context.mounted && authProvider.userId != null) {
-              final contentProvider = Provider.of<ContentProvider>(context, listen: false);
-              await contentProvider.loadContinueWatching(authProvider.userId!);
-              await contentProvider.loadRecommendations(authProvider.userId!);
-            }
-          },
-          child: Column(
+              // Refresh personalized sections on return
+              if (context.mounted && authProvider.userId != null) {
+                final contentProvider = Provider.of<ContentProvider>(context, listen: false);
+                await contentProvider.loadContinueWatching(authProvider.userId!);
+                await contentProvider.loadRecommendations(authProvider.userId!);
+              }
+            },
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Thumbnail
@@ -64,7 +74,6 @@ class ContentCard extends StatelessWidget {
                 child: content.thumbnailUrl != null
                     ? Image.network(
                         content.thumbnailUrl!,
-                        semanticLabel: 'Video: ${content.title}',
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           color: Colors.grey[800],
@@ -172,6 +181,7 @@ class ContentCard extends StatelessWidget {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),

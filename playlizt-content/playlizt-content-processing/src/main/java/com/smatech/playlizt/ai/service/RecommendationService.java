@@ -1,10 +1,17 @@
-package com.smatech.playlizt.ai.service;
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/12/11 00:47
+ * Email        : tkaviya@t3ratech.co.zw
+ */
+package zw.co.t3ratech.playlizt.ai.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smatech.playlizt.ai.client.ContentClient;
-import com.smatech.playlizt.ai.client.PlaybackClient;
-import com.smatech.playlizt.ai.dto.ContentResponse;
+import zw.co.t3ratech.playlizt.ai.client.ContentClient;
+import zw.co.t3ratech.playlizt.ai.client.PlaybackClient;
+import zw.co.t3ratech.playlizt.ai.dto.ContentResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

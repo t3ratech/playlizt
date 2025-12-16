@@ -10,6 +10,60 @@ Primary areas:
 - **Convert**: Transcode/clip media into library-friendly formats.
 - **Devices**: Extensibility point for future sync/cast targets.
 
+### Navigation Shell & Tabs
+
+The Flutter frontend uses a unified multimedia shell:
+
+- **Global App Bar** (top):
+  - Shows the Playlizt/Blaklizt wordmark.
+  - Contains a hamburger icon that opens the Settings drawer.
+  - Does **not** expose theme, upload, analytics or profile controls directly; those live inside Settings.
+
+- **Left Navigation Rail** (all platforms):
+  - Single, fixed tab bar in this order: **Library**, **Playlists**, **Streaming**, **Download**, **Convert**, **Devices**.
+  - There is **no bottom tab bar**; the navigation rail is the only source of truth for tab state.
+  - Each tab hosts its own scrollable content while preserving state when switching tabs.
+  - Tab content is visually **top-aligned** to match traditional desktop media players.
+  - The selected tab uses an oval/pill highlight that surrounds, but does not obscure, the tab icon/label in Light and Dark themes.
+
+- **Library Tab**:
+  - Entry point into the local media library.
+  - Surfaces indexed folders and items from configured scan folders.
+  - Supports basic browsing and search over local audio/video files.
+
+- **Playlists Tab**:
+  - Manages user playlists for local and online items.
+  - Provides list and detail views, with ordering and future editing capabilities.
+
+- **Streaming Tab**:
+  - Hosts all online content features: search bar, category chips, AI "Recommended for You" carousel, "Continue Watching" strip, and main content grid.
+  - The "Powered by Blaklizt Entertainment" footer (logo, line and text) is bottom-aligned within this tab and does **not** appear on other tabs.
+  - When the backend is unavailable, the tab shows a clear error state instead of silently falling back to local-only views.
+
+- **Download Tab**:
+  - URL input field plus `Download` button to enqueue downloads from external HTTP/HTTPS sources.
+  - Switch to choose between using a **default download folder** (`~/Downloads` by default, user-editable) or prompting for a folder/name on each download.
+  - Scrollable download queue panel listing active and recent downloads with status, progress bar, and per-item controls to **Pause**, **Resume**, or **Cancel**.
+  - Backed by a `DownloadManager` service that performs real HTTP downloads, enforces a configurable concurrency limit, and persists task state across app restarts.
+
+- **Convert Tab**:
+  - Dedicated area for transcoding and clipping media into library-friendly formats.
+  - Reads from Library items and writes transformed outputs back into the Library.
+
+- **Devices Tab**:
+  - Lists current and potential playback targets.
+  - Provides a future integration point for sync/cast features without impacting core Library semantics.
+
+- **Settings Drawer** (hamburger menu):
+  - Shows the T3Ratech logo at the top, alongside Settings title.
+  - **General**: choose startup tab (Library/Playlists/Streaming/Download/Convert/Devices) and configure which tabs are visible.
+    - On the web platform, the **Library** and **Devices** tabs cannot be enabled; **Streaming** must always be visible and acts as the default startup tab.
+    - Whenever the visible tab set changes, the saved startup tab is automatically adjusted to a still-visible tab (falling back to Streaming if needed).
+  - **Library**: manage **scan folders** via add/remove list of filesystem paths.
+  - **Download**: view and edit the default download folder; toggle "Use default download location" behaviour. Even when the switch is ON, you can open a native folder chooser dialog from Settings to update the default folder.
+  - **Appearance**: light/dark theme toggle. The default theme for new users and anonymous sessions is **Dark mode**.
+  - **Account & Actions**: access upload, analytics/dashboard, profile details and logout; these actions are no longer duplicated in the top app bar.
+
 ## Local Media Features (Offline)
 
 These features work entirely on your local machine without any backend:
@@ -33,6 +87,8 @@ These features work entirely on your local machine without any backend:
 - Downloads media to a configured or chosen folder using the original filename by default.
 - Optionally normalizes file names and target folders according to Library rules when enabled.
 - Optionally ingests successful downloads into the Library as first-class entries.
+  
+The Download tab surfaces these behaviours via the URL input, default/custom destination switch, and a full download manager queue with pause/resume/cancel controls.
 
 ### 5. Convert (Transcoding/Clipping)
 - Reads media from the Library and writes converted outputs back into it.
@@ -45,6 +101,8 @@ These features work entirely on your local machine without any backend:
 - Designed so that future sync/cast features do not change Library semantics.
 
 ## Optional Online Features
+
+Authentication is recommended but optional. The login screen also exposes a **"Continue without login"** option, which starts an anonymous session with limited capabilities: you can browse public catalogue data and use purely local features (Library, Playlists, Download playback), but uploading content, editing profiles, viewing analytics and any other database-backed actions require a logged-in user.
 
 ### Online Features (Authenticated Users)
 - **Browse Content**: Discover videos by category, tags, or search.
@@ -127,6 +185,7 @@ PLAYLIZT_GEMINI_API_KEY=your_gemini_api_key
 
 # Ports
 PLAYLIZT_EUREKA_PORT=4761
+PLAYLIZT_DB_PORT=4432
 PLAYLIZT_AUTH_PORT=4081
 PLAYLIZT_CONTENT_API_PORT=4082
 PLAYLIZT_PLAYBACK_PORT=4083
@@ -279,13 +338,18 @@ curl -X GET http://localhost:4080/api/v1/ai/recommendations \
 ./playlizt-docker.sh --test unit --tests "*AuthServiceTest"
 ```
 
+### Run UI Tests (with full environment)
+```bash
+./playlizt-docker.sh --tests "zw.co.t3ratech.playlizt.ui.*Test" --module playlizt-ui-tests --test-all
+```
+
 ## Database Management
 
 The platform uses **Hibernate** for automatic schema creation and **SQL Initialization** for data seeding.
 
 ### Initial Data
 On startup, the database is automatically populated with:
-- **User**: `tkaviya` (Email: `tsungai.kaviya@gmail.com`, Pass: `testpass`, Role: USER)
+- **User**: `tkaviya` (Email: `tkaviya@t3ratech.co.zw`, Pass: `testpass`)
 - **Content**: 5 videos from the "Tha Streetz TV" playlist
 
 ### Resetting the Database

@@ -1,10 +1,10 @@
-package com.smatech.playlizt.content.service;
+package zw.co.t3ratech.playlizt.content.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.smatech.playlizt.content.entity.Content;
-import com.smatech.playlizt.content.repository.ContentRepository;
+import zw.co.t3ratech.playlizt.content.entity.Content;
+import zw.co.t3ratech.playlizt.content.repository.ContentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,7 +1,7 @@
-package com.smatech.playlizt.auth.security;
+package zw.co.t3ratech.playlizt.auth.security;
 
-import com.smatech.playlizt.auth.config.JwtConfig;
-import com.smatech.playlizt.auth.entity.User;
+import zw.co.t3ratech.playlizt.auth.config.JwtConfig;
+import zw.co.t3ratech.playlizt.auth.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;

@@ -1,4 +1,4 @@
-package com.smatech.playlizt.ai.controller;
+package zw.co.t3ratech.playlizt.ai.controller;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

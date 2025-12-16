@@ -1,9 +1,17 @@
+/**
+ * Created in Windsurf Editor 1.12.41 - GPT 5.1 (High Reasoning)
+ * Author       : Tsungai Kaviya
+ * Copyright    : TeraTech Solutions (Pvt) Ltd
+ * Date/Time    : 2025/11/26 12:59
+ * Email        : tkaviya@t3ratech.co.zw
+ */
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/themed_logo.dart';
 import 'register_screen.dart';
+import 'main_shell_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,6 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final error = await authProvider.login(
       _emailController.text,
       _passwordController.text,
+      context: context,
     );
 
     if (!mounted) return;
@@ -48,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = false;
       if (error != null) {
         _invalidCredentials = true;
-        _errorMessage = 'Invalid email or password';
+        _errorMessage = 'Authentication Failed';
       } else {
         _invalidCredentials = false;
         _errorMessage = null;
@@ -61,8 +70,42 @@ class _LoginScreenState extends State<LoginScreen> {
       _formKey.currentState!.validate();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Invalid email or password'),
+          content: Text('Authentication Failed'),
           backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _continueWithoutLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    // Attempt guest login (which fetches guest token + default settings)
+    final error = await authProvider.loginAsGuest(context: context);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not start guest session: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } else {
+      // If successful, the AuthProvider has token & settings.
+      // We still route to MainShellScreen, but now we are "authenticated" as guest.
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const MainShellScreen(),
         ),
       );
     }
@@ -188,6 +231,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                     },
                     child: const Text('Don\'t have an account? Register'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: _isLoading ? null : _continueWithoutLogin,
+                    child: const Text('Continue without login'),
                   ),
                   const SizedBox(height: 32),
                   const Divider(),

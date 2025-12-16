@@ -1,4 +1,4 @@
-package com.smatech.playlizt.auth;
+package zw.co.t3ratech.playlizt.auth;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

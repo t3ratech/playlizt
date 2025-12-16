@@ -1,9 +1,9 @@
-package com.smatech.playlizt.playback.service;
+package zw.co.t3ratech.playlizt.playback.service;
 
-import com.smatech.playlizt.playback.dto.PlaybackRequest;
-import com.smatech.playlizt.playback.dto.PlaybackResponse;
-import com.smatech.playlizt.playback.entity.ViewingHistory;
-import com.smatech.playlizt.playback.repository.ViewingHistoryRepository;
+import zw.co.t3ratech.playlizt.playback.dto.PlaybackRequest;
+import zw.co.t3ratech.playlizt.playback.dto.PlaybackResponse;
+import zw.co.t3ratech.playlizt.playback.entity.ViewingHistory;
+import zw.co.t3ratech.playlizt.playback.repository.ViewingHistoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
