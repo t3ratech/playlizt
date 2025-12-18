@@ -70,7 +70,7 @@ This document tracks the outstanding tasks and features to be implemented.
 - [x] **Sentiment Display**: Show AI rating and sentiment on content cards.
 
 #### 5.1 Multimedia Shell UI – Tabs & Layout
-- [ ] **Global Navigation Shell**: Replace the current single-page dashboard shell with a reusable root `Scaffold` that hosts a minimal top app bar (Playlizt/Blaklizt branding and a hamburger icon) and a tab-aware body.
+- [x] **Global Navigation Shell**: Replace the current single-page dashboard shell with a reusable root `Scaffold` that hosts a minimal top app bar (Playlizt/Blaklizt branding and a hamburger icon) and a tab-aware body.
   - Use a **single navigation rail** on the left that is present on all platforms; remove the bottom `BottomNavigationBar` entirely so there is only one tab bar.
   - The navigation rail exposes 6 fixed tabs in this exact order: **Library**, **Playlists**, **Streaming**, **Download**, **Convert**, **Devices**.
   - Each tab is backed by a dedicated root screen widget (e.g. `LibraryTabScreen`, `PlaylistsTabScreen`, etc.) with its own internal scroll / state, preserved when switching tabs.
@@ -79,21 +79,21 @@ This document tracks the outstanding tasks and features to be implemented.
   - The T3Ratech logo is removed from the global header strip and instead rendered at the very top of the Settings drawer.
   - Interactive controls such as theme toggle, upload shortcut, analytics/dashboard entry point, profile details and logout are removed from the top app bar and surfaced as actions inside the Settings drawer.
 
-- [ ] **Streaming Tab Migration**: Move all existing online/dashboard behaviours into the **Streaming** tab.
+- [x] **Streaming Tab Migration**: Move all existing online/dashboard behaviours into the **Streaming** tab.
   - Relocate the content grid, search input, category chips, AI recommendation section, "Continue Watching" strip, and any online-only calls into the Streaming tab body.
   - Ensure the "Powered by Blaklizt" footer is rendered only within the Streaming tab’s scroll view, at the bottom of the content list.
   - When the backend is unavailable, the Streaming tab should fail fast with a clear error state (no silent fallbacks to local-only views inside this tab).
 
-- [ ] **Tab State & Routing**: Persist which tab is currently selected and restore it on app restart.
+- [x] **Tab State & Routing**: Persist which tab is currently selected and restore it on app restart.
   - Integrate with existing routing/navigation (e.g. named routes or `onGenerateRoute`) so that direct deep links such as `/#/streaming` or `/#/download` open the correct tab.
   - Ensure video playback screens can be launched from any tab while keeping the shell navigation consistent when popping back.
 
 #### 5.2 Library Tab – Local Media Shell (Phase 1: UI)
-- [ ] **Library Landing UI**: Implement a Library tab landing view focused on local files (offline-first).
+- [x] **Library Landing UI**: Implement a Library tab landing view focused on local files (offline-first).
   - Show a summary header section (e.g. "Local Library") with quick stats for total items and last scan time.
   - Provide primary actions: **Scan Folders**, **Rescan Now**, and **Open Folder**.
 
-- [ ] **Folder/Item Browser (Read-Only Phase)**:
+- [x] **Folder/Item Browser (Read-Only Phase)**:
   - Render a 2–3 column grid/list of media items inspired by desktop players (e.g. artists/albums/tracks), but initially backed by a basic filesystem listing from configured scan folders.
   - Support simple sort toggles (by Name, Date Added) and a text search box scoped to local items.
   - Tapping an item routes into the existing playback flow with a `file://` media source, distinct from streaming URLs.
@@ -104,21 +104,21 @@ This document tracks the outstanding tasks and features to be implemented.
   - Document that subsequent phases will implement actual background scanning and incremental updates based on this contract.
 
 #### 5.3 Playlists Tab – Unified Local/Online Lists (Phase 1: UI)
-- [ ] **Playlists Landing UI**:
+- [x] **Playlists Landing UI**:
   - Display a list of playlists showing name, number of items, and whether the playlist is **Local**, **Online**, or **Hybrid**.
   - Add actions to **Create Playlist**, **Rename**, **Delete**, and **Duplicate** playlists.
 
-- [ ] **Playlist Editor Shell (UI)**:
+- [x] **Playlist Editor Shell (UI)**:
   - Implement a playlist editor screen where users can see the ordered list of items and re-order via drag-and-drop.
   - Items can reference either local `LibraryItem` entries or online `Content` entries; the UI should visually distinguish these (e.g. icon or chip), even if hybrid resolution is implemented later.
 
 #### 5.4 Download Tab – Download Manager UI (Phase 1: Full Behaviour)
-- [ ] **Download Input Row**:
+- [x] **Download Input Row**:
   - At the top of the Download tab, render a single-line URL input box and a `Download` button aligned horizontally (desktop) or stacked with responsive layout (mobile).
   - The input accepts any HTTP/HTTPS media URL (initially focusing on direct file URLs; YouTube-style extraction will be layered on later).
   - Disable the `Download` button while the URL is empty or clearly invalid according to a strict URL pattern.
 
-- [ ] **Default vs Custom Location Switch**:
+- [x] **Default vs Custom Location Switch**:
   - Add a primary switch 
     - **"Use default download location"** (ON by default).
   - When ON:
@@ -135,13 +135,13 @@ This document tracks the outstanding tasks and features to be implemented.
   - Provide per-item controls: **Pause/Resume**, **Cancel**, and **Open Folder** (for completed items only).
   - Ensure state is resilient to app restarts by persisting in-progress and completed download metadata locally and resuming or clearly failing in-progress items on next launch.
 
-- [ ] **Download Engine Abstraction (Local Only, No Backend Dependency)**:
+- [x] **Download Engine Abstraction (Local Only, No Backend Dependency)**:
   - Implement a `DownloadManager` service in Flutter that handles multiple concurrent HTTP downloads using a configurable maximum concurrency and supports pause/resume where protocol allows, otherwise cancel/restart semantics.
   - Expose a stream-based API so the UI can subscribe to download state updates and update the progress panel in real time.
   - Enforce strict error handling and surface clear error messages in the UI (e.g. network errors, disk full, permission denied) rather than silently swallowing failures.
 
 #### 5.5 Convert Tab – Conversion Shell (Phase 1: UI)
-- [ ] **Convert Landing UI**:
+- [x] **Convert Landing UI**:
   - Provide a simple UI to pick one or more existing Library items and a target output profile (e.g. MP3, MP4 720p, Audio-only, Clip segment).
   - Expose fields for start/end timestamps (HH:MM:SS) for clipping scenarios.
   - For this phase, do not wire to a real transcoder yet, but finalise the UI contract and model objects (`ConversionJob`) to be used by a future ffmpeg-backed worker.
@@ -150,16 +150,16 @@ This document tracks the outstanding tasks and features to be implemented.
   - Mirror the visual style of the Download queue panel for conversion jobs (Pending, Running, Completed, Failed, Cancelled), with progress indicator and per-item controls.
 
 #### 5.6 Devices Tab – Extensibility Shell (Phase 1: UI)
-- [ ] **Devices Landing UI**:
+- [x] **Devices Landing UI**:
   - Show a placeholder list for potential sync/cast targets (e.g. "This Device", "Living Room TV", "Bluetooth Speaker"), with clear indication that advanced device integration is a future feature.
   - Define a `PlaybackDevice` abstraction (ID, name, type, capabilities) to be used later when real device discovery is implemented.
 
 #### 5.7 Global Settings & Hamburger Menu
-- [ ] **Hamburger Menu Entry Point**:
+- [x] **Hamburger Menu Entry Point**:
   - Add a three-line hamburger icon to the minimal top app bar that opens a side drawer or full-screen settings page.
   - The hamburger is the single entry point into Settings; the top app bar no longer exposes theme, upload, analytics or profile controls directly.
 
-- [ ] **Settings Structure**:
+- [x] **Settings Structure**:
   - **General**: default start-up tab, language/locale (if applicable), behaviour when backend is unreachable, and per-user **tab visibility** configuration.
     - When running on Flutter Web, the Library and Devices tabs cannot be enabled; Streaming must always be visible and acts as the default start-up tab.
     - Whenever the visible tab set changes, the saved start-up tab must be updated to a still-visible tab (falling back to Streaming if necessary).
@@ -169,7 +169,7 @@ This document tracks the outstanding tasks and features to be implemented.
   - **Playback**: default playback speed, enable/disable "Continue Watching" for local items, and whether to remember per-item positions.
   - **Account & Actions**: cluster global actions such as upload content, analytics/dashboard entry point, profile details and logout into dedicated tiles inside Settings.
 
-- [ ] **Settings Persistence**:
+- [x] **Settings Persistence**:
   - Implement a central settings store (e.g. using Flutter `shared_preferences` or an equivalent persistent storage mechanism) that reads from and writes to real configuration values (no hardcoded defaults beyond initial bootstrap values defined in config).
   - Ensure settings changes take effect immediately where possible, and are reliably restored on next app start.
 
@@ -191,8 +191,12 @@ This document tracks the outstanding tasks and features to be implemented.
 - [x] **End-to-End Tests**: Full flow testing (Frontend -> Gateway -> Service -> DB).
 - [x] **Log Management**: Centralized logging setup.
 - [ ] **Production Hardening**: Security headers, Https, etc.
- - [x] **UI Testing Updates**: Stabilized Playwright UI tests (Flutter Web Semantics hydration + safer load waiting) and ensured the full UI test suite passes again.
- - [ ] **File Header Template Rollout**: Apply the Windsurf file header template to all applicable source files (Java, Dart, shell scripts, etc.) using the per-file creation timestamp (format `YYYY/MM/DD HH:MM`) obtained via shell commands for each file.
+- [x] **UI Testing Updates**: Stabilized Playwright UI tests (Flutter Web Semantics hydration + safer load waiting) and ensured the full UI test suite passes again.
+- [ ] **Test Standardization (Patrol 4.0)**:
+  - [ ] Migrate all Flutter integration tests and Java Playwright tests to Patrol 4.0.
+  - [ ] Implement scalable download test (save to `/tmp`, playlist check, playback 10s, min volume) for multiple sites.
+  - [ ] Remove legacy Flutter integration tests and Java Playwright tests.
+- [ ] **File Header Template Rollout**: Apply the Windsurf file header template to all applicable source files (Java, Dart, shell scripts, etc.) using the per-file creation timestamp (format `YYYY/MM/DD HH:MM`) obtained via shell commands for each file.
 
 ---
 

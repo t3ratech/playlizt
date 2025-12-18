@@ -16,11 +16,13 @@ import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/download_manager_platform.dart';
+import '../models/content.dart';
 import '../widgets/themed_logo.dart';
 import 'admin_dashboard_screen.dart';
 import 'creator_dashboard_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import 'video_player_screen.dart';
 import 'tabs/convert_tab_screen.dart';
 import 'tabs/devices_tab_screen.dart';
 import 'tabs/library_tab_screen.dart';
@@ -339,6 +341,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                 children: [
                   Expanded(
                     child: TextField(
+                      key: const Key('download_url_input'),
                       controller: _urlController,
                       decoration: const InputDecoration(
                         hintText: 'https://example.com/video.mp4',
@@ -353,6 +356,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
+                    key: const Key('download_submit_button'),
                     onPressed: _isSubmitting
                         ? null
                         : () => _startDownload(settings, downloadManager),
@@ -386,7 +390,15 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                       ),
                     ),
                     TextButton(
+                      key: const Key('download_edit_path_button'),
                       onPressed: () {
+                        if (_isEditingDefaultPath) {
+                          final newPath = _defaultPathController.text.trim();
+                          if (newPath.isNotEmpty &&
+                              newPath != settings.downloadDirectory) {
+                            settings.setDownloadDirectory(newPath);
+                          }
+                        }
                         setState(() {
                           _isEditingDefaultPath = !_isEditingDefaultPath;
                         });
@@ -399,6 +411,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                 if (_isEditingDefaultPath) ...[
                   const SizedBox(height: 8),
                   TextField(
+                    key: const Key('download_default_folder_input'),
                     controller: _defaultPathController,
                     decoration: const InputDecoration(
                       labelText: 'Default download folder',
@@ -493,13 +506,38 @@ class _DownloadListTile extends StatelessWidget {
     final hostLabel = host?.host ?? '';
     final progress = task.progress;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    void openPlayer() {
+      if (task.status != DownloadStatus.completed) return;
+      final content = Content(
+        id: DateTime.now().millisecondsSinceEpoch,
+        creatorId: 0,
+        title: task.title ?? task.fileName,
+        category: 'Downloads',
+        tags: const ['downloaded'],
+        thumbnailUrl: task.thumbnailUrl,
+        videoUrl: task.filePath,
+        durationSeconds: 0,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isPublished: false,
+        viewCount: 0,
+      );
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VideoPlayerScreen(content: content),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: openPlayer,
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -579,7 +617,8 @@ class _DownloadListTile extends StatelessWidget {
                 style: const TextStyle(color: Colors.red),
               ),
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -12,15 +12,15 @@ import 'providers/auth_provider.dart';
 import 'providers/content_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/playlist_provider.dart';
 import 'services/download_manager_platform.dart';
+import 'services/video_backend.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell_screen.dart';
 
-late final SemanticsHandle _playliztSemanticsHandle;
-
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  _playliztSemanticsHandle = SemanticsBinding.instance.ensureSemantics();
+  registerVideoBackend();
   runApp(const PlayliztApp());
 }
 
@@ -35,9 +35,11 @@ class PlayliztApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ContentProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => PlaylistProvider()),
         ChangeNotifierProvider(
           create: (ctx) => DownloadManager(
             settingsProvider: Provider.of<SettingsProvider>(ctx, listen: false),
+            playlistProvider: Provider.of<PlaylistProvider>(ctx, listen: false),
           ),
         ),
       ],

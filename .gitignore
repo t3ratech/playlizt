@@ -53,3 +53,5 @@ frontend/.packages
 frontend/build/
 frontend/pubspec.lock
 *.zip
+
+playlizt-frontend/playlizt_app/integration_test/.download_test_urls.local.txt

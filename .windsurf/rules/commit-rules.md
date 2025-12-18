@@ -12,13 +12,13 @@ globs:
 5. Commit messages must be consise and non repetitive
 6. Never include credentials, passwords, or any sensitive information in commit messages
 7. Never resolve Git conflicts automatically
-8. Never commit and push automatically, always ask for final approval before commit and push
 
 # Git Workflow Rules
 
 ## Command Structure
 - ALWAYS use single combined command: git pull origin [branch] && git add [files] && git commit -m "[message]" && git push origin [branch]
 - Never split into separate commands
+- Unless specified, files must include everything from new files, deleted files, and modified files (git add . or git add -A) unless there are large files > 1mb then you omit the files first then check with the user later to proceed
 
 ## Pre-Commit Checks
 1. Run git status to review all changes

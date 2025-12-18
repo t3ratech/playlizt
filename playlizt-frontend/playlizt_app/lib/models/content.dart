@@ -75,6 +75,30 @@ class Content {
       resumePositionSeconds: json['resumePositionSeconds'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'creatorId': creatorId,
+      'title': title,
+      'description': description,
+      'category': category,
+      'tags': tags,
+      'thumbnailUrl': thumbnailUrl,
+      'videoUrl': videoUrl,
+      'durationSeconds': durationSeconds,
+      'aiGeneratedDescription': aiGeneratedDescription,
+      'aiPredictedCategory': aiPredictedCategory,
+      'aiRelevanceScore': aiRelevanceScore,
+      'aiContentRating': aiContentRating,
+      'aiSentiment': aiSentiment,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'isPublished': isPublished,
+      'viewCount': viewCount,
+      'resumePositionSeconds': resumePositionSeconds,
+    };
+  }
   
   String get displayDescription => aiGeneratedDescription ?? description ?? 'No description available';
   

@@ -6,6 +6,7 @@
  * Email        : tkaviya@t3ratech.co.zw
  */
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +35,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // Direct Video (MP4/HLS)
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
+  AuthProvider? _authProvider;
+  ContentProvider? _contentProvider;
   
   bool _isYoutube = false;
   String? _youtubeVideoId;
@@ -47,6 +50,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void initState() {
     super.initState();
     print('VideoPlayerScreen: initState');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _authProvider = Provider.of<AuthProvider>(context, listen: false);
+      _contentProvider = Provider.of<ContentProvider>(context, listen: false);
+    });
     _initializePlayer();
     _startPlaybackTracking();
   }
@@ -140,7 +148,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _initializeDirectPlayer(String url) async {
-    _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(url));
+    final trimmed = url.trim();
+    if (trimmed.startsWith('/') || trimmed.startsWith('file://')) {
+      final file = trimmed.startsWith('file://')
+          ? File.fromUri(Uri.parse(trimmed))
+          : File(trimmed);
+      _videoPlayerController = VideoPlayerController.file(file);
+    } else {
+      _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(url));
+    }
     
     await _videoPlayerController!.initialize();
     
@@ -153,6 +169,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       videoPlayerController: _videoPlayerController!,
       autoPlay: true,
       looping: false,
+      showControls: false,
       aspectRatio: _videoPlayerController!.value.aspectRatio,
       errorBuilder: (context, errorMessage) {
         return Center(
@@ -186,18 +203,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void dispose() {
     _playbackTimer?.cancel();
 
-    // When leaving the player, refresh user-specific sections on Home (Continue Watching + Recommendations)
-    // so that any new views are reflected immediately when the user returns.
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final contentProvider = Provider.of<ContentProvider>(context, listen: false);
-      final userId = authProvider.userId;
+      final userId = _authProvider?.userId;
       if (userId != null) {
-        contentProvider.loadContinueWatching(userId);
-        contentProvider.loadRecommendations(userId);
+        _contentProvider?.loadContinueWatching(userId);
+        _contentProvider?.loadRecommendations(userId);
       }
     } catch (e) {
-      // In rare cases (e.g. during teardown when providers are unavailable), just log and continue.
       print('VideoPlayerScreen: error refreshing home data on dispose: $e');
     }
 

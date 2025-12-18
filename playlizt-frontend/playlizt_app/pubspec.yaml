@@ -21,6 +21,7 @@ dependencies:
   
   # Video Player
   video_player: ^2.8.5
+  fvp: ^0.35.1
   chewie: ^1.7.5
   youtube_player_iframe: ^5.1.2
   
@@ -31,10 +32,17 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.6
 
+  # HTML Parsing
+  html: ^0.15.4
+  intl: ^0.20.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   flutter_lints: ^3.0.0
+  patrol: ^4.0.1
 
 flutter:
   uses-material-design: true
