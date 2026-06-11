@@ -284,6 +284,11 @@ Filters:
             'height': 1080,
             'avg_frame_rate': '30000/1001',
             'bit_rate': '2200000',
+            'pix_fmt': 'yuv420p',
+            'color_range': 'tv',
+            'color_space': 'bt709',
+            'color_transfer': 'bt709',
+            'color_primaries': 'bt709',
             'tags': {'language': 'eng'},
           },
           {
@@ -292,6 +297,33 @@ Filters:
             'codec_name': 'aac',
             'sample_rate': '48000',
             'channels': 2,
+            'channel_layout': 'stereo',
+          },
+          {
+            'index': 2,
+            'codec_type': 'video',
+            'codec_name': 'mjpeg',
+            'codec_long_name': 'Motion JPEG',
+            'width': 600,
+            'height': 600,
+            'tags': {
+              'filename': 'cover.jpg',
+              'mimetype': 'image/jpeg',
+            },
+            'disposition': {'attached_pic': 1},
+          },
+        ],
+        'chapters': [
+          {
+            'id': 0,
+            'start_time': '0.000000',
+            'end_time': '10.500000',
+            'tags': {'title': 'Intro'},
+          },
+          {
+            'id': 1,
+            'start_time': '10.500000',
+            'end_time': '125.420000',
           },
         ],
       }, path: '/tmp/source.mkv');
@@ -303,12 +335,29 @@ Filters:
       expect(info.bitrate, 2500000);
       expect(info.sizeBytes, 39321600);
       expect(info.metadata['title'], 'Probe Sample');
-      expect(info.streams, hasLength(2));
+      expect(info.streams, hasLength(3));
       expect(info.streams.first.codecType, 'video');
       expect(info.streams.first.frameRate, closeTo(29.97, 0.01));
       expect(info.streams.first.language, 'eng');
-      expect(info.streams.last.sampleRate, 48000);
-      expect(info.streams.last.channels, 2);
+      expect(info.streams.first.pixelFormat, 'yuv420p');
+      expect(info.streams.first.colorRange, 'tv');
+      expect(info.streams.first.colorSpace, 'bt709');
+      expect(info.streams.first.colorTransfer, 'bt709');
+      expect(info.streams.first.colorPrimaries, 'bt709');
+      expect(info.streams[1].sampleRate, 48000);
+      expect(info.streams[1].channels, 2);
+      expect(info.streams[1].channelLayout, 'stereo');
+      expect(info.streams[2].isAttachedPicture, isTrue);
+      expect(info.chapters, hasLength(2));
+      expect(info.chapters.first.title, 'Intro');
+      expect(info.chapters.first.startSeconds, 0);
+      expect(info.chapters.first.endSeconds, 11);
+      expect(info.attachments, hasLength(1));
+      expect(info.attachments.single.streamIndex, 2);
+      expect(info.attachments.single.fileName, 'cover.jpg');
+      expect(info.attachments.single.mimeType, 'image/jpeg');
+      expect(info.attachments.single.codecName, 'mjpeg');
+      expect(info.attachments.single.isCoverArt, isTrue);
     });
 
     test('parses ffmpeg progress snapshots into Playlizt progress', () {

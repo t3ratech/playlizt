@@ -1004,6 +1004,18 @@ class _ProbeSummary extends StatelessWidget {
                   Chip(label: Text(_bitrate(info.bitrate!))),
                 if (info.sizeBytes != null)
                   Chip(label: Text(_bytes(info.sizeBytes!))),
+                if (info.streams.isNotEmpty)
+                  Chip(label: Text(_countLabel(info.streams.length, 'stream'))),
+                if (info.chapters.isNotEmpty)
+                  Chip(
+                    label: Text(_countLabel(info.chapters.length, 'chapter')),
+                  ),
+                if (info.attachments.isNotEmpty)
+                  Chip(
+                    label: Text(
+                      _countLabel(info.attachments.length, 'attachment'),
+                    ),
+                  ),
               ],
             ),
             if (info.metadata.isNotEmpty) ...[
@@ -1013,6 +1025,24 @@ class _ProbeSummary extends StatelessWidget {
                     .take(4)
                     .map((entry) => '${entry.key}: ${entry.value}')
                     .join(' • '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (info.chapters.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Chapters: ${info.chapters.take(5).map(_chapterLabel).join(' • ')}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (info.attachments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Attachments: ${info.attachments.take(5).map(_attachmentLabel).join(' • ')}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall,
@@ -1054,17 +1084,26 @@ class _ProbeSummary extends StatelessWidget {
         return Icons.audiotrack_outlined;
       case 'subtitle':
         return Icons.subtitles_outlined;
+      case 'attachment':
+        return Icons.attach_file;
       default:
         return Icons.notes_outlined;
     }
   }
 
   String _streamTitle(MediaProbeStream stream) {
+    final fileName = stream.metadata['filename'];
+    if (stream.codecType == 'attachment' || stream.isAttachedPicture) {
+      final label = stream.isAttachedPicture ? 'Cover art' : 'Attachment';
+      final suffix = fileName == null || fileName.isEmpty ? '' : ' • $fileName';
+      return '#${stream.index} $label$suffix';
+    }
     final language = stream.language == null ? '' : ' • ${stream.language}';
     return '#${stream.index} ${stream.codecType}$language';
   }
 
   String _streamSubtitle(MediaProbeStream stream) {
+    final colorDetails = _colorDetails(stream);
     final details = <String>[
       if (stream.codecLongName != null) stream.codecLongName!,
       if (stream.codecLongName == null && stream.codecName != null)
@@ -1073,11 +1112,51 @@ class _ProbeSummary extends StatelessWidget {
         '${stream.width}x${stream.height}',
       if (stream.frameRate != null)
         '${stream.frameRate!.toStringAsFixed(2)} fps',
+      if (stream.pixelFormat != null) stream.pixelFormat!,
+      if (colorDetails != null) colorDetails,
       if (stream.sampleRate != null) '${stream.sampleRate} Hz',
+      if (stream.channelLayout != null) stream.channelLayout!,
       if (stream.channels != null) '${stream.channels} channels',
       if (stream.bitrate != null) _bitrate(stream.bitrate!),
     ];
     return details.isEmpty ? 'Stream details unavailable' : details.join(' • ');
+  }
+
+  String _chapterLabel(MediaProbeChapter chapter) {
+    final title = chapter.title?.trim();
+    final start = chapter.startSeconds == null
+        ? '#${chapter.index}'
+        : _duration(chapter.startSeconds!);
+    if (title == null || title.isEmpty) return start;
+    return '$start $title';
+  }
+
+  String _attachmentLabel(MediaProbeAttachment attachment) {
+    final fileName = attachment.fileName?.trim();
+    final details = <String>[
+      fileName == null || fileName.isEmpty
+          ? '#${attachment.streamIndex}'
+          : fileName,
+      if (attachment.mimeType != null) attachment.mimeType!,
+      if (attachment.codecName != null) attachment.codecName!,
+      if (attachment.isCoverArt) 'cover art',
+    ];
+    return details.join(' ');
+  }
+
+  String _countLabel(int value, String singular) {
+    return '$value ${value == 1 ? singular : '${singular}s'}';
+  }
+
+  String? _colorDetails(MediaProbeStream stream) {
+    final details = <String>[
+      if (stream.colorRange != null) stream.colorRange!,
+      if (stream.colorSpace != null) stream.colorSpace!,
+      if (stream.colorTransfer != null) stream.colorTransfer!,
+      if (stream.colorPrimaries != null) stream.colorPrimaries!,
+    ];
+    if (details.isEmpty) return null;
+    return 'color ${details.join('/')}';
   }
 
   String _duration(int seconds) {

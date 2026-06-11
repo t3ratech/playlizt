@@ -193,6 +193,7 @@ class ConversionManager with ChangeNotifier {
       'json',
       '-show_format',
       '-show_streams',
+      '-show_chapters',
       _resolveHome(inputPath),
     ]);
 

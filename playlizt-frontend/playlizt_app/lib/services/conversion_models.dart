@@ -1202,6 +1202,8 @@ class MediaProbeInfo {
   final int? sizeBytes;
   final Map<String, String> metadata;
   final List<MediaProbeStream> streams;
+  final List<MediaProbeChapter> chapters;
+  final List<MediaProbeAttachment> attachments;
 
   const MediaProbeInfo({
     required this.path,
@@ -1212,6 +1214,8 @@ class MediaProbeInfo {
     this.sizeBytes,
     this.metadata = const {},
     this.streams = const [],
+    this.chapters = const [],
+    this.attachments = const [],
   });
 
   static MediaProbeInfo fromFfprobeJson(
@@ -1232,9 +1236,32 @@ class MediaProbeInfo {
         );
       }
     }
+    final chapters = <MediaProbeChapter>[];
+    final rawChapters = json['chapters'];
+    if (rawChapters is List) {
+      for (final raw in rawChapters) {
+        if (raw is! Map) continue;
+        chapters.add(
+          MediaProbeChapter.fromFfprobeJson(
+            raw.map((key, value) => MapEntry(key.toString(), value)),
+            fallbackIndex: chapters.length,
+          ),
+        );
+      }
+    }
+    final attachments = streams
+        .where((stream) =>
+            stream.codecType == 'attachment' || stream.isAttachedPicture)
+        .map(MediaProbeAttachment.fromStream)
+        .toList(growable: false);
 
     if (format is! Map) {
-      return MediaProbeInfo(path: path, streams: streams);
+      return MediaProbeInfo(
+        path: path,
+        streams: streams,
+        chapters: chapters,
+        attachments: attachments,
+      );
     }
 
     final rawFormat =
@@ -1249,12 +1276,90 @@ class MediaProbeInfo {
       sizeBytes: int.tryParse(rawFormat['size']?.toString() ?? ''),
       metadata: _stringMap(rawFormat['tags']),
       streams: streams,
+      chapters: chapters,
+      attachments: attachments,
     );
   }
 
   static Map<String, String> _stringMap(Object? value) {
     if (value is! Map) return const {};
     return value.map((key, raw) => MapEntry(key.toString(), raw.toString()));
+  }
+}
+
+class MediaProbeChapter {
+  final int index;
+  final int? startSeconds;
+  final int? endSeconds;
+  final String? title;
+  final Map<String, String> metadata;
+
+  const MediaProbeChapter({
+    required this.index,
+    this.startSeconds,
+    this.endSeconds,
+    this.title,
+    this.metadata = const {},
+  });
+
+  int? get durationSeconds {
+    final start = startSeconds;
+    final end = endSeconds;
+    if (start == null || end == null || end < start) return null;
+    return end - start;
+  }
+
+  static MediaProbeChapter fromFfprobeJson(
+    Map<String, dynamic> json, {
+    required int fallbackIndex,
+  }) {
+    final metadata = _stringMap(json['tags']);
+    return MediaProbeChapter(
+      index: (json['id'] as num?)?.toInt() ??
+          (json['index'] as num?)?.toInt() ??
+          fallbackIndex,
+      startSeconds: _secondsValue(json['start_time']),
+      endSeconds: _secondsValue(json['end_time']),
+      title: metadata['title'],
+      metadata: metadata,
+    );
+  }
+
+  static int? _secondsValue(Object? value) {
+    if (value == null) return null;
+    if (value is num) return value.round();
+    return double.tryParse(value.toString())?.round();
+  }
+
+  static Map<String, String> _stringMap(Object? value) {
+    if (value is! Map) return const {};
+    return value.map((key, raw) => MapEntry(key.toString(), raw.toString()));
+  }
+}
+
+class MediaProbeAttachment {
+  final int streamIndex;
+  final String? fileName;
+  final String? mimeType;
+  final String? codecName;
+  final bool isCoverArt;
+
+  const MediaProbeAttachment({
+    required this.streamIndex,
+    this.fileName,
+    this.mimeType,
+    this.codecName,
+    this.isCoverArt = false,
+  });
+
+  factory MediaProbeAttachment.fromStream(MediaProbeStream stream) {
+    return MediaProbeAttachment(
+      streamIndex: stream.index,
+      fileName: stream.metadata['filename'],
+      mimeType: stream.metadata['mimetype'],
+      codecName: stream.codecName,
+      isCoverArt: stream.isAttachedPicture,
+    );
   }
 }
 
@@ -1270,7 +1375,15 @@ class MediaProbeStream {
   final int? durationSeconds;
   final int? sampleRate;
   final int? channels;
+  final String? channelLayout;
+  final String? pixelFormat;
+  final String? colorRange;
+  final String? colorSpace;
+  final String? colorTransfer;
+  final String? colorPrimaries;
   final String? language;
+  final Map<String, String> metadata;
+  final Map<String, String> disposition;
 
   const MediaProbeStream({
     required this.index,
@@ -1284,13 +1397,28 @@ class MediaProbeStream {
     this.durationSeconds,
     this.sampleRate,
     this.channels,
+    this.channelLayout,
+    this.pixelFormat,
+    this.colorRange,
+    this.colorSpace,
+    this.colorTransfer,
+    this.colorPrimaries,
     this.language,
+    this.metadata = const {},
+    this.disposition = const {},
   });
+
+  bool get isAttachedPicture {
+    final value = disposition['attached_pic']?.toLowerCase();
+    return value == '1' || value == 'true' || value == 'yes';
+  }
 
   static MediaProbeStream fromFfprobeJson(
     Map<String, dynamic> json, {
     required int fallbackIndex,
   }) {
+    final metadata = _stringMap(json['tags']);
+    final disposition = _stringMap(json['disposition']);
     return MediaProbeStream(
       index: (json['index'] as num?)?.toInt() ?? fallbackIndex,
       codecType: json['codec_type']?.toString() ?? 'unknown',
@@ -1304,7 +1432,15 @@ class MediaProbeStream {
           double.tryParse(json['duration']?.toString() ?? '')?.round(),
       sampleRate: int.tryParse(json['sample_rate']?.toString() ?? ''),
       channels: (json['channels'] as num?)?.toInt(),
-      language: _stringMap(json['tags'])['language'],
+      channelLayout: json['channel_layout']?.toString(),
+      pixelFormat: json['pix_fmt']?.toString(),
+      colorRange: json['color_range']?.toString(),
+      colorSpace: json['color_space']?.toString(),
+      colorTransfer: json['color_transfer']?.toString(),
+      colorPrimaries: json['color_primaries']?.toString(),
+      language: metadata['language'],
+      metadata: metadata,
+      disposition: disposition,
     );
   }
 
