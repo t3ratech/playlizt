@@ -4,6 +4,8 @@ class MediaInfo {
   final String title;
   final String? description;
   final String? url; // Direct URL if available
+  final String? sourceUrl;
+  final String? extractorKey;
   final String? thumbnailUrl;
   final String? uploader;
   final String? uploadDate; // YYYYMMDD
@@ -18,6 +20,8 @@ class MediaInfo {
     required this.title,
     this.description,
     this.url,
+    this.sourceUrl,
+    this.extractorKey,
     this.thumbnailUrl,
     this.uploader,
     this.uploadDate,
@@ -34,6 +38,8 @@ class MediaInfo {
       'title': title,
       'description': description,
       'url': url,
+      'sourceUrl': sourceUrl,
+      'extractorKey': extractorKey,
       'thumbnailUrl': thumbnailUrl,
       'uploader': uploader,
       'uploadDate': uploadDate,
@@ -50,6 +56,9 @@ class MediaFormat {
   final String url;
   final String? ext;
   final String? formatId;
+  final String? protocol;
+  final String? vcodec;
+  final String? acodec;
   final int? width;
   final int? height;
   final int? bitrate; // tbr
@@ -60,6 +69,9 @@ class MediaFormat {
     required this.url,
     this.ext,
     this.formatId,
+    this.protocol,
+    this.vcodec,
+    this.acodec,
     this.width,
     this.height,
     this.bitrate,
@@ -72,6 +84,9 @@ class MediaFormat {
       'url': url,
       'ext': ext,
       'formatId': formatId,
+      'protocol': protocol,
+      'vcodec': vcodec,
+      'acodec': acodec,
       'width': width,
       'height': height,
       'bitrate': bitrate,

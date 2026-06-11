@@ -1,30 +1,21 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:playlizt_app/main.dart';
+import 'package:playlizt_app/services/download_manager_models.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test(
+    'DownloadTask progress reports a fractional value when total is known',
+    () {
+      const task = DownloadTask(
+        id: 'progress-task',
+        url: 'https://example.test/video.mp4',
+        filePath: '/tmp/video.mp4',
+        fileName: 'video.mp4',
+        status: DownloadStatus.downloading,
+        receivedBytes: 25,
+        totalBytes: 100,
+      );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
+      expect(task.progress, 0.25);
+    },
+  );
 }

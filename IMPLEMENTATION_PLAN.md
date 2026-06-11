@@ -140,6 +140,12 @@ This document tracks the outstanding tasks and features to be implemented.
   - Expose a stream-based API so the UI can subscribe to download state updates and update the progress panel in real time.
   - Enforce strict error handling and surface clear error messages in the UI (e.g. network errors, disk full, permission denied) rather than silently swallowing failures.
 
+- [x] **youtube-dl Extractor/Downloader Bridge (Desktop)**:
+  - Verify the existing native Dart extractors and remove placeholder extractor registrations from the production stack.
+  - Add an optional desktop bridge that uses the configured upstream youtube-dl source checkout or executable after native extractors and before the generic fallback.
+  - Persist youtube-dl-backed queued downloads with explicit backend metadata so restarts preserve queue state and active downloads fail clearly.
+  - Verify `/home/tkaviya/Projects/resources/youtube-dl` exposes 1,273 upstream extractors and cover the bridge mapper, inventory check, extractor registration and task persistence with Flutter tests.
+
 #### 5.5 Convert Tab – Conversion Shell (Phase 1: UI)
 - [x] **Convert Landing UI**:
   - Provide a simple UI to pick one or more existing Library items and a target output profile (e.g. MP3, MP4 720p, Audio-only, Clip segment).

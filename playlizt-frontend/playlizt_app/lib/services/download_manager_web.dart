@@ -7,7 +7,6 @@
  */
 import 'dart:convert';
 import 'dart:html' as html;
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -52,6 +51,29 @@ class DownloadManager with ChangeNotifier {
     return list;
   }
 
+  bool _looksLikeDirectMediaUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    final path = uri.path.toLowerCase();
+    return path.endsWith('.mp4') ||
+        path.endsWith('.m4v') ||
+        path.endsWith('.m3u8') ||
+        path.endsWith('.webm') ||
+        path.endsWith('.mov') ||
+        path.endsWith('.mkv') ||
+        path.endsWith('.avi') ||
+        path.endsWith('.flv') ||
+        path.endsWith('.mp3') ||
+        path.endsWith('.m4a') ||
+        path.endsWith('.aac') ||
+        path.endsWith('.ogg') ||
+        path.endsWith('.oga') ||
+        path.endsWith('.ogv') ||
+        path.endsWith('.wav') ||
+        path.endsWith('.flac') ||
+        path.endsWith('.ts');
+  }
+
   Future<void> enqueueDownload({
     required String url,
     String? targetDirectory,
@@ -63,9 +85,11 @@ class DownloadManager with ChangeNotifier {
     String? title;
     String? thumbnailUrl;
     Map<String, String>? headers;
+    bool extractionSucceeded = false;
 
     try {
       final mediaInfo = await _extractionEngine.extract(url);
+      extractionSucceeded = true;
       title = mediaInfo.title;
       thumbnailUrl = mediaInfo.thumbnailUrl;
       if (mediaInfo.formats.isNotEmpty) {
@@ -87,18 +111,24 @@ class DownloadManager with ChangeNotifier {
           if (ext.isEmpty || ext == 'm3u8') {
             ext = 'mp4';
           }
-          final safeTitle = mediaInfo.title.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
+          final safeTitle = mediaInfo.title.replaceAll(
+            RegExp(r'[^\w\s\.-]'),
+            '_',
+          );
           finalFileName = '$safeTitle.$ext';
         }
       } else if (finalFileName.isEmpty && mediaInfo.title.isNotEmpty) {
-         // Fallback if no formats but we have a title (maybe direct extraction?)
-         finalFileName = mediaInfo.title;
+        // Fallback if no formats but we have a title (maybe direct extraction?)
+        finalFileName = mediaInfo.title;
       }
     } catch (e) {
       if (kDebugMode) {
         print('Extraction failed for $url: $e');
       }
-      // Continue with original URL if extraction fails
+    }
+
+    if (!extractionSucceeded && !_looksLikeDirectMediaUrl(actualUrl)) {
+      throw Exception('Extraction failed for non-direct URL: $url');
     }
 
     final uri = Uri.tryParse(actualUrl);
@@ -108,7 +138,9 @@ class DownloadManager with ChangeNotifier {
 
     final suggestedName = finalFileName.isNotEmpty
         ? finalFileName
-        : (uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'download.bin');
+        : (uri.pathSegments.isNotEmpty
+            ? uri.pathSegments.last
+            : 'download.bin');
 
     final id = DateTime.now().millisecondsSinceEpoch.toString();
 

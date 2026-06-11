@@ -17,7 +17,9 @@ import '../providers/playlist_provider.dart';
 import '../models/content.dart';
 import 'download_manager_models.dart';
 import 'extractor/extraction_engine.dart';
+import 'extractor/core/youtube_dl_json_mapper.dart';
 import 'extractor/core/types.dart';
+import 'extractor/extractors/youtube_dl_bridge_ie_io.dart';
 
 /// Manages the lifecycle of media downloads including queuing, progress
 /// tracking, pause/cancel behaviour and basic persistence across restarts.
@@ -28,6 +30,7 @@ class DownloadManager with ChangeNotifier {
   final PlaylistProvider playlistProvider;
   final Dio _dio = Dio();
   final ExtractionEngine _extractionEngine = ExtractionEngine();
+  final YoutubeDlProcess _youtubeDlProcess = const YoutubeDlProcess();
 
   final Map<String, DownloadTask> _tasks = {};
   final Map<String, CancelToken> _tokens = {};
@@ -47,12 +50,20 @@ class DownloadManager with ChangeNotifier {
     if (uri == null) return false;
     final path = uri.path.toLowerCase();
     return path.endsWith('.mp4') ||
+        path.endsWith('.m4v') ||
         path.endsWith('.m3u8') ||
         path.endsWith('.mpd') ||
         path.endsWith('.webm') ||
         path.endsWith('.mov') ||
         path.endsWith('.mkv') ||
+        path.endsWith('.avi') ||
+        path.endsWith('.flv') ||
         path.endsWith('.mp3') ||
+        path.endsWith('.m4a') ||
+        path.endsWith('.aac') ||
+        path.endsWith('.ogg') ||
+        path.endsWith('.oga') ||
+        path.endsWith('.ogv') ||
         path.endsWith('.wav') ||
         path.endsWith('.flac') ||
         path.endsWith('.ts');
@@ -86,20 +97,31 @@ class DownloadManager with ChangeNotifier {
     String? title;
     String? thumbnailUrl;
     Map<String, String>? headers;
+    DownloadBackend backend = DownloadBackend.native;
+    String? originalUrl;
     bool extractionSucceeded = false;
-    
+
     try {
       final mediaInfo = await _extractionEngine.extract(url);
       extractionSucceeded = true;
       title = mediaInfo.title;
       thumbnailUrl = mediaInfo.thumbnailUrl;
-      print('DownloadManager: Extraction success. Title: ${mediaInfo.title}, Formats: ${mediaInfo.formats.length}');
+      print(
+        'DownloadManager: Extraction success. Title: ${mediaInfo.title}, Formats: ${mediaInfo.formats.length}',
+      );
+      if (mediaInfo.extractorKey == YoutubeDlJsonMapper.extractorKey) {
+        backend = DownloadBackend.youtubeDl;
+        originalUrl = mediaInfo.sourceUrl ?? url;
+        actualUrl = originalUrl;
+      }
       if (mediaInfo.formats.isNotEmpty) {
         // Select best format based on quality/resolution
         final bestFormat = _selectBestFormat(mediaInfo.formats);
-        actualUrl = bestFormat.url;
-        headers = bestFormat.httpHeaders;
-        
+        if (backend == DownloadBackend.native) {
+          actualUrl = bestFormat.url;
+          headers = bestFormat.httpHeaders;
+        }
+
         if (finalFileName.isEmpty) {
           String ext;
           final rawExt = (bestFormat.ext ?? '').toLowerCase();
@@ -114,12 +136,15 @@ class DownloadManager with ChangeNotifier {
           if (ext.isEmpty || ext == 'm3u8') {
             ext = 'mp4';
           }
-          final safeTitle = mediaInfo.title.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
+          final safeTitle = mediaInfo.title.replaceAll(
+            RegExp(r'[^\w\s\.-]'),
+            '_',
+          );
           finalFileName = '$safeTitle.$ext';
         }
       } else if (finalFileName.isEmpty && mediaInfo.title.isNotEmpty) {
-         // Fallback if no formats but we have a title (maybe direct extraction?)
-         finalFileName = mediaInfo.title;
+        // Fallback if no formats but we have a title (maybe direct extraction?)
+        finalFileName = mediaInfo.title;
       }
     } catch (e) {
       if (kDebugMode) {
@@ -140,9 +165,8 @@ class DownloadManager with ChangeNotifier {
         ? targetDirectory!.trim()
         : settingsProvider.downloadDirectory;
 
-    final suggestedName = finalFileName.isNotEmpty
-        ? finalFileName
-        : _safeFileNameFromUri(uri);
+    final suggestedName =
+        finalFileName.isNotEmpty ? finalFileName : _safeFileNameFromUri(uri);
 
     final resolvedDirectory = _resolveHome(directory);
 
@@ -157,9 +181,11 @@ class DownloadManager with ChangeNotifier {
     final task = DownloadTask(
       id: id,
       url: actualUrl, // Use the resolved URL
+      originalUrl: originalUrl,
       filePath: fullPath,
       fileName: suggestedName,
       headers: headers,
+      backend: backend,
       title: title,
       thumbnailUrl: thumbnailUrl,
       status: DownloadStatus.queued,
@@ -304,18 +330,19 @@ class DownloadManager with ChangeNotifier {
       print('DownloadManager: Starting download...');
       print('URL: ${task.url}');
       print('Headers: ${task.headers}');
-      
-      if (_isHlsUrl(task.url)) {
+
+      if (task.backend == DownloadBackend.youtubeDl) {
+        await _downloadWithYoutubeDl(task.id, cancelToken: token);
+      } else if (_isHlsUrl(task.url)) {
         await _downloadHlsToFile(task.id, cancelToken: token);
+      } else if (_isUnsupportedManifestUrl(task.url)) {
+        throw Exception('Unsupported native manifest URL: ${task.url}');
       } else {
         await _dio.download(
           task.url,
           file.path,
           cancelToken: token,
-          options: Options(
-            headers: task.headers,
-            followRedirects: true,
-          ),
+          options: Options(headers: task.headers, followRedirects: true),
           onReceiveProgress: (received, total) {
             final current = _tasks[task.id];
             if (current == null) return;
@@ -333,7 +360,7 @@ class DownloadManager with ChangeNotifier {
         status: DownloadStatus.completed,
       );
       await _persistTasks();
-      
+
       // Add to Downloads playlist
       try {
         final completedTask = _tasks[task.id]!;
@@ -345,7 +372,7 @@ class DownloadManager with ChangeNotifier {
           tags: ['downloaded'],
           thumbnailUrl: completedTask.thumbnailUrl,
           videoUrl: completedTask.filePath, // Use local path
-          durationSeconds: 0, // TODO: Extract duration
+          durationSeconds: 0,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
           isPublished: false,
@@ -397,6 +424,44 @@ class DownloadManager with ChangeNotifier {
     final uri = Uri.tryParse(url);
     final path = (uri?.path ?? url).toLowerCase();
     return path.endsWith('.m3u8');
+  }
+
+  bool _isUnsupportedManifestUrl(String url) {
+    final uri = Uri.tryParse(url);
+    final path = (uri?.path ?? url).toLowerCase();
+    return path.endsWith('.mpd') ||
+        path.endsWith('.f4m') ||
+        path.endsWith('.ism') ||
+        path.endsWith('/manifest');
+  }
+
+  Future<void> _downloadWithYoutubeDl(
+    String taskId, {
+    required CancelToken cancelToken,
+  }) async {
+    final task = _tasks[taskId];
+    if (task == null) return;
+
+    if (!_youtubeDlProcess.isConfigured ||
+        !_youtubeDlProcess.isSupportedPlatform) {
+      throw Exception('youtube-dl backend is not configured for this platform');
+    }
+
+    await _youtubeDlProcess.download(
+      sourceUrl: task.originalUrl ?? task.url,
+      outputPath: task.filePath,
+      cancelToken: cancelToken,
+      onProgress: (percent) {
+        final current = _tasks[taskId];
+        if (current == null) return;
+        const syntheticTotal = 10000;
+        _tasks[taskId] = current.copyWith(
+          receivedBytes: (percent * 100).round(),
+          totalBytes: syntheticTotal,
+        );
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> _downloadHlsToFile(
@@ -475,8 +540,11 @@ class DownloadManager with ChangeNotifier {
       }
     }
 
-    final playlistLines =
-        playlistBody.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    final playlistLines = playlistBody
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
 
     String? initUri;
     for (final line in playlistLines) {
@@ -521,7 +589,10 @@ class DownloadManager with ChangeNotifier {
           : currentTask.fileName.substring(0, lastNameDot);
       final newName = '$baseName.$outputExt';
 
-      _tasks[taskId] = currentTask.copyWith(filePath: newPath, fileName: newName);
+      _tasks[taskId] = currentTask.copyWith(
+        filePath: newPath,
+        fileName: newName,
+      );
       notifyListeners();
     }
 
@@ -539,8 +610,7 @@ class DownloadManager with ChangeNotifier {
       if (current == null) return;
 
       final now = DateTime.now();
-      final shouldNotify =
-          force ||
+      final shouldNotify = force ||
           sinceLastNotifyBytes >= 256 * 1024 ||
           now.difference(lastNotifyAt) >= const Duration(seconds: 1);
 
@@ -617,13 +687,6 @@ class DownloadManager with ChangeNotifier {
       return false;
     }
 
-    bool isHls(({MediaFormat format, String ext}) item) {
-      if (item.ext == 'm3u8') return true;
-      final uri = Uri.tryParse(item.format.url);
-      final path = (uri?.path ?? item.format.url).toLowerCase();
-      return path.endsWith('.m3u8');
-    }
-
     final allCandidates = normalized.map((f) => f.format).toList();
 
     int extRank(MediaFormat f) {
@@ -671,14 +734,17 @@ class DownloadManager with ChangeNotifier {
         allCandidates.where((f) => !_isHlsUrl(f.url)).toList();
     final hlsCandidates = allCandidates.where((f) => _isHlsUrl(f.url)).toList();
 
-    final bestDirect = directCandidates.isNotEmpty ? directCandidates.first : null;
+    final bestDirect =
+        directCandidates.isNotEmpty ? directCandidates.first : null;
     final bestHls = hlsCandidates.isNotEmpty ? hlsCandidates.first : null;
 
     if (bestDirect != null && bestHls != null) {
       final directHeight = heightOf(bestDirect);
       final hlsHeight = heightOf(bestHls);
 
-      if (directHeight > 0 && directHeight <= 360 && (hlsHeight > directHeight || hlsHeight == 0)) {
+      if (directHeight > 0 &&
+          directHeight <= 360 &&
+          (hlsHeight > directHeight || hlsHeight == 0)) {
         return bestHls;
       }
     }
