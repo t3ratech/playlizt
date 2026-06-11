@@ -114,6 +114,17 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
         subtitleMode: _subtitleMode,
         subtitlePath: _emptyToNull(_subtitlePathController.text),
       );
+      final catalog = _capabilityCatalog;
+      if (catalog != null && !advancedOptions.isEmpty) {
+        final validation = catalog.validateAdvancedOptions(advancedOptions);
+        if (!validation.isValid) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(validation.userMessage)),
+          );
+          return;
+        }
+      }
       if (_streamOutputMode) {
         await manager.enqueueStreamOutput(
           inputPath: input,

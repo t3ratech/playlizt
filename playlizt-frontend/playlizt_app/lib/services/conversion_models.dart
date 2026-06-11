@@ -368,6 +368,88 @@ class FfmpegCapabilityCatalog {
     ];
   }
 
+  ConversionValidationResult validateAdvancedOptions(
+    ConversionAdvancedOptions options,
+  ) {
+    final issues = <ConversionValidationIssue>[];
+
+    void requireEntry({
+      required String field,
+      required String value,
+      required FfmpegCapabilitySection section,
+      required List<FfmpegCapabilityEntry> entries,
+      bool commaSeparatedName = false,
+    }) {
+      final normalized = value.trim();
+      if (normalized.isEmpty) return;
+      final exists = entries.any((entry) {
+        if (entry.name == normalized) return true;
+        if (!commaSeparatedName) return false;
+        return entry.name.split(',').map((part) => part.trim()).contains(
+              normalized,
+            );
+      });
+      if (!exists) {
+        issues.add(
+          ConversionValidationIssue(
+            field: field,
+            value: normalized,
+            message:
+                '$field "$normalized" is not available in ${section.name}.',
+          ),
+        );
+      }
+    }
+
+    final container = options.normalizedContainerExtension;
+    if (container != null) {
+      requireEntry(
+        field: 'Container',
+        value: container,
+        section: FfmpegCapabilitySection.muxers,
+        entries: muxers,
+        commaSeparatedName: true,
+      );
+    }
+    final videoCodec = _normalize(options.videoCodec);
+    if (videoCodec != null) {
+      requireEntry(
+        field: 'Video codec',
+        value: videoCodec,
+        section: FfmpegCapabilitySection.encoders,
+        entries: encoders,
+      );
+    }
+    final audioCodec = _normalize(options.audioCodec);
+    if (audioCodec != null) {
+      requireEntry(
+        field: 'Audio codec',
+        value: audioCodec,
+        section: FfmpegCapabilitySection.encoders,
+        entries: encoders,
+      );
+    }
+
+    for (final filterName in _filterNames(options.videoFilter)) {
+      requireEntry(
+        field: 'Video filter',
+        value: filterName,
+        section: FfmpegCapabilitySection.filters,
+        entries: filters,
+      );
+    }
+    for (final filterName in _filterNames(options.audioFilter)) {
+      requireEntry(
+        field: 'Audio filter',
+        value: filterName,
+        section: FfmpegCapabilitySection.filters,
+        entries: filters,
+      );
+    }
+
+    return ConversionValidationResult(issues: issues);
+  }
+
   factory FfmpegCapabilityCatalog.fromFfmpegOutputs({
     required String encoders,
     required String decoders,
@@ -485,6 +567,47 @@ class FfmpegCapabilityCatalog {
     }).toList();
     entries.sort((a, b) => a.name.compareTo(b.name));
     return entries;
+  }
+
+  static String? _normalize(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  static List<String> _filterNames(String? filterChain) {
+    final normalized = _normalize(filterChain);
+    if (normalized == null) return const [];
+    return normalized
+        .split(',')
+        .map((part) => part.trim().split('=').first.trim())
+        .where((part) => part.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+}
+
+class ConversionValidationIssue {
+  final String field;
+  final String value;
+  final String message;
+
+  const ConversionValidationIssue({
+    required this.field,
+    required this.value,
+    required this.message,
+  });
+}
+
+class ConversionValidationResult {
+  final List<ConversionValidationIssue> issues;
+
+  const ConversionValidationResult({required this.issues});
+
+  bool get isValid => issues.isEmpty;
+
+  String get userMessage {
+    if (issues.isEmpty) return 'Conversion settings are valid';
+    return issues.map((issue) => issue.message).join(' ');
   }
 }
 

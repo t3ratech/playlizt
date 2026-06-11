@@ -83,6 +83,55 @@ Output:
       expect(catalog.search('scale').single.name, 'scale');
     });
 
+    test('validates advanced options against capability catalog', () {
+      final catalog = FfmpegCapabilityCatalog.fromFfmpegOutputs(
+        encoders: '''
+Encoders:
+ V..... libx264              H.264
+ A..... aac                  AAC
+''',
+        decoders: 'Decoders:\n V..... h264 H.264\n',
+        muxers: '''
+Muxers:
+ E matroska,webm   Matroska / WebM
+ E mp4             MP4
+''',
+        demuxers: 'Demuxers:\n D mov,mp4 QuickTime / MOV\n',
+        filters: '''
+Filters:
+ ... scale             V->V       Scale video frames.
+ ... loudnorm          A->A       Normalize loudness.
+''',
+        bitstreamFilters: 'Bitstream filters:\naac_adtstoasc\n',
+        protocols: 'Input:\n file\nOutput:\n file\n',
+      );
+
+      final valid = catalog.validateAdvancedOptions(
+        const ConversionAdvancedOptions(
+          containerExtension: 'mp4',
+          videoCodec: 'libx264',
+          audioCodec: 'aac',
+          videoFilter: 'scale=-2:720',
+          audioFilter: 'loudnorm',
+        ),
+      );
+
+      expect(valid.isValid, isTrue);
+
+      final invalid = catalog.validateAdvancedOptions(
+        const ConversionAdvancedOptions(
+          containerExtension: 'avi',
+          videoCodec: 'libdoesnotexist',
+          audioFilter: 'notafilter',
+        ),
+      );
+
+      expect(invalid.isValid, isFalse);
+      expect(invalid.userMessage, contains('Container "avi"'));
+      expect(invalid.userMessage, contains('Video codec "libdoesnotexist"'));
+      expect(invalid.userMessage, contains('Audio filter "notafilter"'));
+    });
+
     test('builds preset arguments with probe-friendly progress output', () {
       final preset = ConversionPreset.byId(ConversionPresetId.mp4720);
 
