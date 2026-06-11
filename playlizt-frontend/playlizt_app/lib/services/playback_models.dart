@@ -86,3 +86,20 @@ class PlaybackEngineConfiguration {
     return options;
   }
 }
+
+class PlaybackSnapshotPath {
+  static String fileName({
+    required String title,
+    required DateTime capturedAt,
+  }) {
+    final safeTitle = title
+        .replaceAll(RegExp(r'[^\w\s\.-]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .trim();
+    final prefix = safeTitle.isEmpty ? 'playlizt' : safeTitle;
+    final stamp =
+        capturedAt.toIso8601String().replaceAll(':', '-').replaceAll('.', '-');
+    return '$prefix-$stamp.png';
+  }
+}

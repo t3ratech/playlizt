@@ -7,7 +7,10 @@
  */
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:fvp/fvp.dart' show FVPControllerExtensions;
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -38,6 +41,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   ChewieController? _chewieController;
   final LocalPlaybackHistoryStore _localHistoryStore =
       LocalPlaybackHistoryStore();
+  final TextEditingController _externalSubtitleController =
+      TextEditingController();
   AuthProvider? _authProvider;
   ContentProvider? _contentProvider;
 
@@ -45,8 +50,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   String? _youtubeVideoId;
   bool _isControllerInitialized = false;
   bool _isPlaying = false;
+  bool _isTakingSnapshot = false;
   double _playbackSpeed = 1.0;
   int _durationSeconds = 0;
+  String? _activeExternalSubtitle;
+  String? _snapshotMessage;
 
   Timer? _playbackTimer;
   int _currentPosition = 0;
@@ -233,6 +241,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (_chewieController != null) {
       _chewieController!.dispose();
     }
+    _externalSubtitleController.dispose();
     super.dispose();
   }
 
@@ -397,6 +406,54 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _externalSubtitleController,
+                    decoration: InputDecoration(
+                      labelText: _activeExternalSubtitle == null
+                          ? 'External subtitle file or URL'
+                          : 'Subtitle: $_activeExternalSubtitle',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _applyExternalSubtitle(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  tooltip: 'Apply external subtitles',
+                  onPressed: _applyExternalSubtitle,
+                  icon: const Icon(Icons.subtitles_outlined),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  tooltip: 'Save snapshot',
+                  onPressed: _isTakingSnapshot ? null : _saveSnapshot,
+                  icon: _isTakingSnapshot
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.camera_alt_outlined),
+                ),
+              ],
+            ),
+            if (_snapshotMessage != null && _snapshotMessage!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _snapshotMessage!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -453,6 +510,114 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     await controller.setPlaybackSpeed(speed);
     if (!mounted) return;
     setState(() => _playbackSpeed = speed);
+  }
+
+  Future<void> _applyExternalSubtitle() async {
+    final controller = _videoPlayerController;
+    final source = _externalSubtitleController.text.trim();
+    if (controller == null || !controller.value.isInitialized) return;
+    if (source.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a subtitle file path or URL')),
+      );
+      return;
+    }
+
+    try {
+      controller.setExternalSubtitle(source);
+      controller.setSubtitleTracks(const [0]);
+      if (!mounted) return;
+      setState(() {
+        _activeExternalSubtitle = source;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('External subtitles enabled')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('External subtitles unavailable: $e')),
+      );
+    }
+  }
+
+  Future<void> _saveSnapshot() async {
+    final controller = _videoPlayerController;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    setState(() {
+      _isTakingSnapshot = true;
+      _snapshotMessage = null;
+    });
+
+    try {
+      final size = controller.value.size;
+      final width =
+          size.width.isFinite && size.width > 0 ? size.width.round() : 1280;
+      final height =
+          size.height.isFinite && size.height > 0 ? size.height.round() : 720;
+      final rgba = await controller.snapshot(width: width, height: height);
+      if (rgba == null || rgba.isEmpty) {
+        throw StateError('The player did not return snapshot pixels');
+      }
+      final png = await _encodeRgbaPng(
+        rgba: rgba,
+        width: width,
+        height: height,
+      );
+      final directory = await _snapshotDirectory();
+      await directory.create(recursive: true);
+      final fileName = PlaybackSnapshotPath.fileName(
+        title: widget.content.title,
+        capturedAt: DateTime.now(),
+      );
+      final path = '${directory.path}${Platform.pathSeparator}$fileName';
+      await File(path).writeAsBytes(png, flush: true);
+
+      if (!mounted) return;
+      setState(() {
+        _snapshotMessage = 'Snapshot saved to $path';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _snapshotMessage = 'Snapshot unavailable: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isTakingSnapshot = false);
+      }
+    }
+  }
+
+  Future<List<int>> _encodeRgbaPng({
+    required List<int> rgba,
+    required int width,
+    required int height,
+  }) async {
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
+      rgba is Uint8List ? rgba : Uint8List.fromList(rgba),
+      width,
+      height,
+      ui.PixelFormat.rgba8888,
+      completer.complete,
+    );
+    final image = await completer.future;
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    if (byteData == null) {
+      throw StateError('Snapshot encoding failed');
+    }
+    return byteData.buffer.asUint8List();
+  }
+
+  Future<Directory> _snapshotDirectory() async {
+    final home = Platform.environment['HOME'];
+    if (home == null || home.trim().isEmpty) {
+      return Directory('${Directory.systemTemp.path}/Playlizt/Snapshots');
+    }
+    return Directory('$home/Pictures/Playlizt');
   }
 
   Future<void> _saveLocalPlaybackPosition({int? positionSeconds}) async {

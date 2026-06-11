@@ -32,6 +32,18 @@ void main() {
     expect(options['player'], containsPair('video.decoder', 'FFmpeg'));
   });
 
+  test('PlaybackSnapshotPath creates filesystem-safe PNG names', () {
+    final fileName = PlaybackSnapshotPath.fileName(
+      title: 'Episode 1: Pilot / Opening?',
+      capturedAt: DateTime.utc(2026, 6, 11, 20, 15, 30),
+    );
+
+    expect(fileName, startsWith('Episode_1_Pilot_Opening_'));
+    expect(fileName, endsWith('.png'));
+    expect(fileName, isNot(contains(':')));
+    expect(fileName, isNot(contains('/')));
+  });
+
   test('LocalPlaybackPosition reports fractional progress', () {
     final position = LocalPlaybackPosition(
       key: 'url:/tmp/video.mp4',
