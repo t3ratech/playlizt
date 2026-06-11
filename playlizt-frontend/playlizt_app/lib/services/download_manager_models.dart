@@ -7,6 +7,8 @@
  */
 import 'dart:convert';
 
+import 'extractor/core/types.dart';
+
 enum DownloadStatus {
   queued,
   extracting,
@@ -164,6 +166,196 @@ class DownloadBatchParser {
     }
 
     return urls;
+  }
+}
+
+class DownloadPreview {
+  final String requestedUrl;
+  final String title;
+  final String? description;
+  final String? extractorName;
+  final String? thumbnailUrl;
+  final String? uploader;
+  final String? uploadDate;
+  final int? durationSeconds;
+  final List<DownloadPreviewFormat> formats;
+  final List<DownloadPreviewThumbnail> thumbnails;
+  final List<DownloadPreviewSubtitle> subtitles;
+  final List<DownloadPreviewEntry> playlistEntries;
+  final List<String> warnings;
+
+  const DownloadPreview({
+    required this.requestedUrl,
+    required this.title,
+    this.description,
+    this.extractorName,
+    this.thumbnailUrl,
+    this.uploader,
+    this.uploadDate,
+    this.durationSeconds,
+    this.formats = const [],
+    this.thumbnails = const [],
+    this.subtitles = const [],
+    this.playlistEntries = const [],
+    this.warnings = const [],
+  });
+
+  bool get isPlaylist => playlistEntries.isNotEmpty;
+  int get playlistCount => playlistEntries.length;
+  int get formatCount => formats.length;
+  int get subtitleCount => subtitles.length;
+  int get thumbnailCount => thumbnails.length;
+
+  factory DownloadPreview.fromMediaInfo(
+    MediaInfo info, {
+    required String requestedUrl,
+  }) {
+    return DownloadPreview(
+      requestedUrl: requestedUrl,
+      title: info.title,
+      description: info.description,
+      extractorName: info.extractorKey,
+      thumbnailUrl: info.thumbnailUrl,
+      uploader: info.uploader,
+      uploadDate: info.uploadDate,
+      durationSeconds: info.duration,
+      formats: info.formats
+          .map(DownloadPreviewFormat.fromMediaFormat)
+          .toList(growable: false),
+      thumbnails: info.thumbnails
+          .map(DownloadPreviewThumbnail.fromMediaThumbnail)
+          .toList(growable: false),
+      subtitles: info.subtitles
+          .map(DownloadPreviewSubtitle.fromMediaSubtitle)
+          .toList(growable: false),
+      playlistEntries: info.playlistEntries
+          .map(DownloadPreviewEntry.fromMediaInfo)
+          .toList(growable: false),
+      warnings: info.warnings,
+    );
+  }
+}
+
+class DownloadPreviewFormat {
+  final String? formatId;
+  final String label;
+  final String? extension;
+  final String? protocol;
+  final String? videoCodec;
+  final String? audioCodec;
+  final int? width;
+  final int? height;
+  final int? bitrate;
+  final int? filesize;
+  final double? fps;
+
+  const DownloadPreviewFormat({
+    this.formatId,
+    required this.label,
+    this.extension,
+    this.protocol,
+    this.videoCodec,
+    this.audioCodec,
+    this.width,
+    this.height,
+    this.bitrate,
+    this.filesize,
+    this.fps,
+  });
+
+  factory DownloadPreviewFormat.fromMediaFormat(MediaFormat format) {
+    return DownloadPreviewFormat(
+      formatId: format.formatId,
+      label: format.friendlyLabel,
+      extension: format.ext,
+      protocol: format.protocol,
+      videoCodec: format.vcodec,
+      audioCodec: format.acodec,
+      width: format.width,
+      height: format.height,
+      bitrate: format.bitrate,
+      filesize: format.filesize,
+      fps: format.fps,
+    );
+  }
+}
+
+class DownloadPreviewThumbnail {
+  final String url;
+  final String? id;
+  final int? width;
+  final int? height;
+
+  const DownloadPreviewThumbnail({
+    required this.url,
+    this.id,
+    this.width,
+    this.height,
+  });
+
+  factory DownloadPreviewThumbnail.fromMediaThumbnail(
+      MediaThumbnail thumbnail) {
+    return DownloadPreviewThumbnail(
+      url: thumbnail.url,
+      id: thumbnail.id,
+      width: thumbnail.width,
+      height: thumbnail.height,
+    );
+  }
+}
+
+class DownloadPreviewSubtitle {
+  final String language;
+  final String? extension;
+  final bool automatic;
+  final String url;
+
+  const DownloadPreviewSubtitle({
+    required this.language,
+    this.extension,
+    required this.automatic,
+    required this.url,
+  });
+
+  factory DownloadPreviewSubtitle.fromMediaSubtitle(MediaSubtitle subtitle) {
+    return DownloadPreviewSubtitle(
+      language: subtitle.language,
+      extension: subtitle.ext,
+      automatic: subtitle.automatic,
+      url: subtitle.url,
+    );
+  }
+}
+
+class DownloadPreviewEntry {
+  final String id;
+  final String title;
+  final String? url;
+  final String? thumbnailUrl;
+  final int? durationSeconds;
+  final int formatCount;
+  final int subtitleCount;
+
+  const DownloadPreviewEntry({
+    required this.id,
+    required this.title,
+    this.url,
+    this.thumbnailUrl,
+    this.durationSeconds,
+    required this.formatCount,
+    required this.subtitleCount,
+  });
+
+  factory DownloadPreviewEntry.fromMediaInfo(MediaInfo info) {
+    return DownloadPreviewEntry(
+      id: info.id,
+      title: info.title,
+      url: info.sourceUrl ?? info.url,
+      thumbnailUrl: info.thumbnailUrl,
+      durationSeconds: info.duration,
+      formatCount: info.formats.length,
+      subtitleCount: info.subtitles.length,
+    );
   }
 }
 

@@ -66,6 +66,22 @@ class DownloadManager with ChangeNotifier {
     return _archive.containsKey(_archiveKey(sourceUrl));
   }
 
+  Future<DownloadPreview> previewDownload(String url) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('URL is required for download preview');
+    }
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+      throw ArgumentError('Only http/https URLs can be previewed');
+    }
+    final mediaInfo = await _extractionEngine.extract(trimmed);
+    return DownloadPreview.fromMediaInfo(
+      mediaInfo,
+      requestedUrl: trimmed,
+    );
+  }
+
   String _archiveKey(String sourceUrl) {
     return sourceUrl.trim();
   }

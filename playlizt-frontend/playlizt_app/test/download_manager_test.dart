@@ -121,6 +121,78 @@ void main() {
       expect(progress.stage, 'Downloading');
     });
 
+    test('normalizes extractor metadata into a download preview', () {
+      final mapper = YoutubeDlJsonMapper();
+      final info = mapper.mapMediaInfo({
+        'id': 'playlist-id',
+        'title': 'Preview Playlist',
+        'description': 'A previewable playlist',
+        'thumbnail': 'https://cdn.example.test/thumb.jpg',
+        'uploader': 'Playlizt Channel',
+        'upload_date': '20260611',
+        'duration': 120,
+        'warnings': ['geo-bypass may be required'],
+        'subtitles': {
+          'en': [
+            {'url': 'https://cdn.example.test/en.vtt', 'ext': 'vtt'}
+          ]
+        },
+        'automatic_captions': {
+          'fr': [
+            {'url': 'https://cdn.example.test/fr.vtt', 'ext': 'vtt'}
+          ]
+        },
+        'thumbnails': [
+          {
+            'url': 'https://cdn.example.test/thumb-large.jpg',
+            'width': 1280,
+            'height': 720,
+          }
+        ],
+        'formats': [
+          {
+            'url': 'https://cdn.example.test/720.mp4',
+            'format_id': '720p',
+            'ext': 'mp4',
+            'height': 720,
+            'width': 1280,
+            'vcodec': 'avc1',
+            'acodec': 'mp4a',
+          }
+        ],
+        'entries': [
+          {
+            'id': 'entry-1',
+            'title': 'Entry One',
+            'webpage_url': 'https://example.test/watch/entry-1',
+            'url': 'https://cdn.example.test/entry-1.mp4',
+            'ext': 'mp4',
+          }
+        ],
+      }, sourceUrl: 'https://example.test/playlist');
+
+      final preview = DownloadPreview.fromMediaInfo(
+        info,
+        requestedUrl: 'https://example.test/playlist',
+      );
+
+      expect(preview.requestedUrl, 'https://example.test/playlist');
+      expect(preview.title, 'Preview Playlist');
+      expect(preview.extractorName, YoutubeDlJsonMapper.extractorKey);
+      expect(preview.uploader, 'Playlizt Channel');
+      expect(preview.durationSeconds, 120);
+      expect(preview.formatCount, 1);
+      expect(preview.formats.single.formatId, '720p');
+      expect(preview.formats.single.label, contains('720p'));
+      expect(preview.subtitleCount, 2);
+      expect(preview.subtitles.last.automatic, isTrue);
+      expect(preview.thumbnailCount, 2);
+      expect(preview.warnings.single, 'geo-bypass may be required');
+      expect(preview.isPlaylist, isTrue);
+      expect(preview.playlistCount, 1);
+      expect(preview.playlistEntries.single.title, 'Entry One');
+    });
+
     test(
       'verifies the vendored youtube-dl extractor inventory',
       () async {

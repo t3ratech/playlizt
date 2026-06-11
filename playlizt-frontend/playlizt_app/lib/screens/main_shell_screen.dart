@@ -209,6 +209,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   final TextEditingController _geoVerificationProxyController =
       TextEditingController();
   bool _isSubmitting = false;
+  bool _isPreviewing = false;
   bool _isEditingDefaultPath = false;
   bool _audioOnly = false;
   bool _writeSubtitles = false;
@@ -216,6 +217,8 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   bool _writeMetadata = false;
   bool _geoBypass = false;
   bool _forcePlaylist = false;
+  DownloadPreview? _downloadPreview;
+  String? _downloadPreviewError;
 
   @override
   void initState() {
@@ -349,6 +352,39 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         setState(() {
           _isSubmitting = false;
         });
+      }
+    }
+  }
+
+  Future<void> _previewDownload(DownloadManager downloadManager) async {
+    final url = _urlController.text.trim();
+    if (!_isValidUrl(url)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid http/https URL')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isPreviewing = true;
+      _downloadPreview = null;
+      _downloadPreviewError = null;
+    });
+
+    try {
+      final preview = await downloadManager.previewDownload(url);
+      if (!mounted) return;
+      setState(() {
+        _downloadPreview = preview;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _downloadPreviewError = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isPreviewing = false);
       }
     }
   }
@@ -502,8 +538,35 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                           )
                         : const Text('Download'),
                   ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: _isPreviewing
+                        ? null
+                        : () => _previewDownload(downloadManager),
+                    icon: _isPreviewing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.manage_search),
+                    label: Text(_isPreviewing ? 'Previewing' : 'Preview'),
+                  ),
                 ],
               ),
+              if (_downloadPreview != null ||
+                  _downloadPreviewError != null) ...[
+                const SizedBox(height: 12),
+                _DownloadPreviewPanel(
+                  preview: _downloadPreview,
+                  errorMessage: _downloadPreviewError,
+                  onUseFormat: (formatId) {
+                    setState(() {
+                      _formatIdController.text = formatId;
+                    });
+                  },
+                ),
+              ],
               const SizedBox(height: 16),
               SwitchListTile(
                 title: const Text('Use default download location'),
@@ -888,6 +951,205 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         );
       },
     );
+  }
+}
+
+class _DownloadPreviewPanel extends StatelessWidget {
+  final DownloadPreview? preview;
+  final String? errorMessage;
+  final ValueChanged<String> onUseFormat;
+
+  const _DownloadPreviewPanel({
+    required this.preview,
+    required this.errorMessage,
+    required this.onUseFormat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final error = errorMessage?.trim();
+    if (error != null && error.isNotEmpty) {
+      return Text(error, style: const TextStyle(color: Colors.red));
+    }
+
+    final info = preview;
+    if (info == null) return const SizedBox.shrink();
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.video_library_outlined),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    info.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (info.extractorName != null)
+                  Chip(label: Text(info.extractorName!)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (info.durationSeconds != null)
+                  Chip(label: Text(_duration(info.durationSeconds!))),
+                Chip(label: Text('${info.formatCount} formats')),
+                Chip(label: Text('${info.subtitleCount} subtitles')),
+                Chip(label: Text('${info.thumbnailCount} thumbnails')),
+                if (info.isPlaylist)
+                  Chip(label: Text('${info.playlistCount} playlist items')),
+              ],
+            ),
+            if (info.uploader != null || info.uploadDate != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                [
+                  if (info.uploader != null) info.uploader!,
+                  if (info.uploadDate != null) info.uploadDate!,
+                ].join(' • '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (info.description != null && info.description!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                info.description!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (info.warnings.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                info.warnings.join(' • '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.orange),
+              ),
+            ],
+            if (info.formats.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Formats',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 132,
+                child: ListView.separated(
+                  itemCount: info.formats.take(12).length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final format = info.formats[index];
+                    final formatId = format.formatId;
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        format.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        _formatDetails(format),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: formatId == null || formatId.trim().isEmpty
+                          ? null
+                          : TextButton(
+                              onPressed: () => onUseFormat(formatId),
+                              child: const Text('Use'),
+                            ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            if (info.subtitles.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Subtitles: ${info.subtitles.take(8).map(_subtitleLabel).join(', ')}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (info.playlistEntries.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Playlist Preview',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 4),
+              ...info.playlistEntries.take(5).map((entry) {
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.queue_music),
+                  title: Text(
+                    entry.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    [
+                      if (entry.durationSeconds != null)
+                        _duration(entry.durationSeconds!),
+                      '${entry.formatCount} formats',
+                      '${entry.subtitleCount} subtitles',
+                    ].join(' • '),
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDetails(DownloadPreviewFormat format) {
+    final parts = <String>[
+      if (format.formatId != null) format.formatId!,
+      if (format.protocol != null) format.protocol!,
+      if (format.width != null && format.height != null)
+        '${format.width}x${format.height}',
+      if (format.fps != null) '${format.fps!.toStringAsFixed(2)} fps',
+    ];
+    return parts.isEmpty ? 'Format details unavailable' : parts.join(' • ');
+  }
+
+  String _subtitleLabel(DownloadPreviewSubtitle subtitle) {
+    final auto = subtitle.automatic ? ' auto' : '';
+    final ext = subtitle.extension == null ? '' : ' ${subtitle.extension}';
+    return '${subtitle.language}$ext$auto';
+  }
+
+  String _duration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final remaining = seconds % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:'
+          '${remaining.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${remaining.toString().padLeft(2, '0')}';
   }
 }
 
