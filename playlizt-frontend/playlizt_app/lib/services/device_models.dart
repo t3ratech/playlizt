@@ -9,6 +9,10 @@ enum PlaybackDeviceType { local, networkStream, renderer }
 
 enum PlaybackDeviceStatus { available, playing, offline, error }
 
+enum PlaybackTransportState { stopped, playing, paused }
+
+const Object _unsetDeviceValue = Object();
+
 class PlaybackDevice {
   final String id;
   final String name;
@@ -18,6 +22,13 @@ class PlaybackDevice {
   final List<String> capabilities;
   final String? errorMessage;
   final DateTime lastSeen;
+  final bool connected;
+  final PlaybackTransportState transportState;
+  final String? activeUri;
+  final String? activeTitle;
+  final int positionSeconds;
+  final int volumePercent;
+  final bool muted;
 
   const PlaybackDevice({
     required this.id,
@@ -28,29 +39,60 @@ class PlaybackDevice {
     this.capabilities = const [],
     this.errorMessage,
     required this.lastSeen,
+    this.connected = false,
+    this.transportState = PlaybackTransportState.stopped,
+    this.activeUri,
+    this.activeTitle,
+    this.positionSeconds = 0,
+    this.volumePercent = 80,
+    this.muted = false,
   });
 
   bool get canPlayLocally =>
       type == PlaybackDeviceType.local ||
       type == PlaybackDeviceType.networkStream;
 
+  bool get canRemoteControl => type == PlaybackDeviceType.renderer;
+
+  bool get isPlaying => transportState == PlaybackTransportState.playing;
+
   PlaybackDevice copyWith({
     String? name,
     PlaybackDeviceStatus? status,
-    String? uri,
+    Object? uri = _unsetDeviceValue,
     List<String>? capabilities,
-    String? errorMessage,
+    Object? errorMessage = _unsetDeviceValue,
     DateTime? lastSeen,
+    bool? connected,
+    PlaybackTransportState? transportState,
+    Object? activeUri = _unsetDeviceValue,
+    Object? activeTitle = _unsetDeviceValue,
+    int? positionSeconds,
+    int? volumePercent,
+    bool? muted,
   }) {
     return PlaybackDevice(
       id: id,
       name: name ?? this.name,
       type: type,
       status: status ?? this.status,
-      uri: uri ?? this.uri,
+      uri: uri == _unsetDeviceValue ? this.uri : uri as String?,
       capabilities: capabilities ?? this.capabilities,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage == _unsetDeviceValue
+          ? this.errorMessage
+          : errorMessage as String?,
       lastSeen: lastSeen ?? DateTime.now(),
+      connected: connected ?? this.connected,
+      transportState: transportState ?? this.transportState,
+      activeUri: activeUri == _unsetDeviceValue
+          ? this.activeUri
+          : activeUri as String?,
+      activeTitle: activeTitle == _unsetDeviceValue
+          ? this.activeTitle
+          : activeTitle as String?,
+      positionSeconds: positionSeconds ?? this.positionSeconds,
+      volumePercent: volumePercent ?? this.volumePercent,
+      muted: muted ?? this.muted,
     );
   }
 
@@ -64,6 +106,13 @@ class PlaybackDevice {
       'capabilities': capabilities,
       'errorMessage': errorMessage,
       'lastSeen': lastSeen.toIso8601String(),
+      'connected': connected,
+      'transportState': transportState.name,
+      'activeUri': activeUri,
+      'activeTitle': activeTitle,
+      'positionSeconds': positionSeconds,
+      'volumePercent': volumePercent,
+      'muted': muted,
     };
   }
 
@@ -88,6 +137,17 @@ class PlaybackDevice {
           const [],
       errorMessage: json['errorMessage'] as String?,
       lastSeen: DateTime.parse(json['lastSeen'] as String),
+      connected: json['connected'] as bool? ?? false,
+      transportState: _enumByName(
+        PlaybackTransportState.values,
+        json['transportState'] as String?,
+        PlaybackTransportState.stopped,
+      ),
+      activeUri: json['activeUri'] as String?,
+      activeTitle: json['activeTitle'] as String?,
+      positionSeconds: json['positionSeconds'] as int? ?? 0,
+      volumePercent: json['volumePercent'] as int? ?? 80,
+      muted: json['muted'] as bool? ?? false,
     );
   }
 
