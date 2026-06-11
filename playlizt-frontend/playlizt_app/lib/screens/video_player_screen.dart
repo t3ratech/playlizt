@@ -8,7 +8,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -16,6 +15,8 @@ import '../models/content.dart';
 import '../providers/auth_provider.dart';
 import '../providers/content_provider.dart';
 import '../services/api_service.dart';
+import '../services/local_playback_history_store.dart';
+import '../services/playback_models.dart';
 import '../widgets/themed_logo.dart';
 import '../widgets/youtube_player/youtube_player.dart';
 
@@ -35,14 +36,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // Direct Video (MP4/HLS)
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
+  final LocalPlaybackHistoryStore _localHistoryStore =
+      LocalPlaybackHistoryStore();
   AuthProvider? _authProvider;
   ContentProvider? _contentProvider;
-  
+
   bool _isYoutube = false;
   String? _youtubeVideoId;
-  bool _isPlayerReady = false;
   bool _isControllerInitialized = false;
-  
+  bool _isPlaying = false;
+  double _playbackSpeed = 1.0;
+  int _durationSeconds = 0;
+
   Timer? _playbackTimer;
   int _currentPosition = 0;
 
@@ -63,41 +68,45 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     // Delay slightly to ensure context is valid if needed, though Provider.of with listen:false is safe
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (authProvider.userId == null) return;
-      
+      final userId = authProvider.userId;
+
       // Report initial start
-      _reportPlayback(authProvider.userId!, 0);
-      
+      if (userId != null) {
+        _reportPlayback(userId, 0);
+      }
+
       // Report progress every 10 seconds
       _playbackTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
         if (!mounted) {
           timer.cancel();
           return;
         }
-        
+
         int position = _currentPosition;
-        
-        if (_videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
-           position = _videoPlayerController!.value.position.inSeconds;
+
+        if (_videoPlayerController != null &&
+            _videoPlayerController!.value.isInitialized) {
+          position = _videoPlayerController!.value.position.inSeconds;
         } else {
-           // For YouTube or other players where we might not have direct position access easily
-           // We simulate progress for history tracking purposes
-           position += 10;
+          // For YouTube or other players where we might not have direct position access easily
+          // We simulate progress for history tracking purposes
+          position += 10;
         }
-        
+
         _currentPosition = position;
-        _reportPlayback(authProvider.userId!, position);
+        unawaited(_saveLocalPlaybackPosition(positionSeconds: position));
+        if (userId != null) {
+          _reportPlayback(userId, position);
+        }
       });
     });
   }
 
   Future<void> _reportPlayback(int userId, int position) async {
     try {
-      if (widget.content.id == null) return;
-      
       await ApiService().trackPlayback(
         userId: userId,
-        contentId: widget.content.id!,
+        contentId: widget.content.id,
         positionSeconds: position,
       );
     } catch (e) {
@@ -109,16 +118,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     try {
       final rawUrl = widget.content.videoUrl ?? '';
       print('VideoPlayerScreen: rawUrl=$rawUrl');
-      
+
       String? videoId = _convertUrlToId(rawUrl);
-      
+
       if (videoId != null) {
         print('VideoPlayerScreen: Detected YouTube videoId=$videoId');
         setState(() {
           _isYoutube = true;
           _youtubeVideoId = videoId;
           _isControllerInitialized = true;
-          _isPlayerReady = true;
         });
       } else {
         print('VideoPlayerScreen: Detected Direct Video URL');
@@ -131,7 +139,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       print('VideoPlayerScreen: Error in initState: $e');
     }
   }
-  
+
   String? _convertUrlToId(String url) {
     if (url.trim().isEmpty) return null;
     try {
@@ -157,14 +165,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     } else {
       _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(url));
     }
-    
+
     await _videoPlayerController!.initialize();
-    
-    final resumeSeconds = widget.content.resumePositionSeconds;
+
+    _videoPlayerController!.addListener(_handleControllerUpdate);
+    final localPosition =
+        await _localHistoryStore.loadPosition(_localPlaybackKey());
+    final resumeSeconds =
+        widget.content.resumePositionSeconds ?? localPosition?.positionSeconds;
     if (resumeSeconds != null && resumeSeconds > 0) {
       await _videoPlayerController!.seekTo(Duration(seconds: resumeSeconds));
     }
-    
+    await _videoPlayerController!.setPlaybackSpeed(_playbackSpeed);
+
     _chewieController = ChewieController(
       videoPlayerController: _videoPlayerController!,
       autoPlay: true,
@@ -184,7 +197,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (mounted) {
       setState(() {
         _isControllerInitialized = true;
-        _isPlayerReady = true;
       });
       print('VideoPlayerScreen: Direct Player initialized');
     }
@@ -192,6 +204,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void deactivate() {
+    unawaited(_saveLocalPlaybackPosition());
     // Pauses video while navigating to next page.
     if (_videoPlayerController != null) {
       _videoPlayerController!.pause();
@@ -202,6 +215,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void dispose() {
     _playbackTimer?.cancel();
+    unawaited(_saveLocalPlaybackPosition());
 
     try {
       final userId = _authProvider?.userId;
@@ -242,6 +256,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             height: 240,
             child: _buildPlayerWidget(),
           ),
+          if (!_isYoutube &&
+              _isControllerInitialized &&
+              _videoPlayerController != null)
+            _buildDirectControls(),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -263,8 +281,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       Text(
                         widget.content.category,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                     ],
                   ),
@@ -288,9 +306,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       children: widget.content.tags.map((tag) {
                         return Chip(
                           label: Text(tag),
-                          backgroundColor: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.grey[800]
-                              : Colors.grey[200],
+                          backgroundColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[200],
                         );
                       }).toList(),
                     ),
@@ -318,5 +337,155 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     } else {
       return const Center(child: Text('Error loading player'));
     }
+  }
+
+  Widget _buildDirectControls() {
+    final duration = _durationSeconds <= 0 ? 1 : _durationSeconds;
+    final position = _currentPosition.clamp(0, duration).toDouble();
+
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Text(_formatDuration(_currentPosition)),
+                Expanded(
+                  child: Slider(
+                    value: position,
+                    min: 0,
+                    max: duration.toDouble(),
+                    onChanged: (value) => _seekToSeconds(value.round()),
+                  ),
+                ),
+                Text(_formatDuration(_durationSeconds)),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  tooltip: 'Back 10 seconds',
+                  onPressed: () => _seekRelative(-10),
+                  icon: const Icon(Icons.replay_10),
+                ),
+                IconButton.filled(
+                  tooltip: _isPlaying ? 'Pause' : 'Play',
+                  onPressed: _togglePlayPause,
+                  icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                ),
+                IconButton(
+                  tooltip: 'Forward 10 seconds',
+                  onPressed: () => _seekRelative(10),
+                  icon: const Icon(Icons.forward_10),
+                ),
+                const SizedBox(width: 16),
+                DropdownButton<double>(
+                  value: _playbackSpeed,
+                  items: PlaybackSpeedOption.options.map((option) {
+                    return DropdownMenuItem<double>(
+                      value: option.value,
+                      child: Text(option.label),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    _setPlaybackSpeed(value);
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleControllerUpdate() {
+    final controller = _videoPlayerController;
+    if (controller == null || !controller.value.isInitialized || !mounted) {
+      return;
+    }
+
+    final position = controller.value.position.inSeconds;
+    final duration = controller.value.duration.inSeconds;
+    final isPlaying = controller.value.isPlaying;
+    if (position == _currentPosition &&
+        duration == _durationSeconds &&
+        isPlaying == _isPlaying) {
+      return;
+    }
+
+    setState(() {
+      _currentPosition = position;
+      _durationSeconds = duration;
+      _isPlaying = isPlaying;
+    });
+  }
+
+  Future<void> _togglePlayPause() async {
+    final controller = _videoPlayerController;
+    if (controller == null) return;
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    } else {
+      await controller.play();
+    }
+  }
+
+  Future<void> _seekRelative(int deltaSeconds) async {
+    await _seekToSeconds(_currentPosition + deltaSeconds);
+  }
+
+  Future<void> _seekToSeconds(int seconds) async {
+    final controller = _videoPlayerController;
+    if (controller == null || !controller.value.isInitialized) return;
+    final target = seconds.clamp(0, _durationSeconds);
+    await controller.seekTo(Duration(seconds: target));
+    await _saveLocalPlaybackPosition(positionSeconds: target);
+  }
+
+  Future<void> _setPlaybackSpeed(double speed) async {
+    final controller = _videoPlayerController;
+    if (controller == null || !controller.value.isInitialized) return;
+    await controller.setPlaybackSpeed(speed);
+    if (!mounted) return;
+    setState(() => _playbackSpeed = speed);
+  }
+
+  Future<void> _saveLocalPlaybackPosition({int? positionSeconds}) async {
+    final position = positionSeconds ??
+        (_videoPlayerController?.value.isInitialized == true
+            ? _videoPlayerController!.value.position.inSeconds
+            : _currentPosition);
+    if (position <= 0) return;
+    await _localHistoryStore.savePosition(
+      LocalPlaybackPosition(
+        key: _localPlaybackKey(),
+        positionSeconds: position,
+        durationSeconds: _durationSeconds > 0 ? _durationSeconds : null,
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  String _localPlaybackKey() {
+    final videoUrl = widget.content.videoUrl?.trim();
+    if (videoUrl != null && videoUrl.isNotEmpty) return 'url:$videoUrl';
+    return 'content:${widget.content.id}';
+  }
+
+  String _formatDuration(int seconds) {
+    final safeSeconds = seconds < 0 ? 0 : seconds;
+    final hours = safeSeconds ~/ 3600;
+    final minutes = (safeSeconds % 3600) ~/ 60;
+    final remaining = safeSeconds % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:'
+          '${remaining.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${remaining.toString().padLeft(2, '0')}';
   }
 }
