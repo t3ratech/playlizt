@@ -13,6 +13,8 @@ enum LibraryItemSource { scanned, downloaded, converted, network }
 
 enum LibrarySortMode { name, dateAdded, modifiedAt, duration, size }
 
+enum LibraryAvailability { available, missing }
+
 class LibraryItem {
   final String id;
   final String path;
@@ -26,6 +28,7 @@ class LibraryItem {
   final DateTime? modifiedAt;
   final String? parentId;
   final String? thumbnailPath;
+  final LibraryAvailability availability;
 
   const LibraryItem({
     required this.id,
@@ -40,6 +43,7 @@ class LibraryItem {
     this.modifiedAt,
     this.parentId,
     this.thumbnailPath,
+    this.availability = LibraryAvailability.available,
   });
 
   String get folderPath {
@@ -70,6 +74,7 @@ class LibraryItem {
     DateTime? modifiedAt,
     String? parentId,
     String? thumbnailPath,
+    LibraryAvailability? availability,
   }) {
     return LibraryItem(
       id: id ?? this.id,
@@ -84,6 +89,7 @@ class LibraryItem {
       modifiedAt: modifiedAt ?? this.modifiedAt,
       parentId: parentId ?? this.parentId,
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,
+      availability: availability ?? this.availability,
     );
   }
 
@@ -101,6 +107,7 @@ class LibraryItem {
       'modifiedAt': modifiedAt?.toIso8601String(),
       'parentId': parentId,
       'thumbnailPath': thumbnailPath,
+      'availability': availability.name,
     };
   }
 
@@ -126,6 +133,11 @@ class LibraryItem {
       modifiedAt: _dateTimeOrNull(json['modifiedAt']),
       parentId: json['parentId'] as String?,
       thumbnailPath: json['thumbnailPath'] as String?,
+      availability: _enumByName(
+        LibraryAvailability.values,
+        json['availability'] as String?,
+        LibraryAvailability.available,
+      ),
     );
   }
 
@@ -218,12 +230,28 @@ class LibraryScanResult {
   final int scannedFiles;
   final int importedItems;
   final int removedMissingItems;
+  final int markedMissingItems;
   final DateTime completedAt;
 
   const LibraryScanResult({
     required this.scannedFiles,
     required this.importedItems,
     required this.removedMissingItems,
+    this.markedMissingItems = 0,
+    required this.completedAt,
+  });
+}
+
+class LibraryAvailabilityResult {
+  final int checkedItems;
+  final int availableItems;
+  final int missingItems;
+  final DateTime completedAt;
+
+  const LibraryAvailabilityResult({
+    required this.checkedItems,
+    required this.availableItems,
+    required this.missingItems,
     required this.completedAt,
   });
 }

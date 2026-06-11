@@ -47,6 +47,7 @@ class LibraryTabScreen extends StatelessWidget {
                       '${library.items.length} items • '
                       '${library.videoCount} videos • '
                       '${library.audioCount} audio • '
+                      '${library.missingCount} missing • '
                       'Last scan: ${_formatLastScan(library.lastScanAt)}',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
@@ -60,6 +61,33 @@ class LibraryTabScreen extends StatelessWidget {
                     onPressed: () => Scaffold.of(context).openEndDrawer(),
                     icon: const Icon(Icons.folder_open),
                     label: const Text('Folders'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: library.items.isEmpty
+                        ? null
+                        : () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            try {
+                              final result =
+                                  await library.refreshAvailability();
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Checked ${result.checkedItems} items: '
+                                    '${result.missingItems} missing',
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text('File check failed: $e'),
+                                ),
+                              );
+                            }
+                          },
+                    icon: const Icon(Icons.fact_check_outlined),
+                    label: const Text('Check Files'),
                   ),
                   FilledButton.icon(
                     onPressed: library.isScanning
@@ -99,40 +127,74 @@ class LibraryTabScreen extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Row(
+          child: Column(
             children: [
-              Expanded(
-                child: TextField(
-                  enabled: library.items.isNotEmpty,
-                  decoration: const InputDecoration(
-                    hintText: 'Search local files...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      enabled: library.items.isNotEmpty,
+                      decoration: const InputDecoration(
+                        hintText: 'Search local files...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      onChanged: library.setSearchQuery,
+                    ),
                   ),
-                  onChanged: library.setSearchQuery,
-                ),
-              ),
-              const SizedBox(width: 16),
-              SegmentedButton<LibrarySortMode>(
-                segments: const [
-                  ButtonSegment(
-                    value: LibrarySortMode.name,
-                    label: Text('Name'),
-                  ),
-                  ButtonSegment(
-                    value: LibrarySortMode.dateAdded,
-                    label: Text('Added'),
-                  ),
-                  ButtonSegment(
-                    value: LibrarySortMode.size,
-                    label: Text('Size'),
+                  const SizedBox(width: 16),
+                  SegmentedButton<LibrarySortMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: LibrarySortMode.name,
+                        label: Text('Name'),
+                      ),
+                      ButtonSegment(
+                        value: LibrarySortMode.dateAdded,
+                        label: Text('Added'),
+                      ),
+                      ButtonSegment(
+                        value: LibrarySortMode.size,
+                        label: Text('Size'),
+                      ),
+                    ],
+                    selected: {library.sortMode},
+                    onSelectionChanged: (selection) {
+                      library.setSortMode(selection.first);
+                    },
                   ),
                 ],
-                selected: {library.sortMode},
-                onSelectionChanged: (selection) {
-                  library.setSortMode(selection.first);
-                },
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final type in LibraryMediaType.values)
+                      if (type != LibraryMediaType.unknown)
+                        FilterChip(
+                          label: Text(_mediaLabel(type)),
+                          selected: library.mediaTypeFilters.contains(type),
+                          onSelected: (_) =>
+                              library.toggleMediaTypeFilter(type),
+                        ),
+                    for (final source in LibraryItemSource.values)
+                      FilterChip(
+                        label: Text(_sourceLabel(source)),
+                        selected: library.sourceFilters.contains(source),
+                        onSelected: (_) => library.toggleSourceFilter(source),
+                      ),
+                    FilterChip(
+                      avatar: const Icon(Icons.warning_amber, size: 18),
+                      label: const Text('Missing'),
+                      selected: library.showMissingOnly,
+                      onSelected: library.setShowMissingOnly,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -154,7 +216,7 @@ class LibraryTabScreen extends StatelessWidget {
                           : 'No matching media',
                       message: library.items.isEmpty
                           ? 'Click Rescan to index configured folders'
-                          : 'Change the search text or sort/filter choice',
+                          : 'Change the search text or filter choice',
                       actionLabel: 'Rescan',
                       onAction:
                           library.isScanning ? null : () => library.rescan(),
@@ -181,6 +243,34 @@ class LibraryTabScreen extends StatelessWidget {
         '${value.hour.toString().padLeft(2, '0')}:'
         '${value.minute.toString().padLeft(2, '0')}';
   }
+
+  String _mediaLabel(LibraryMediaType type) {
+    switch (type) {
+      case LibraryMediaType.audio:
+        return 'Audio';
+      case LibraryMediaType.video:
+        return 'Video';
+      case LibraryMediaType.subtitle:
+        return 'Subtitles';
+      case LibraryMediaType.image:
+        return 'Images';
+      case LibraryMediaType.unknown:
+        return 'Unknown';
+    }
+  }
+
+  String _sourceLabel(LibraryItemSource source) {
+    switch (source) {
+      case LibraryItemSource.scanned:
+        return 'Scanned';
+      case LibraryItemSource.downloaded:
+        return 'Downloaded';
+      case LibraryItemSource.converted:
+        return 'Converted';
+      case LibraryItemSource.network:
+        return 'Network';
+    }
+  }
 }
 
 class _LibraryItemTile extends StatelessWidget {
@@ -190,6 +280,9 @@ class _LibraryItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final playable = item.availability == LibraryAvailability.available &&
+        (item.mediaType == LibraryMediaType.video ||
+            item.mediaType == LibraryMediaType.audio);
     return Card(
       child: ListTile(
         leading: CircleAvatar(
@@ -202,14 +295,18 @@ class _LibraryItemTile extends StatelessWidget {
         ),
         subtitle: Text(
           '${item.mediaType.name} • ${item.source.name} • '
+          '${item.availability.name} • '
           '${_formatBytes(item.fileSizeBytes)}\n${item.path}',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         isThreeLine: true,
-        trailing: const Icon(Icons.play_arrow),
-        onTap: item.mediaType == LibraryMediaType.video ||
-                item.mediaType == LibraryMediaType.audio
+        trailing: Icon(
+          item.availability == LibraryAvailability.missing
+              ? Icons.warning_amber
+              : Icons.play_arrow,
+        ),
+        onTap: playable
             ? () {
                 final content = Content(
                   id: DateTime.now().millisecondsSinceEpoch,

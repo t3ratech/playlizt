@@ -26,6 +26,9 @@ class LibraryManager with ChangeNotifier {
   DateTime? _lastScanAt;
   String _searchQuery = '';
   LibrarySortMode _sortMode = LibrarySortMode.name;
+  final Set<LibraryMediaType> _mediaTypeFilters = {};
+  final Set<LibraryItemSource> _sourceFilters = {};
+  bool _showMissingOnly = false;
 
   LibraryManager({required this.settingsProvider}) {
     _load();
@@ -36,6 +39,10 @@ class LibraryManager with ChangeNotifier {
   DateTime? get lastScanAt => _lastScanAt;
   String get searchQuery => _searchQuery;
   LibrarySortMode get sortMode => _sortMode;
+  Set<LibraryMediaType> get mediaTypeFilters =>
+      Set.unmodifiable(_mediaTypeFilters);
+  Set<LibraryItemSource> get sourceFilters => Set.unmodifiable(_sourceFilters);
+  bool get showMissingOnly => _showMissingOnly;
 
   List<LibraryItem> get items {
     final list = _items.values.toList();
@@ -44,14 +51,29 @@ class LibraryManager with ChangeNotifier {
 
   List<LibraryItem> get filteredItems {
     final query = _searchQuery.trim().toLowerCase();
-    final list = query.isEmpty
-        ? _items.values.toList()
-        : _items.values.where((item) {
-            return item.displayTitle.toLowerCase().contains(query) ||
-                item.path.toLowerCase().contains(query) ||
-                item.mediaType.name.contains(query) ||
-                item.source.name.contains(query);
-          }).toList();
+    final list = _items.values.where((item) {
+      if (query.isNotEmpty &&
+          !item.displayTitle.toLowerCase().contains(query) &&
+          !item.path.toLowerCase().contains(query) &&
+          !item.extension.contains(query) &&
+          !item.folderPath.toLowerCase().contains(query) &&
+          !item.mediaType.name.contains(query) &&
+          !item.source.name.contains(query)) {
+        return false;
+      }
+      if (_mediaTypeFilters.isNotEmpty &&
+          !_mediaTypeFilters.contains(item.mediaType)) {
+        return false;
+      }
+      if (_sourceFilters.isNotEmpty && !_sourceFilters.contains(item.source)) {
+        return false;
+      }
+      if (_showMissingOnly &&
+          item.availability != LibraryAvailability.missing) {
+        return false;
+      }
+      return true;
+    }).toList();
     return _sortItems(list);
   }
 
@@ -63,6 +85,10 @@ class LibraryManager with ChangeNotifier {
       .where((item) => item.mediaType == LibraryMediaType.video)
       .length;
 
+  int get missingCount => _items.values
+      .where((item) => item.availability == LibraryAvailability.missing)
+      .length;
+
   void setSearchQuery(String value) {
     _searchQuery = value;
     notifyListeners();
@@ -70,6 +96,37 @@ class LibraryManager with ChangeNotifier {
 
   void setSortMode(LibrarySortMode value) {
     _sortMode = value;
+    notifyListeners();
+  }
+
+  void toggleMediaTypeFilter(LibraryMediaType value) {
+    if (_mediaTypeFilters.contains(value)) {
+      _mediaTypeFilters.remove(value);
+    } else {
+      _mediaTypeFilters.add(value);
+    }
+    notifyListeners();
+  }
+
+  void toggleSourceFilter(LibraryItemSource value) {
+    if (_sourceFilters.contains(value)) {
+      _sourceFilters.remove(value);
+    } else {
+      _sourceFilters.add(value);
+    }
+    notifyListeners();
+  }
+
+  void setShowMissingOnly(bool value) {
+    _showMissingOnly = value;
+    notifyListeners();
+  }
+
+  void clearFilters() {
+    _searchQuery = '';
+    _mediaTypeFilters.clear();
+    _sourceFilters.clear();
+    _showMissingOnly = false;
     notifyListeners();
   }
 
@@ -116,6 +173,7 @@ class LibraryManager with ChangeNotifier {
             modifiedAt: stat.modified,
             parentId: existing?.parentId,
             thumbnailPath: existing?.thumbnailPath,
+            availability: LibraryAvailability.available,
           );
 
           if (existing == null) importedItems++;
@@ -129,6 +187,7 @@ class LibraryManager with ChangeNotifier {
         return !seenIds.contains(id);
       });
       final removedMissingItems = beforeRemoval - _items.length;
+      final markedMissingItems = await _markImportedMissing(now);
 
       _lastScanAt = now;
       await _persist();
@@ -137,6 +196,7 @@ class LibraryManager with ChangeNotifier {
         scannedFiles: scannedFiles,
         importedItems: importedItems,
         removedMissingItems: removedMissingItems,
+        markedMissingItems: markedMissingItems,
         completedAt: now,
       );
     } finally {
@@ -179,12 +239,47 @@ class LibraryManager with ChangeNotifier {
       modifiedAt: stat.modified,
       parentId: parentId ?? existing?.parentId,
       thumbnailPath: thumbnailPath ?? existing?.thumbnailPath,
+      availability: LibraryAvailability.available,
     );
 
     _items[id] = item;
     await _persist();
     notifyListeners();
     return item;
+  }
+
+  Future<LibraryAvailabilityResult> refreshAvailability() async {
+    final now = DateTime.now();
+    var checked = 0;
+    var available = 0;
+    var missing = 0;
+
+    for (final entry in _items.entries.toList()) {
+      final item = entry.value;
+      final exists =
+          _isRemoteMediaPath(item.path) || await File(item.path).exists();
+      checked++;
+      if (exists) {
+        available++;
+      } else {
+        missing++;
+      }
+      _items[entry.key] = item.copyWith(
+        availability: exists
+            ? LibraryAvailability.available
+            : LibraryAvailability.missing,
+        lastSeen: exists ? now : item.lastSeen,
+      );
+    }
+
+    await _persist();
+    notifyListeners();
+    return LibraryAvailabilityResult(
+      checkedItems: checked,
+      availableItems: available,
+      missingItems: missing,
+      completedAt: now,
+    );
   }
 
   Future<void> _load() async {
@@ -228,6 +323,24 @@ class LibraryManager with ChangeNotifier {
     }
   }
 
+  Future<int> _markImportedMissing(DateTime now) async {
+    var missing = 0;
+    for (final entry in _items.entries.toList()) {
+      final item = entry.value;
+      if (item.source == LibraryItemSource.scanned) continue;
+      final exists =
+          _isRemoteMediaPath(item.path) || await File(item.path).exists();
+      if (!exists) missing++;
+      _items[entry.key] = item.copyWith(
+        availability: exists
+            ? LibraryAvailability.available
+            : LibraryAvailability.missing,
+        lastSeen: exists ? now : item.lastSeen,
+      );
+    }
+    return missing;
+  }
+
   List<LibraryItem> _sortItems(List<LibraryItem> list) {
     list.sort((a, b) {
       switch (_sortMode) {
@@ -269,5 +382,15 @@ class LibraryManager with ChangeNotifier {
           : '$home/${trimmed.substring(2)}';
     }
     return trimmed;
+  }
+
+  bool _isRemoteMediaPath(String path) {
+    final uri = Uri.tryParse(path);
+    if (uri == null || !uri.hasScheme) return false;
+    return uri.isScheme('http') ||
+        uri.isScheme('https') ||
+        uri.isScheme('rtsp') ||
+        uri.isScheme('rtmp') ||
+        uri.isScheme('rtmps');
   }
 }

@@ -9,7 +9,8 @@ void main() {
   group('LibraryManager', () {
     test('scans configured folders into persistent library items', () async {
       SharedPreferences.setMockInitialValues({});
-      final tempDir = await Directory.systemTemp.createTemp('playlizt-library-');
+      final tempDir =
+          await Directory.systemTemp.createTemp('playlizt-library-');
       addTearDown(() async {
         if (await tempDir.exists()) {
           await tempDir.delete(recursive: true);
@@ -33,6 +34,80 @@ void main() {
       expect(manager.items, hasLength(1));
       expect(manager.items.single.displayTitle, 'Episode 01');
       expect(manager.items.single.mediaType, LibraryMediaType.video);
+      expect(manager.items.single.availability, LibraryAvailability.available);
+    });
+
+    test('filters by media type source and missing availability', () async {
+      SharedPreferences.setMockInitialValues({});
+      final tempDir =
+          await Directory.systemTemp.createTemp('playlizt-library-');
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final video = File('${tempDir.path}/Trailer.mp4');
+      final audio = File('${tempDir.path}/Theme.mp3');
+      await video.writeAsBytes([1, 2, 3]);
+      await audio.writeAsBytes([4, 5, 6]);
+
+      final settings = SettingsProvider();
+      await settings.ensureLoaded();
+      await settings.setLibraryScanFolders([tempDir.path]);
+
+      final manager = LibraryManager(settingsProvider: settings);
+      await Future<void>.delayed(Duration.zero);
+      await manager.rescan();
+
+      manager.toggleMediaTypeFilter(LibraryMediaType.video);
+      expect(manager.filteredItems.map((item) => item.displayTitle),
+          contains('Trailer'));
+      expect(manager.filteredItems.map((item) => item.displayTitle),
+          isNot(contains('Theme')));
+
+      manager.toggleSourceFilter(LibraryItemSource.downloaded);
+      expect(manager.filteredItems, isEmpty);
+
+      manager.toggleSourceFilter(LibraryItemSource.downloaded);
+      manager.setShowMissingOnly(true);
+      expect(manager.filteredItems, isEmpty);
+    });
+
+    test('marks deleted imported media as missing without removing it',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final tempDir =
+          await Directory.systemTemp.createTemp('playlizt-library-');
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final mediaFile = File('${tempDir.path}/Downloaded.mp4');
+      await mediaFile.writeAsBytes([1, 2, 3]);
+
+      final settings = SettingsProvider();
+      await settings.ensureLoaded();
+      final manager = LibraryManager(settingsProvider: settings);
+      await Future<void>.delayed(Duration.zero);
+      await manager.importPath(
+        path: mediaFile.path,
+        source: LibraryItemSource.downloaded,
+      );
+      await mediaFile.delete();
+
+      final result = await manager.refreshAvailability();
+
+      expect(result.checkedItems, 1);
+      expect(result.missingItems, 1);
+      expect(manager.items, hasLength(1));
+      expect(manager.items.single.availability, LibraryAvailability.missing);
+      expect(manager.missingCount, 1);
+
+      manager.setShowMissingOnly(true);
+      expect(manager.filteredItems.single.displayTitle, 'Downloaded');
     });
 
     test('round trips library item JSON with stable path IDs', () {
@@ -54,6 +129,7 @@ void main() {
       expect(restored.mediaType, LibraryMediaType.audio);
       expect(restored.source, LibraryItemSource.scanned);
       expect(restored.fileSizeBytes, 1024);
+      expect(restored.availability, LibraryAvailability.available);
     });
   });
 }
