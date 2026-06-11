@@ -461,6 +461,23 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                 title: const Text('Advanced downloader options'),
                 childrenPadding: const EdgeInsets.only(bottom: 8),
                 children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Skip archived downloads'),
+                    subtitle: Text(
+                      '${downloadManager.archiveEntries.length} completed source'
+                      '${downloadManager.archiveEntries.length == 1 ? '' : 's'}',
+                    ),
+                    value: settings.downloadArchiveEnabled,
+                    onChanged: settings.setDownloadArchiveEnabled,
+                    secondary: downloadManager.archiveEntries.isEmpty
+                        ? null
+                        : TextButton(
+                            onPressed: downloadManager.clearDownloadArchive,
+                            child: const Text('Clear'),
+                          ),
+                  ),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
@@ -621,6 +638,8 @@ class _DownloadListTile extends StatelessWidget {
         return Colors.red;
       case DownloadStatus.paused:
         return Colors.orange;
+      case DownloadStatus.skipped:
+        return Colors.teal;
       case DownloadStatus.cancelled:
         return Colors.grey;
       case DownloadStatus.queued:
@@ -640,6 +659,8 @@ class _DownloadListTile extends StatelessWidget {
         return 'Post-processing';
       case DownloadStatus.paused:
         return 'Paused';
+      case DownloadStatus.skipped:
+        return 'Skipped';
       case DownloadStatus.completed:
         return 'Completed';
       case DownloadStatus.failed:
@@ -657,7 +678,10 @@ class _DownloadListTile extends StatelessWidget {
     final progress = task.progress;
 
     void openPlayer() {
-      if (task.status != DownloadStatus.completed) return;
+      if (task.status != DownloadStatus.completed &&
+          task.status != DownloadStatus.skipped) {
+        return;
+      }
       final content = Content(
         id: DateTime.now().millisecondsSinceEpoch,
         creatorId: 0,
@@ -721,7 +745,9 @@ class _DownloadListTile extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
-              if (progress != null) ...[
+              if (task.status == DownloadStatus.skipped) ...[
+                Text(task.currentStage),
+              ] else if (progress != null) ...[
                 LinearProgressIndicator(value: progress),
                 const SizedBox(height: 4),
                 Text(
@@ -754,6 +780,7 @@ class _DownloadListTile extends StatelessWidget {
                         ),
                       if (task.status == DownloadStatus.paused ||
                           task.status == DownloadStatus.failed ||
+                          task.status == DownloadStatus.skipped ||
                           task.status == DownloadStatus.cancelled)
                         TextButton(
                           onPressed: () => manager.resumeDownload(task.id),
@@ -791,7 +818,7 @@ class _DownloadListTile extends StatelessWidget {
     final parts = <String>[];
     final speed = task.speedBytesPerSecond;
     if (speed != null && speed > 0) {
-      parts.add(_formatBytes(speed.round()) + '/s');
+      parts.add('${_formatBytes(speed.round())}/s');
     }
     final eta = task.etaSeconds;
     if (eta != null && eta >= 0) {
@@ -829,9 +856,9 @@ class _SettingsDrawer extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            Column(
+            const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Center(child: ThemedLogo(height: 72)),
                 SizedBox(height: 12),
                 Text(
@@ -1017,6 +1044,11 @@ class _SettingsDrawer extends StatelessWidget {
                   },
                 ),
               ),
+            ),
+            SwitchListTile(
+              title: const Text('Skip archived downloads'),
+              value: settings.downloadArchiveEnabled,
+              onChanged: settings.setDownloadArchiveEnabled,
             ),
             SwitchListTile(
               title: const Text('Hardware acceleration'),

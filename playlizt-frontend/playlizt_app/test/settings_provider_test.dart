@@ -41,6 +41,7 @@ void main() {
     await settings.setConversionOutputDirectory('/tmp/playlizt-converted');
     await settings.setHardwareAccelerationEnabled(false);
     await settings.setRendererDiscoveryEnabled(false);
+    await settings.setDownloadArchiveEnabled(false);
 
     final restored = SettingsProvider();
     await restored.ensureLoaded();
@@ -49,5 +50,6 @@ void main() {
     expect(restored.conversionOutputDirectory, '/tmp/playlizt-converted');
     expect(restored.hardwareAccelerationEnabled, isFalse);
     expect(restored.rendererDiscoveryEnabled, isFalse);
+    expect(restored.downloadArchiveEnabled, isFalse);
   });
 }

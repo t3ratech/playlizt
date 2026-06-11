@@ -33,6 +33,7 @@ class SettingsProvider with ChangeNotifier {
       'settings.hardwareAccelerationEnabled';
   static const _keyRendererDiscoveryEnabled =
       'settings.rendererDiscoveryEnabled';
+  static const _keyDownloadArchiveEnabled = 'settings.downloadArchiveEnabled';
 
   bool _useDefaultDownloadLocation = true;
   String _downloadDirectory = '~/Downloads';
@@ -44,6 +45,7 @@ class SettingsProvider with ChangeNotifier {
   String _conversionOutputDirectory = '~/Videos/Playlizt';
   bool _hardwareAccelerationEnabled = true;
   bool _rendererDiscoveryEnabled = true;
+  bool _downloadArchiveEnabled = true;
 
   // Indices of visible tabs in the global shell, in order.
   // 0=Library,1=Playlists,2=Streaming,3=Download,4=Convert,5=Devices.
@@ -63,6 +65,7 @@ class SettingsProvider with ChangeNotifier {
   String get conversionOutputDirectory => _conversionOutputDirectory;
   bool get hardwareAccelerationEnabled => _hardwareAccelerationEnabled;
   bool get rendererDiscoveryEnabled => _rendererDiscoveryEnabled;
+  bool get downloadArchiveEnabled => _downloadArchiveEnabled;
   List<int> get visibleTabIndices => List.unmodifiable(_visibleTabIndices);
   bool isTabVisible(int index) => _visibleTabIndices.contains(index);
 
@@ -100,6 +103,8 @@ class SettingsProvider with ChangeNotifier {
               _hardwareAccelerationEnabled;
       _rendererDiscoveryEnabled = prefs.getBool(_keyRendererDiscoveryEnabled) ??
           _rendererDiscoveryEnabled;
+      _downloadArchiveEnabled =
+          prefs.getBool(_keyDownloadArchiveEnabled) ?? _downloadArchiveEnabled;
 
       final storedVisible = prefs.getStringList(_keyVisibleTabs);
       if (storedVisible != null && storedVisible.isNotEmpty) {
@@ -177,6 +182,7 @@ class SettingsProvider with ChangeNotifier {
     );
     await prefs.setBool(
         _keyRendererDiscoveryEnabled, _rendererDiscoveryEnabled);
+    await prefs.setBool(_keyDownloadArchiveEnabled, _downloadArchiveEnabled);
     await prefs.setStringList(
       _keyVisibleTabs,
       _visibleTabIndices.map((e) => e.toString()).toList(),
@@ -277,6 +283,13 @@ class SettingsProvider with ChangeNotifier {
     _rendererDiscoveryEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyRendererDiscoveryEnabled, value);
+    notifyListeners();
+  }
+
+  Future<void> setDownloadArchiveEnabled(bool value) async {
+    _downloadArchiveEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyDownloadArchiveEnabled, value);
     notifyListeners();
   }
 

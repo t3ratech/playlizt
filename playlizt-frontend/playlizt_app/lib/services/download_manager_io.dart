@@ -26,6 +26,7 @@ import 'library_manager_platform.dart';
 /// tracking, pause/cancel behaviour and basic persistence across restarts.
 class DownloadManager with ChangeNotifier {
   static const _prefsKeyTasks = 'downloads.tasks';
+  static const _prefsKeyArchive = 'downloads.archive';
 
   final SettingsProvider settingsProvider;
   final PlaylistProvider playlistProvider;
@@ -35,6 +36,7 @@ class DownloadManager with ChangeNotifier {
   final YoutubeDlProcess _youtubeDlProcess = const YoutubeDlProcess();
 
   final Map<String, DownloadTask> _tasks = {};
+  final Map<String, DownloadArchiveEntry> _archive = {};
   final Map<String, CancelToken> _tokens = {};
   final Map<String, DownloadStatus> _pendingCancelStatus = {};
 
@@ -85,12 +87,70 @@ class DownloadManager with ChangeNotifier {
     return safe.isEmpty ? 'download' : safe;
   }
 
+  String _archiveKey(String sourceUrl) {
+    return sourceUrl.trim();
+  }
+
+  Future<void> clearDownloadArchive() async {
+    _archive.clear();
+    await _persistArchive();
+    notifyListeners();
+  }
+
+  DownloadArchiveEntry? _archiveEntryFor(String sourceUrl) {
+    return _archive[_archiveKey(sourceUrl)];
+  }
+
+  Future<void> _enqueueArchivedSkip({
+    required String requestedUrl,
+    required DownloadArchiveEntry entry,
+    String? explicitFileName,
+    String? playlistTitle,
+    int? playlistIndex,
+    int? playlistCount,
+    String? extractorName,
+    DownloadOptions options = const DownloadOptions(),
+  }) async {
+    final id = DateTime.now().microsecondsSinceEpoch.toString();
+    _tasks[id] = DownloadTask(
+      id: id,
+      url: requestedUrl,
+      originalUrl: entry.sourceUrl,
+      filePath: entry.outputPath,
+      fileName: explicitFileName?.trim().isNotEmpty == true
+          ? explicitFileName!.trim()
+          : entry.fileName,
+      title: entry.title,
+      options: options,
+      status: DownloadStatus.skipped,
+      receivedBytes: 0,
+      totalBytes: 0,
+      currentStage: 'Already downloaded in archive',
+      extractorName: extractorName ?? entry.extractorName,
+      playlistTitle: playlistTitle ?? entry.playlistTitle,
+      playlistIndex: playlistIndex ?? entry.playlistIndex,
+      playlistCount: playlistCount,
+    );
+    await _persistTasks();
+    notifyListeners();
+  }
+
   bool get isInitialised => _initialised;
 
   List<DownloadTask> get tasks {
     final list = _tasks.values.toList();
     list.sort((a, b) => b.id.compareTo(a.id));
     return list;
+  }
+
+  List<DownloadArchiveEntry> get archiveEntries {
+    final list = _archive.values.toList();
+    list.sort((a, b) => b.completedAt.compareTo(a.completedAt));
+    return list;
+  }
+
+  bool isArchived(String sourceUrl) {
+    return _archive.containsKey(_archiveKey(sourceUrl));
   }
 
   Future<void> enqueueDownload({
@@ -100,6 +160,19 @@ class DownloadManager with ChangeNotifier {
     DownloadOptions options = const DownloadOptions(),
   }) async {
     print('DownloadManager: Enqueuing download for $url');
+    if (settingsProvider.downloadArchiveEnabled) {
+      final archived = _archiveEntryFor(url);
+      if (archived != null) {
+        await _enqueueArchivedSkip(
+          requestedUrl: url,
+          entry: archived,
+          explicitFileName: explicitFileName,
+          options: options,
+        );
+        return;
+      }
+    }
+
     // 1. Resolve URL using Extraction Engine
     String actualUrl = url;
     String finalFileName = explicitFileName?.trim() ?? '';
@@ -187,6 +260,21 @@ class DownloadManager with ChangeNotifier {
       throw Exception('Extraction failed for non-direct URL: $url');
     }
 
+    if (settingsProvider.downloadArchiveEnabled) {
+      final archiveSourceUrl = originalUrl ?? actualUrl;
+      final archived = _archiveEntryFor(archiveSourceUrl);
+      if (archived != null) {
+        await _enqueueArchivedSkip(
+          requestedUrl: archiveSourceUrl,
+          entry: archived,
+          explicitFileName: explicitFileName,
+          options: options,
+          extractorName: extractorName,
+        );
+        return;
+      }
+    }
+
     final uri = Uri.tryParse(actualUrl);
     if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
       throw ArgumentError('Only http/https URLs are supported');
@@ -271,6 +359,25 @@ class DownloadManager with ChangeNotifier {
       finalFileName = '${_safeTitle(mediaInfo.title)}.mp4';
     }
 
+    if (settingsProvider.downloadArchiveEnabled) {
+      final archiveSourceUrl =
+          backend == DownloadBackend.youtubeDl ? originalUrl! : actualUrl;
+      final archived = _archiveEntryFor(archiveSourceUrl);
+      if (archived != null) {
+        await _enqueueArchivedSkip(
+          requestedUrl: archiveSourceUrl,
+          entry: archived,
+          explicitFileName: finalFileName,
+          playlistTitle: playlistTitle,
+          playlistIndex: playlistIndex,
+          playlistCount: playlistCount,
+          extractorName: mediaInfo.extractorKey,
+          options: options,
+        );
+        return;
+      }
+    }
+
     final directory = targetDirectory?.trim().isNotEmpty == true
         ? targetDirectory!.trim()
         : settingsProvider.downloadDirectory;
@@ -344,12 +451,7 @@ class DownloadManager with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_prefsKeyTasks);
-      if (raw == null || raw.isEmpty) {
-        _initialised = true;
-        return;
-      }
-
-      final decoded = jsonDecode(raw);
+      final decoded = raw == null || raw.isEmpty ? const [] : jsonDecode(raw);
       if (decoded is List) {
         for (final item in decoded) {
           if (item is Map<String, dynamic>) {
@@ -360,6 +462,26 @@ class DownloadManager with ChangeNotifier {
               item.map((k, v) => MapEntry(k.toString(), v)),
             );
             _tasks[task.id] = task;
+          }
+        }
+      }
+
+      final rawArchive = prefs.getString(_prefsKeyArchive);
+      if (rawArchive != null && rawArchive.isNotEmpty) {
+        final archiveDecoded = jsonDecode(rawArchive);
+        if (archiveDecoded is List) {
+          for (final item in archiveDecoded) {
+            final Map<String, dynamic>? rawEntry;
+            if (item is Map<String, dynamic>) {
+              rawEntry = item;
+            } else if (item is Map) {
+              rawEntry = item.map((k, v) => MapEntry(k.toString(), v));
+            } else {
+              rawEntry = null;
+            }
+            if (rawEntry == null) continue;
+            final entry = DownloadArchiveEntry.fromJson(rawEntry);
+            _archive[_archiveKey(entry.sourceUrl)] = entry;
           }
         }
       }
@@ -383,6 +505,37 @@ class DownloadManager with ChangeNotifier {
         print('DownloadManager: failed to persist tasks: $e');
       }
     }
+  }
+
+  Future<void> _persistArchive() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = _archive.values.map((entry) => entry.toJson()).toList();
+      await prefs.setString(_prefsKeyArchive, jsonEncode(list));
+    } catch (e) {
+      if (kDebugMode) {
+        print('DownloadManager: failed to persist archive: $e');
+      }
+    }
+  }
+
+  Future<void> _recordArchive(DownloadTask task) async {
+    if (!settingsProvider.downloadArchiveEnabled) return;
+    final sourceUrl = task.originalUrl ?? task.url;
+    if (sourceUrl.trim().isEmpty) return;
+
+    final entry = DownloadArchiveEntry(
+      sourceUrl: sourceUrl,
+      outputPath: task.filePath,
+      fileName: task.fileName,
+      title: task.title,
+      extractorName: task.extractorName,
+      playlistTitle: task.playlistTitle,
+      playlistIndex: task.playlistIndex,
+      completedAt: DateTime.now(),
+    );
+    _archive[_archiveKey(sourceUrl)] = entry;
+    await _persistArchive();
   }
 
   void _startNextIfPossible() {
@@ -465,6 +618,7 @@ class DownloadManager with ChangeNotifier {
       _tasks[task.id] = _tasks[task.id]!.copyWith(
         status: DownloadStatus.completed,
       );
+      await _recordArchive(_tasks[task.id]!);
       await _persistTasks();
 
       // Add to Downloads playlist

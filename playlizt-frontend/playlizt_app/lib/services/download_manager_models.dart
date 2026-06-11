@@ -13,6 +13,7 @@ enum DownloadStatus {
   downloading,
   postProcessing,
   paused,
+  skipped,
   completed,
   failed,
   cancelled,
@@ -263,6 +264,55 @@ class DownloadTask {
       playlistIndex: (json['playlistIndex'] as num?)?.toInt(),
       playlistCount: (json['playlistCount'] as num?)?.toInt(),
       errorMessage: json['errorMessage'] as String?,
+    );
+  }
+}
+
+class DownloadArchiveEntry {
+  final String sourceUrl;
+  final String outputPath;
+  final String fileName;
+  final String? title;
+  final String? extractorName;
+  final String? playlistTitle;
+  final int? playlistIndex;
+  final DateTime completedAt;
+
+  const DownloadArchiveEntry({
+    required this.sourceUrl,
+    required this.outputPath,
+    required this.fileName,
+    this.title,
+    this.extractorName,
+    this.playlistTitle,
+    this.playlistIndex,
+    required this.completedAt,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'sourceUrl': sourceUrl,
+      'outputPath': outputPath,
+      'fileName': fileName,
+      'title': title,
+      'extractorName': extractorName,
+      'playlistTitle': playlistTitle,
+      'playlistIndex': playlistIndex,
+      'completedAt': completedAt.toIso8601String(),
+    };
+  }
+
+  static DownloadArchiveEntry fromJson(Map<String, dynamic> json) {
+    return DownloadArchiveEntry(
+      sourceUrl: json['sourceUrl'] as String,
+      outputPath: json['outputPath'] as String,
+      fileName: json['fileName'] as String,
+      title: json['title'] as String?,
+      extractorName: json['extractorName'] as String?,
+      playlistTitle: json['playlistTitle'] as String?,
+      playlistIndex: (json['playlistIndex'] as num?)?.toInt(),
+      completedAt: DateTime.tryParse(json['completedAt'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }

@@ -1,15 +1,30 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:playlizt_app/providers/playlist_provider.dart';
+import 'package:playlizt_app/providers/settings_provider.dart';
+import 'package:playlizt_app/services/download_manager_platform.dart'
+    as download_platform;
 import 'package:playlizt_app/services/download_manager_models.dart';
 import 'package:playlizt_app/services/extractor/core/youtube_dl_json_mapper.dart';
 import 'package:playlizt_app/services/extractor/extraction_engine.dart';
 import 'package:playlizt_app/services/extractor/extractors/youtube_dl_bridge_ie_io.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _vendoredYoutubeDlSource = String.fromEnvironment(
   'PLAYLIZT_TEST_YOUTUBE_DL_SOURCE',
   defaultValue: 'vendor/youtube-dl',
 );
+
+Future<void> _waitForDownloadManager(
+  download_platform.DownloadManager manager,
+) async {
+  for (var i = 0; i < 20 && !manager.isInitialised; i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+  }
+  expect(manager.isInitialised, isTrue);
+}
 
 void main() {
   group('youtube-dl bridge', () {
@@ -231,6 +246,85 @@ void main() {
 
       expect(extracting.status, DownloadStatus.failed);
       expect(postProcessing.status, DownloadStatus.failed);
+    });
+
+    test('keeps skipped archive tasks stable across JSON round trips', () {
+      final restored = DownloadTask.fromJson(
+        const DownloadTask(
+          id: 'task-5',
+          url: 'https://example.test/video.mp4',
+          originalUrl: 'https://example.test/video.mp4',
+          filePath: '/tmp/video.mp4',
+          fileName: 'video.mp4',
+          status: DownloadStatus.skipped,
+          receivedBytes: 0,
+          totalBytes: 0,
+          currentStage: 'Already downloaded in archive',
+        ).toJson(),
+      );
+
+      expect(restored.status, DownloadStatus.skipped);
+      expect(restored.currentStage, 'Already downloaded in archive');
+    });
+  });
+
+  group('Download archive', () {
+    test('round trips completed source metadata', () {
+      final completedAt = DateTime.utc(2026, 6, 11, 12, 30);
+      final entry = DownloadArchiveEntry(
+        sourceUrl: 'https://example.test/watch/video-id',
+        outputPath: '/tmp/video.mp4',
+        fileName: 'video.mp4',
+        title: 'Archived Video',
+        extractorName: 'youtube-dl',
+        playlistTitle: 'Archive Playlist',
+        playlistIndex: 2,
+        completedAt: completedAt,
+      );
+
+      final restored = DownloadArchiveEntry.fromJson(entry.toJson());
+
+      expect(restored.sourceUrl, entry.sourceUrl);
+      expect(restored.outputPath, entry.outputPath);
+      expect(restored.fileName, entry.fileName);
+      expect(restored.title, entry.title);
+      expect(restored.extractorName, entry.extractorName);
+      expect(restored.playlistTitle, entry.playlistTitle);
+      expect(restored.playlistIndex, entry.playlistIndex);
+      expect(restored.completedAt, completedAt);
+    });
+
+    test('skips archived direct media without starting a network download',
+        () async {
+      const sourceUrl = 'https://cdn.example.test/video.mp4';
+      final archiveEntry = DownloadArchiveEntry(
+        sourceUrl: sourceUrl,
+        outputPath: '/tmp/video.mp4',
+        fileName: 'video.mp4',
+        title: 'Archived Direct Video',
+        completedAt: DateTime.utc(2026, 6, 11),
+      );
+      SharedPreferences.setMockInitialValues({
+        'downloads.archive': jsonEncode([archiveEntry.toJson()]),
+      });
+
+      final settings = SettingsProvider();
+      await settings.ensureLoaded();
+      await settings.setMaxConcurrentDownloads(0);
+      final manager = download_platform.DownloadManager(
+        settingsProvider: settings,
+        playlistProvider: PlaylistProvider(),
+      );
+      await _waitForDownloadManager(manager);
+
+      await manager.enqueueDownload(url: sourceUrl);
+
+      expect(manager.isArchived(sourceUrl), isTrue);
+      expect(manager.tasks, hasLength(1));
+      expect(manager.tasks.single.status, DownloadStatus.skipped);
+      expect(manager.tasks.single.filePath, '/tmp/video.mp4');
+      expect(
+          manager.tasks.single.currentStage, 'Already downloaded in archive');
     });
   });
 }
