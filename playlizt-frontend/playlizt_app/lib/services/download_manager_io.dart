@@ -97,6 +97,7 @@ class DownloadManager with ChangeNotifier {
     required String url,
     String? targetDirectory,
     String? explicitFileName,
+    DownloadOptions options = const DownloadOptions(),
   }) async {
     print('DownloadManager: Enqueuing download for $url');
     // 1. Resolve URL using Extraction Engine
@@ -127,6 +128,7 @@ class DownloadManager with ChangeNotifier {
             requestedUrl: url,
             mediaInfo: mediaInfo.playlistEntries[i],
             targetDirectory: targetDirectory,
+            options: options,
             playlistTitle: mediaInfo.title,
             playlistIndex: i + 1,
             playlistCount: playlistCount,
@@ -215,6 +217,7 @@ class DownloadManager with ChangeNotifier {
       fileName: suggestedName,
       headers: headers,
       backend: backend,
+      options: options,
       title: title,
       thumbnailUrl: thumbnailUrl,
       formatLabel: formatLabel,
@@ -236,6 +239,7 @@ class DownloadManager with ChangeNotifier {
     required String requestedUrl,
     required MediaInfo mediaInfo,
     String? targetDirectory,
+    DownloadOptions options = const DownloadOptions(),
     String? playlistTitle,
     int? playlistIndex,
     int? playlistCount,
@@ -287,6 +291,7 @@ class DownloadManager with ChangeNotifier {
       thumbnailUrl: mediaInfo.thumbnailUrl,
       headers: headers,
       backend: backend,
+      options: options,
       status: DownloadStatus.queued,
       receivedBytes: 0,
       totalBytes: 0,
@@ -565,6 +570,13 @@ class DownloadManager with ChangeNotifier {
       sourceUrl: task.originalUrl ?? task.url,
       outputPath: task.filePath,
       cancelToken: cancelToken,
+      formatId: task.options.formatId,
+      audioOnly: task.options.audioOnly,
+      writeSubtitles: task.options.writeSubtitles,
+      writeThumbnail: task.options.writeThumbnail,
+      writeMetadata: task.options.writeMetadata,
+      proxy: task.options.proxy,
+      rateLimit: task.options.rateLimit,
       onProgress: (progress) {
         final current = _tasks[taskId];
         if (current == null) return;

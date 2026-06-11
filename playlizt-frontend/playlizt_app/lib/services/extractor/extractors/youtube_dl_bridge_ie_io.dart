@@ -255,6 +255,9 @@ class YoutubeDlProcess {
     if (writeSubtitles) args.add('--write-sub');
     if (writeThumbnail) args.add('--write-thumbnail');
     if (writeMetadata) args.add('--add-metadata');
+    if (audioOnly) {
+      args.addAll(['--extract-audio', '--audio-format', 'mp3']);
+    }
     if (proxy != null && proxy.trim().isNotEmpty) {
       args.addAll(['--proxy', proxy.trim()]);
     }

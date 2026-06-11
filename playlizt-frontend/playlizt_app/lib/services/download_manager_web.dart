@@ -81,6 +81,7 @@ class DownloadManager with ChangeNotifier {
     required String url,
     String? targetDirectory,
     String? explicitFileName,
+    DownloadOptions options = const DownloadOptions(),
   }) async {
     // 1. Resolve URL using Extraction Engine
     String actualUrl = url;
@@ -163,6 +164,7 @@ class DownloadManager with ChangeNotifier {
       title: title,
       thumbnailUrl: thumbnailUrl,
       headers: headers,
+      options: options,
       formatLabel: formatLabel,
       extractorName: extractorName,
       currentStage: 'Queued',

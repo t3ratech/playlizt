@@ -85,7 +85,9 @@ void main() {
       expect(info.subtitles.single.language, 'en');
       expect(info.playlistEntries.single.title, 'Playlist Entry');
       expect(
-        info.formats.firstWhere((format) => format.formatId == 'full').friendlyLabel,
+        info.formats
+            .firstWhere((format) => format.formatId == 'full')
+            .friendlyLabel,
         contains('SD'),
       );
     });
@@ -153,6 +155,15 @@ void main() {
         filePath: '/tmp/video.mp4',
         fileName: 'video.mp4',
         backend: DownloadBackend.youtubeDl,
+        options: DownloadOptions(
+          formatId: 'bestvideo+bestaudio/best',
+          audioOnly: true,
+          writeSubtitles: true,
+          writeThumbnail: true,
+          writeMetadata: true,
+          proxy: 'socks5://127.0.0.1:1080',
+          rateLimit: '2M',
+        ),
         status: DownloadStatus.queued,
         receivedBytes: 0,
         totalBytes: 0,
@@ -163,6 +174,13 @@ void main() {
       expect(restored.backend, DownloadBackend.youtubeDl);
       expect(restored.originalUrl, task.originalUrl);
       expect(restored.status, DownloadStatus.queued);
+      expect(restored.options.formatId, 'bestvideo+bestaudio/best');
+      expect(restored.options.audioOnly, isTrue);
+      expect(restored.options.writeSubtitles, isTrue);
+      expect(restored.options.writeThumbnail, isTrue);
+      expect(restored.options.writeMetadata, isTrue);
+      expect(restored.options.proxy, 'socks5://127.0.0.1:1080');
+      expect(restored.options.rateLimit, '2M');
     });
 
     test('marks in-flight persisted tasks as failed on restore', () {

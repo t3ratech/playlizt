@@ -20,6 +20,54 @@ enum DownloadStatus {
 
 enum DownloadBackend { native, youtubeDl }
 
+class DownloadOptions {
+  final String? formatId;
+  final bool audioOnly;
+  final bool writeSubtitles;
+  final bool writeThumbnail;
+  final bool writeMetadata;
+  final String? proxy;
+  final String? rateLimit;
+
+  const DownloadOptions({
+    this.formatId,
+    this.audioOnly = false,
+    this.writeSubtitles = false,
+    this.writeThumbnail = false,
+    this.writeMetadata = false,
+    this.proxy,
+    this.rateLimit,
+  });
+
+  bool get hasPostProcessing =>
+      audioOnly || writeSubtitles || writeThumbnail || writeMetadata;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'formatId': formatId,
+      'audioOnly': audioOnly,
+      'writeSubtitles': writeSubtitles,
+      'writeThumbnail': writeThumbnail,
+      'writeMetadata': writeMetadata,
+      'proxy': proxy,
+      'rateLimit': rateLimit,
+    };
+  }
+
+  static DownloadOptions fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const DownloadOptions();
+    return DownloadOptions(
+      formatId: json['formatId'] as String?,
+      audioOnly: json['audioOnly'] as bool? ?? false,
+      writeSubtitles: json['writeSubtitles'] as bool? ?? false,
+      writeThumbnail: json['writeThumbnail'] as bool? ?? false,
+      writeMetadata: json['writeMetadata'] as bool? ?? false,
+      proxy: json['proxy'] as String?,
+      rateLimit: json['rateLimit'] as String?,
+    );
+  }
+}
+
 class DownloadTask {
   final String id;
   final String url;
@@ -30,6 +78,7 @@ class DownloadTask {
   final String? thumbnailUrl;
   final Map<String, String>? headers;
   final DownloadBackend backend;
+  final DownloadOptions options;
   final DownloadStatus status;
   final int receivedBytes;
   final int totalBytes;
@@ -53,6 +102,7 @@ class DownloadTask {
     this.thumbnailUrl,
     this.headers,
     this.backend = DownloadBackend.native,
+    this.options = const DownloadOptions(),
     required this.status,
     required this.receivedBytes,
     required this.totalBytes,
@@ -82,6 +132,7 @@ class DownloadTask {
     String? thumbnailUrl,
     Map<String, String>? headers,
     DownloadBackend? backend,
+    DownloadOptions? options,
     DownloadStatus? status,
     int? receivedBytes,
     int? totalBytes,
@@ -106,6 +157,7 @@ class DownloadTask {
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       headers: headers ?? this.headers,
       backend: backend ?? this.backend,
+      options: options ?? this.options,
       status: status ?? this.status,
       receivedBytes: receivedBytes ?? this.receivedBytes,
       totalBytes: totalBytes ?? this.totalBytes,
@@ -133,6 +185,7 @@ class DownloadTask {
       'thumbnailUrl': thumbnailUrl,
       'headers': headers,
       'backend': backend.name,
+      'options': options.toJson(),
       'status': status.name,
       'receivedBytes': receivedBytes,
       'totalBytes': totalBytes,
@@ -181,6 +234,11 @@ class DownloadTask {
         (key, value) => MapEntry(key, value.toString()),
       ),
       backend: resolvedBackend,
+      options: DownloadOptions.fromJson(
+        (json['options'] as Map?)?.map(
+          (key, value) => MapEntry(key.toString(), value),
+        ),
+      ),
       status: finalStatus,
       receivedBytes: (json['receivedBytes'] as num?)?.toInt() ?? 0,
       totalBytes: (json['totalBytes'] as num?)?.toInt() ?? 0,

@@ -184,8 +184,15 @@ class _DownloadTabHost extends StatefulWidget {
 class _DownloadTabHostState extends State<_DownloadTabHost> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _defaultPathController = TextEditingController();
+  final TextEditingController _formatIdController = TextEditingController();
+  final TextEditingController _proxyController = TextEditingController();
+  final TextEditingController _rateLimitController = TextEditingController();
   bool _isSubmitting = false;
   bool _isEditingDefaultPath = false;
+  bool _audioOnly = false;
+  bool _writeSubtitles = false;
+  bool _writeThumbnail = false;
+  bool _writeMetadata = false;
 
   @override
   void initState() {
@@ -200,6 +207,9 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   void dispose() {
     _urlController.dispose();
     _defaultPathController.dispose();
+    _formatIdController.dispose();
+    _proxyController.dispose();
+    _rateLimitController.dispose();
     super.dispose();
   }
 
@@ -226,12 +236,22 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
     });
 
     try {
+      final options = DownloadOptions(
+        formatId: _emptyToNull(_formatIdController.text),
+        audioOnly: _audioOnly,
+        writeSubtitles: _writeSubtitles,
+        writeThumbnail: _writeThumbnail,
+        writeMetadata: _writeMetadata,
+        proxy: _emptyToNull(_proxyController.text),
+        rateLimit: _emptyToNull(_rateLimitController.text),
+      );
+
       if (settings.useDefaultDownloadLocation) {
         final newPath = _defaultPathController.text.trim();
         if (newPath.isNotEmpty && newPath != settings.downloadDirectory) {
           await settings.setDownloadDirectory(newPath);
         }
-        await downloadManager.enqueueDownload(url: rawUrl);
+        await downloadManager.enqueueDownload(url: rawUrl, options: options);
       } else {
         final saveLocation = await _promptCustomLocation(rawUrl, settings);
         if (saveLocation == null) {
@@ -241,6 +261,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
           url: rawUrl,
           targetDirectory: saveLocation.directory,
           explicitFileName: saveLocation.fileName,
+          options: options,
         );
       }
 
@@ -256,6 +277,11 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         });
       }
     }
+  }
+
+  String? _emptyToNull(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   Future<_SaveLocation?> _promptCustomLocation(
@@ -420,6 +446,83 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                   'Each download will prompt for a folder and file name.',
                 ),
               ],
+              const SizedBox(height: 8),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('Advanced downloader options'),
+                childrenPadding: const EdgeInsets.only(bottom: 8),
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('Audio only'),
+                        selected: _audioOnly,
+                        onSelected: (value) {
+                          setState(() => _audioOnly = value);
+                        },
+                      ),
+                      FilterChip(
+                        label: const Text('Subtitles'),
+                        selected: _writeSubtitles,
+                        onSelected: (value) {
+                          setState(() => _writeSubtitles = value);
+                        },
+                      ),
+                      FilterChip(
+                        label: const Text('Thumbnail'),
+                        selected: _writeThumbnail,
+                        onSelected: (value) {
+                          setState(() => _writeThumbnail = value);
+                        },
+                      ),
+                      FilterChip(
+                        label: const Text('Write metadata'),
+                        selected: _writeMetadata,
+                        onSelected: (value) {
+                          setState(() => _writeMetadata = value);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _formatIdController,
+                          decoration: const InputDecoration(
+                            labelText: 'Format id / selector',
+                            hintText: 'bestvideo+bestaudio/best',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _rateLimitController,
+                          decoration: const InputDecoration(
+                            labelText: 'Rate limit',
+                            hintText: '2M',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _proxyController,
+                    decoration: const InputDecoration(
+                      labelText: 'Proxy',
+                      hintText: 'socks5://127.0.0.1:1080',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 8),
