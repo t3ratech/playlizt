@@ -16,6 +16,73 @@ void main() {
       expect(inventory.satisfiesRequiredCounts, isTrue);
     });
 
+    test('parses named FFmpeg capability catalog entries', () {
+      final catalog = FfmpegCapabilityCatalog.fromFfmpegOutputs(
+        encoders: '''
+Encoders:
+ V..... libx264              H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+ A..... aac                  AAC (Advanced Audio Coding)
+''',
+        decoders: '''
+Decoders:
+ VFS..D h264                 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+ A....D mp3                  MP3 (MPEG audio layer 3)
+''',
+        muxers: '''
+Muxers:
+ E matroska        Matroska
+ E mp4             MP4 (MPEG-4 Part 14)
+''',
+        demuxers: '''
+Demuxers:
+ D matroska,webm   Matroska / WebM
+ D mov,mp4,m4a     QuickTime / MOV
+''',
+        filters: '''
+Filters:
+ ... acopy             A->A       Copy the input audio unchanged.
+ T.C scale             V->V       Scale video frames.
+''',
+        bitstreamFilters: '''
+Bitstream filters:
+aac_adtstoasc
+av1_frame_merge
+''',
+        protocols: '''
+Supported file protocols:
+Input:
+  file http https
+Output:
+  file rtmp
+''',
+      );
+
+      expect(catalog.encoders.map((entry) => entry.name), [
+        'libx264',
+        'aac',
+      ]);
+      expect(catalog.decoders.last.description, 'MP3 (MPEG audio layer 3)');
+      expect(catalog.muxers.last.name, 'mp4');
+      expect(catalog.demuxers.first.name, 'matroska,webm');
+      expect(catalog.filters.last.flags, 'T.C');
+      expect(catalog.bitstreamFilters.last.name, 'av1_frame_merge');
+
+      final fileProtocol = catalog.protocols.firstWhere(
+        (entry) => entry.name == 'file',
+      );
+      final rtmpProtocol = catalog.protocols.firstWhere(
+        (entry) => entry.name == 'rtmp',
+      );
+      expect(fileProtocol.supportsInput, isTrue);
+      expect(fileProtocol.supportsOutput, isTrue);
+      expect(rtmpProtocol.supportsInput, isFalse);
+      expect(rtmpProtocol.supportsOutput, isTrue);
+
+      expect(catalog.inventory.encoders, 2);
+      expect(catalog.inventory.protocols, 4);
+      expect(catalog.search('scale').single.name, 'scale');
+    });
+
     test('builds preset arguments with probe-friendly progress output', () {
       final preset = ConversionPreset.byId(ConversionPresetId.mp4720);
 

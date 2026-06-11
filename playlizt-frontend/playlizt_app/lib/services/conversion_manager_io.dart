@@ -212,23 +212,20 @@ class ConversionManager with ChangeNotifier {
   }
 
   Future<FfmpegCapabilityInventory> loadCapabilityInventory() async {
-    final executable = _requiredFfmpegExecutable();
-    final encoders = await _countCapabilityLines(executable, '-encoders');
-    final decoders = await _countCapabilityLines(executable, '-decoders');
-    final muxers = await _countCapabilityLines(executable, '-muxers');
-    final demuxers = await _countCapabilityLines(executable, '-demuxers');
-    final filters = await _countCapabilityLines(executable, '-filters');
-    final bitstreamFilters = await _countSimpleList(executable, '-bsfs');
-    final protocols = await _countSimpleList(executable, '-protocols');
+    final catalog = await loadCapabilityCatalog();
+    return catalog.inventory;
+  }
 
-    return FfmpegCapabilityInventory(
-      encoders: encoders,
-      decoders: decoders,
-      muxers: muxers,
-      demuxers: demuxers,
-      filters: filters,
-      bitstreamFilters: bitstreamFilters,
-      protocols: protocols,
+  Future<FfmpegCapabilityCatalog> loadCapabilityCatalog() async {
+    final executable = _requiredFfmpegExecutable();
+    return FfmpegCapabilityCatalog.fromFfmpegOutputs(
+      encoders: await _ffmpegCapabilityOutput(executable, '-encoders'),
+      decoders: await _ffmpegCapabilityOutput(executable, '-decoders'),
+      muxers: await _ffmpegCapabilityOutput(executable, '-muxers'),
+      demuxers: await _ffmpegCapabilityOutput(executable, '-demuxers'),
+      filters: await _ffmpegCapabilityOutput(executable, '-filters'),
+      bitstreamFilters: await _ffmpegCapabilityOutput(executable, '-bsfs'),
+      protocols: await _ffmpegCapabilityOutput(executable, '-protocols'),
     );
   }
 
@@ -441,43 +438,12 @@ class ConversionManager with ChangeNotifier {
     return candidate;
   }
 
-  Future<int> _countCapabilityLines(String executable, String flag) async {
+  Future<String> _ffmpegCapabilityOutput(String executable, String flag) async {
     final result = await Process.run(executable, ['-hide_banner', flag]);
     if (result.exitCode != 0) {
       throw StateError('FFmpeg capability query failed for $flag');
     }
-    final text = '${result.stdout}\n${result.stderr}';
-    return text
-        .split('\n')
-        .where((line) => RegExp(r'^\s*[A-Z\.]{2,8}\s+\S+').hasMatch(line))
-        .length;
-  }
-
-  Future<int> _countSimpleList(String executable, String flag) async {
-    final result = await Process.run(executable, ['-hide_banner', flag]);
-    if (result.exitCode != 0) {
-      throw StateError('FFmpeg capability query failed for $flag');
-    }
-    final text = '${result.stdout}\n${result.stderr}';
-    final names = <String>{};
-    var inList = false;
-    for (final rawLine in text.split('\n')) {
-      final line = rawLine.trim();
-      if (line.isEmpty) continue;
-      if (line.endsWith(':')) {
-        inList = true;
-        continue;
-      }
-      if (!inList) continue;
-      if (line.startsWith('-')) continue;
-      for (final token in line.split(RegExp(r'\s+'))) {
-        if (token.isNotEmpty &&
-            RegExp(r'^[a-zA-Z0-9_.,+-]+$').hasMatch(token)) {
-          names.add(token);
-        }
-      }
-    }
-    return names.length;
+    return '${result.stdout}\n${result.stderr}';
   }
 
   int? _clipDurationSeconds(ConversionJob job, int? inputDuration) {

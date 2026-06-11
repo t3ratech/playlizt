@@ -147,6 +147,12 @@ class ConversionManager with ChangeNotifier {
     );
   }
 
+  Future<FfmpegCapabilityCatalog> loadCapabilityCatalog() async {
+    throw StateError(
+      'FFmpeg capability catalog requires the desktop app with FFmpeg configured.',
+    );
+  }
+
   Future<void> _load() async {
     try {
       final prefs = await SharedPreferences.getInstance();

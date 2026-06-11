@@ -260,6 +260,234 @@ class FfmpegCapabilityInventory {
       protocols >= requiredProtocols;
 }
 
+enum FfmpegCapabilitySection {
+  encoders,
+  decoders,
+  muxers,
+  demuxers,
+  filters,
+  bitstreamFilters,
+  protocols,
+}
+
+class FfmpegCapabilityEntry {
+  final FfmpegCapabilitySection section;
+  final String name;
+  final String description;
+  final String flags;
+  final bool supportsInput;
+  final bool supportsOutput;
+
+  const FfmpegCapabilityEntry({
+    required this.section,
+    required this.name,
+    this.description = '',
+    this.flags = '',
+    this.supportsInput = false,
+    this.supportsOutput = false,
+  });
+
+  bool matches(String query) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+    return name.toLowerCase().contains(normalized) ||
+        description.toLowerCase().contains(normalized) ||
+        flags.toLowerCase().contains(normalized);
+  }
+}
+
+class FfmpegCapabilityCatalog {
+  final List<FfmpegCapabilityEntry> encoders;
+  final List<FfmpegCapabilityEntry> decoders;
+  final List<FfmpegCapabilityEntry> muxers;
+  final List<FfmpegCapabilityEntry> demuxers;
+  final List<FfmpegCapabilityEntry> filters;
+  final List<FfmpegCapabilityEntry> bitstreamFilters;
+  final List<FfmpegCapabilityEntry> protocols;
+
+  const FfmpegCapabilityCatalog({
+    required this.encoders,
+    required this.decoders,
+    required this.muxers,
+    required this.demuxers,
+    required this.filters,
+    required this.bitstreamFilters,
+    required this.protocols,
+  });
+
+  FfmpegCapabilityInventory get inventory => FfmpegCapabilityInventory(
+        encoders: encoders.length,
+        decoders: decoders.length,
+        muxers: muxers.length,
+        demuxers: demuxers.length,
+        filters: filters.length,
+        bitstreamFilters: bitstreamFilters.length,
+        protocols: protocols.length,
+      );
+
+  List<FfmpegCapabilityEntry> entriesFor(FfmpegCapabilitySection section) {
+    switch (section) {
+      case FfmpegCapabilitySection.encoders:
+        return encoders;
+      case FfmpegCapabilitySection.decoders:
+        return decoders;
+      case FfmpegCapabilitySection.muxers:
+        return muxers;
+      case FfmpegCapabilitySection.demuxers:
+        return demuxers;
+      case FfmpegCapabilitySection.filters:
+        return filters;
+      case FfmpegCapabilitySection.bitstreamFilters:
+        return bitstreamFilters;
+      case FfmpegCapabilitySection.protocols:
+        return protocols;
+    }
+  }
+
+  List<FfmpegCapabilityEntry> search(String query) {
+    final normalized = query.trim();
+    if (normalized.isEmpty) {
+      return [
+        ...encoders,
+        ...decoders,
+        ...muxers,
+        ...demuxers,
+        ...filters,
+        ...bitstreamFilters,
+        ...protocols,
+      ];
+    }
+    return [
+      ...encoders.where((entry) => entry.matches(normalized)),
+      ...decoders.where((entry) => entry.matches(normalized)),
+      ...muxers.where((entry) => entry.matches(normalized)),
+      ...demuxers.where((entry) => entry.matches(normalized)),
+      ...filters.where((entry) => entry.matches(normalized)),
+      ...bitstreamFilters.where((entry) => entry.matches(normalized)),
+      ...protocols.where((entry) => entry.matches(normalized)),
+    ];
+  }
+
+  factory FfmpegCapabilityCatalog.fromFfmpegOutputs({
+    required String encoders,
+    required String decoders,
+    required String muxers,
+    required String demuxers,
+    required String filters,
+    required String bitstreamFilters,
+    required String protocols,
+  }) {
+    return FfmpegCapabilityCatalog(
+      encoders: _parseFlaggedEntries(
+        encoders,
+        FfmpegCapabilitySection.encoders,
+      ),
+      decoders: _parseFlaggedEntries(
+        decoders,
+        FfmpegCapabilitySection.decoders,
+      ),
+      muxers: _parseFlaggedEntries(muxers, FfmpegCapabilitySection.muxers),
+      demuxers: _parseFlaggedEntries(
+        demuxers,
+        FfmpegCapabilitySection.demuxers,
+      ),
+      filters: _parseFlaggedEntries(filters, FfmpegCapabilitySection.filters),
+      bitstreamFilters: _parseSimpleEntries(
+        bitstreamFilters,
+        FfmpegCapabilitySection.bitstreamFilters,
+      ),
+      protocols: _parseProtocolEntries(protocols),
+    );
+  }
+
+  static List<FfmpegCapabilityEntry> _parseFlaggedEntries(
+    String text,
+    FfmpegCapabilitySection section,
+  ) {
+    final entries = <FfmpegCapabilityEntry>[];
+    final pattern = RegExp(r'^\s*([A-Z\.]{1,8})\s+(\S+)\s*(.*)$');
+    for (final rawLine in text.split('\n')) {
+      final match = pattern.firstMatch(rawLine);
+      if (match == null) continue;
+      entries.add(
+        FfmpegCapabilityEntry(
+          section: section,
+          flags: match.group(1) ?? '',
+          name: match.group(2) ?? '',
+          description: (match.group(3) ?? '').trim(),
+        ),
+      );
+    }
+    return entries;
+  }
+
+  static List<FfmpegCapabilityEntry> _parseSimpleEntries(
+    String text,
+    FfmpegCapabilitySection section,
+  ) {
+    final names = <String>{};
+    for (final rawLine in text.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line.endsWith(':') || line.startsWith('-')) {
+        continue;
+      }
+      if (line.contains(' ')) continue;
+      if (!RegExp(r'^[a-zA-Z0-9_.,+-]+$').hasMatch(line)) continue;
+      names.add(line);
+    }
+    return names
+        .map((name) => FfmpegCapabilityEntry(section: section, name: name))
+        .toList();
+  }
+
+  static List<FfmpegCapabilityEntry> _parseProtocolEntries(String text) {
+    final byName = <String, ({bool input, bool output})>{};
+    String? direction;
+    for (final rawLine in text.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line.startsWith('-')) continue;
+      if (line == 'Input:') {
+        direction = 'input';
+        continue;
+      }
+      if (line == 'Output:') {
+        direction = 'output';
+        continue;
+      }
+      if (line.endsWith(':')) continue;
+      if (direction == null) continue;
+
+      for (final token in line.split(RegExp(r'\s+'))) {
+        if (token.isEmpty || !RegExp(r'^[a-zA-Z0-9_.,+-]+$').hasMatch(token)) {
+          continue;
+        }
+        final current = byName[token] ?? (input: false, output: false);
+        byName[token] = (
+          input: current.input || direction == 'input',
+          output: current.output || direction == 'output',
+        );
+      }
+    }
+
+    final entries = byName.entries.map((entry) {
+      final support = entry.value;
+      return FfmpegCapabilityEntry(
+        section: FfmpegCapabilitySection.protocols,
+        name: entry.key,
+        description: support.input && support.output
+            ? 'Input and output protocol'
+            : support.input
+                ? 'Input protocol'
+                : 'Output protocol',
+        supportsInput: support.input,
+        supportsOutput: support.output,
+      );
+    }).toList();
+    entries.sort((a, b) => a.name.compareTo(b.name));
+    return entries;
+  }
+}
+
 class ConversionPreset {
   final ConversionPresetId id;
   final String label;

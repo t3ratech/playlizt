@@ -37,15 +37,22 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
   final TextEditingController _videoFilterController = TextEditingController();
   final TextEditingController _audioFilterController = TextEditingController();
   final TextEditingController _subtitlePathController = TextEditingController();
+  final TextEditingController _capabilitySearchController =
+      TextEditingController();
 
   ConversionPresetId _selectedPreset = ConversionPresetId.mp3;
   StreamOutputProfileId _selectedStreamProfile = StreamOutputProfileId.rtmpH264;
   ConversionSubtitleMode _subtitleMode = ConversionSubtitleMode.preserve;
+  FfmpegCapabilitySection _selectedCapabilitySection =
+      FfmpegCapabilitySection.encoders;
   bool _streamOutputMode = false;
   bool _isSubmitting = false;
   bool _isProbing = false;
+  bool _isLoadingCapabilities = false;
   MediaProbeInfo? _probeInfo;
   String? _probeError;
+  FfmpegCapabilityCatalog? _capabilityCatalog;
+  String? _capabilityError;
 
   @override
   void dispose() {
@@ -67,6 +74,7 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
     _videoFilterController.dispose();
     _audioFilterController.dispose();
     _subtitlePathController.dispose();
+    _capabilitySearchController.dispose();
     super.dispose();
   }
 
@@ -176,6 +184,30 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
     }
   }
 
+  Future<void> _loadCapabilities(ConversionManager manager) async {
+    setState(() {
+      _isLoadingCapabilities = true;
+      _capabilityError = null;
+    });
+
+    try {
+      final catalog = await manager.loadCapabilityCatalog();
+      if (!mounted) return;
+      setState(() {
+        _capabilityCatalog = catalog;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _capabilityError = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCapabilities = false);
+      }
+    }
+  }
+
   List<String> _splitCustomArguments(String raw) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return const [];
@@ -247,6 +279,20 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
                       label: Text('FFmpeg not configured'),
                     ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: _CapabilityPanel(
+                catalog: _capabilityCatalog,
+                errorMessage: _capabilityError,
+                isLoading: _isLoadingCapabilities,
+                searchController: _capabilitySearchController,
+                selectedSection: _selectedCapabilitySection,
+                onSectionChanged: (section) {
+                  setState(() => _selectedCapabilitySection = section);
+                },
+                onLoad: () => _loadCapabilities(manager),
               ),
             ),
             Padding(
@@ -685,6 +731,225 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
         );
       },
     );
+  }
+}
+
+class _CapabilityPanel extends StatefulWidget {
+  final FfmpegCapabilityCatalog? catalog;
+  final String? errorMessage;
+  final bool isLoading;
+  final TextEditingController searchController;
+  final FfmpegCapabilitySection selectedSection;
+  final ValueChanged<FfmpegCapabilitySection> onSectionChanged;
+  final VoidCallback onLoad;
+
+  const _CapabilityPanel({
+    required this.catalog,
+    required this.errorMessage,
+    required this.isLoading,
+    required this.searchController,
+    required this.selectedSection,
+    required this.onSectionChanged,
+    required this.onLoad,
+  });
+
+  @override
+  State<_CapabilityPanel> createState() => _CapabilityPanelState();
+}
+
+class _CapabilityPanelState extends State<_CapabilityPanel> {
+  @override
+  void initState() {
+    super.initState();
+    widget.searchController.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CapabilityPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchController == widget.searchController) return;
+    oldWidget.searchController.removeListener(_refresh);
+    widget.searchController.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    widget.searchController.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = widget.catalog;
+    final inventory = catalog?.inventory;
+    final sectionEntries =
+        catalog?.entriesFor(widget.selectedSection) ?? const [];
+    final query = widget.searchController.text.trim();
+    final filteredEntries = query.isEmpty
+        ? sectionEntries
+        : sectionEntries.where((entry) => entry.matches(query)).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.fact_check_outlined),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'FFmpeg Capabilities',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: widget.isLoading ? null : widget.onLoad,
+                  icon: widget.isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                  label: Text(widget.isLoading ? 'Loading' : 'Load'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _countChip('Encoders', inventory?.encoders, 273),
+                _countChip('Decoders', inventory?.decoders, 607),
+                _countChip('Muxers', inventory?.muxers, 185),
+                _countChip('Demuxers', inventory?.demuxers, 367),
+                _countChip('Filters', inventory?.filters, 596),
+                _countChip(
+                    'Bitstream filters', inventory?.bitstreamFilters, 51),
+                _countChip('Protocols', inventory?.protocols, 55),
+              ],
+            ),
+            if (widget.errorMessage != null &&
+                widget.errorMessage!.trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                widget.errorMessage!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ],
+            if (catalog != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<FfmpegCapabilitySection>(
+                      initialValue: widget.selectedSection,
+                      decoration: const InputDecoration(
+                        labelText: 'Capability section',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: FfmpegCapabilitySection.values.map((section) {
+                        return DropdownMenuItem(
+                          value: section,
+                          child: Text(_sectionLabel(section)),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) widget.onSectionChanged(value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: widget.searchController,
+                      decoration: const InputDecoration(
+                        labelText: 'Search capabilities',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 180,
+                child: filteredEntries.isEmpty
+                    ? const Center(child: Text('No matching capabilities'))
+                    : ListView.separated(
+                        itemCount: filteredEntries.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final entry = filteredEntries[index];
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(entry.name),
+                            subtitle: Text(
+                              _entrySubtitle(entry),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: entry.flags.isEmpty
+                                ? null
+                                : Chip(label: Text(entry.flags)),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _countChip(String label, int? actual, int requiredCount) {
+    final value = actual == null ? '$requiredCount required' : '$actual';
+    return Chip(label: Text('$label: $value'));
+  }
+
+  String _sectionLabel(FfmpegCapabilitySection section) {
+    switch (section) {
+      case FfmpegCapabilitySection.encoders:
+        return 'Encoders';
+      case FfmpegCapabilitySection.decoders:
+        return 'Decoders';
+      case FfmpegCapabilitySection.muxers:
+        return 'Muxers';
+      case FfmpegCapabilitySection.demuxers:
+        return 'Demuxers';
+      case FfmpegCapabilitySection.filters:
+        return 'Filters';
+      case FfmpegCapabilitySection.bitstreamFilters:
+        return 'Bitstream filters';
+      case FfmpegCapabilitySection.protocols:
+        return 'Protocols';
+    }
+  }
+
+  String _entrySubtitle(FfmpegCapabilityEntry entry) {
+    if (entry.section == FfmpegCapabilitySection.protocols) {
+      final directions = <String>[
+        if (entry.supportsInput) 'input',
+        if (entry.supportsOutput) 'output',
+      ];
+      return directions.isEmpty
+          ? 'Protocol'
+          : '${directions.join(' and ')} protocol';
+    }
+    return entry.description.isEmpty
+        ? _sectionLabel(entry.section)
+        : entry.description;
   }
 }
 
