@@ -163,6 +163,9 @@ void main() {
           writeMetadata: true,
           proxy: 'socks5://127.0.0.1:1080',
           rateLimit: '2M',
+          cookieFile: '/tmp/cookies.txt',
+          username: 'demo-user',
+          password: 'demo-pass',
         ),
         status: DownloadStatus.queued,
         receivedBytes: 0,
@@ -181,6 +184,9 @@ void main() {
       expect(restored.options.writeMetadata, isTrue);
       expect(restored.options.proxy, 'socks5://127.0.0.1:1080');
       expect(restored.options.rateLimit, '2M');
+      expect(restored.options.cookieFile, '/tmp/cookies.txt');
+      expect(restored.options.username, 'demo-user');
+      expect(restored.options.password, isNull);
     });
 
     test('marks in-flight persisted tasks as failed on restore', () {

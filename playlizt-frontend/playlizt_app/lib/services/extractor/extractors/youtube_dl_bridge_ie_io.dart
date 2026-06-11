@@ -237,6 +237,9 @@ class YoutubeDlProcess {
     bool writeMetadata = false,
     String? proxy,
     String? rateLimit,
+    String? cookieFile,
+    String? username,
+    String? password,
     required void Function(YoutubeDlProgress progress) onProgress,
   }) async {
     final args = <String>[
@@ -263,6 +266,15 @@ class YoutubeDlProcess {
     }
     if (rateLimit != null && rateLimit.trim().isNotEmpty) {
       args.addAll(['--limit-rate', rateLimit.trim()]);
+    }
+    if (cookieFile != null && cookieFile.trim().isNotEmpty) {
+      args.addAll(['--cookies', cookieFile.trim()]);
+    }
+    if (username != null && username.trim().isNotEmpty) {
+      args.addAll(['--username', username.trim()]);
+    }
+    if (password != null && password.isNotEmpty) {
+      args.addAll(['--password', password]);
     }
     args.add(sourceUrl);
 

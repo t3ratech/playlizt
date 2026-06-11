@@ -187,6 +187,9 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   final TextEditingController _formatIdController = TextEditingController();
   final TextEditingController _proxyController = TextEditingController();
   final TextEditingController _rateLimitController = TextEditingController();
+  final TextEditingController _cookieFileController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   bool _isSubmitting = false;
   bool _isEditingDefaultPath = false;
   bool _audioOnly = false;
@@ -210,6 +213,9 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
     _formatIdController.dispose();
     _proxyController.dispose();
     _rateLimitController.dispose();
+    _cookieFileController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -244,6 +250,9 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         writeMetadata: _writeMetadata,
         proxy: _emptyToNull(_proxyController.text),
         rateLimit: _emptyToNull(_rateLimitController.text),
+        cookieFile: _emptyToNull(_cookieFileController.text),
+        username: _emptyToNull(_usernameController.text),
+        password: _emptyToNull(_passwordController.text),
       );
 
       if (settings.useDefaultDownloadLocation) {
@@ -520,6 +529,40 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                       hintText: 'socks5://127.0.0.1:1080',
                       border: OutlineInputBorder(),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _cookieFileController,
+                    decoration: const InputDecoration(
+                      labelText: 'Cookie file',
+                      hintText: '/home/user/cookies.txt',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _usernameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Username',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -28,6 +28,9 @@ class DownloadOptions {
   final bool writeMetadata;
   final String? proxy;
   final String? rateLimit;
+  final String? cookieFile;
+  final String? username;
+  final String? password;
 
   const DownloadOptions({
     this.formatId,
@@ -37,6 +40,9 @@ class DownloadOptions {
     this.writeMetadata = false,
     this.proxy,
     this.rateLimit,
+    this.cookieFile,
+    this.username,
+    this.password,
   });
 
   bool get hasPostProcessing =>
@@ -51,6 +57,9 @@ class DownloadOptions {
       'writeMetadata': writeMetadata,
       'proxy': proxy,
       'rateLimit': rateLimit,
+      'cookieFile': cookieFile,
+      'username': username,
+      'password': null,
     };
   }
 
@@ -64,6 +73,9 @@ class DownloadOptions {
       writeMetadata: json['writeMetadata'] as bool? ?? false,
       proxy: json['proxy'] as String?,
       rateLimit: json['rateLimit'] as String?,
+      cookieFile: json['cookieFile'] as String?,
+      username: json['username'] as String?,
+      password: json['password'] as String?,
     );
   }
 }

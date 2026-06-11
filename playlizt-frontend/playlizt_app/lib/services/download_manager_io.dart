@@ -577,6 +577,9 @@ class DownloadManager with ChangeNotifier {
       writeMetadata: task.options.writeMetadata,
       proxy: task.options.proxy,
       rateLimit: task.options.rateLimit,
+      cookieFile: task.options.cookieFile,
+      username: task.options.username,
+      password: task.options.password,
       onProgress: (progress) {
         final current = _tasks[taskId];
         if (current == null) return;
