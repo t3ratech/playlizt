@@ -13,6 +13,10 @@ class MediaInfo {
   final int? viewCount;
   final int? likeCount;
   final List<MediaFormat> formats;
+  final List<MediaThumbnail> thumbnails;
+  final List<MediaSubtitle> subtitles;
+  final List<MediaInfo> playlistEntries;
+  final List<String> warnings;
   final Map<String, String> httpHeaders;
 
   MediaInfo({
@@ -29,6 +33,10 @@ class MediaInfo {
     this.viewCount,
     this.likeCount,
     this.formats = const [],
+    this.thumbnails = const [],
+    this.subtitles = const [],
+    this.playlistEntries = const [],
+    this.warnings = const [],
     this.httpHeaders = const {},
   });
 
@@ -47,6 +55,11 @@ class MediaInfo {
       'viewCount': viewCount,
       'likeCount': likeCount,
       'formats': formats.map((f) => f.toJson()).toList(),
+      'thumbnails': thumbnails.map((t) => t.toJson()).toList(),
+      'subtitles': subtitles.map((s) => s.toJson()).toList(),
+      'playlistEntries':
+          playlistEntries.map((entry) => entry.toJson()).toList(),
+      'warnings': warnings,
       'httpHeaders': httpHeaders,
     };
   }
@@ -62,6 +75,9 @@ class MediaFormat {
   final int? width;
   final int? height;
   final int? bitrate; // tbr
+  final int? filesize;
+  final double? fps;
+  final String? formatNote;
   final int? quality; // Numeric quality indicator (e.g. 720, 1080)
   final Map<String, String> httpHeaders;
 
@@ -75,9 +91,28 @@ class MediaFormat {
     this.width,
     this.height,
     this.bitrate,
+    this.filesize,
+    this.fps,
+    this.formatNote,
     this.quality,
     this.httpHeaders = const {},
   });
+
+  String get friendlyLabel {
+    final parts = <String>[];
+    if (height != null && height! > 0) parts.add('${height}p');
+    if (formatNote != null && formatNote!.trim().isNotEmpty) {
+      parts.add(formatNote!.trim());
+    }
+    if (ext != null && ext!.trim().isNotEmpty) parts.add(ext!.toUpperCase());
+    if (vcodec != null && vcodec != 'none') parts.add(vcodec!);
+    if (acodec != null && acodec != 'none') parts.add(acodec!);
+    if (bitrate != null && bitrate! > 0) parts.add('${bitrate}k');
+    if (filesize != null && filesize! > 0) {
+      parts.add(_formatBytes(filesize!));
+    }
+    return parts.isEmpty ? (formatId ?? 'Best available') : parts.join(' • ');
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -90,8 +125,68 @@ class MediaFormat {
       'width': width,
       'height': height,
       'bitrate': bitrate,
+      'filesize': filesize,
+      'fps': fps,
+      'formatNote': formatNote,
       'quality': quality,
       'httpHeaders': httpHeaders,
+    };
+  }
+
+  String _formatBytes(int value) {
+    if (value < 1024) return '$value B';
+    if (value < 1024 * 1024) {
+      return '${(value / 1024).toStringAsFixed(1)} KB';
+    }
+    if (value < 1024 * 1024 * 1024) {
+      return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+}
+
+class MediaThumbnail {
+  final String url;
+  final int? width;
+  final int? height;
+  final String? id;
+
+  const MediaThumbnail({
+    required this.url,
+    this.width,
+    this.height,
+    this.id,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'url': url,
+      'width': width,
+      'height': height,
+      'id': id,
+    };
+  }
+}
+
+class MediaSubtitle {
+  final String language;
+  final String url;
+  final String? ext;
+  final bool automatic;
+
+  const MediaSubtitle({
+    required this.language,
+    required this.url,
+    this.ext,
+    this.automatic = false,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'language': language,
+      'url': url,
+      'ext': ext,
+      'automatic': automatic,
     };
   }
 }

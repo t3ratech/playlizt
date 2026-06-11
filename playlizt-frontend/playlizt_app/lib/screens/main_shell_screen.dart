@@ -44,8 +44,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final settings =
-          Provider.of<SettingsProvider>(context, listen: false);
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
       await settings.ensureLoaded();
       if (!mounted) return;
       setState(() {
@@ -192,8 +191,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final settings =
-          Provider.of<SettingsProvider>(context, listen: false);
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
       _defaultPathController.text = settings.downloadDirectory;
     });
   }
@@ -265,9 +263,8 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
     SettingsProvider settings,
   ) async {
     final uri = Uri.parse(url);
-    final suggestedName = uri.pathSegments.isNotEmpty
-        ? uri.pathSegments.last
-        : 'download.bin';
+    final suggestedName =
+        uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'download.bin';
 
     final folderController =
         TextEditingController(text: settings.downloadDirectory);
@@ -403,8 +400,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                           _isEditingDefaultPath = !_isEditingDefaultPath;
                         });
                       },
-                      child:
-                          Text(_isEditingDefaultPath ? 'Done' : 'Edit path'),
+                      child: Text(_isEditingDefaultPath ? 'Done' : 'Edit path'),
                     ),
                   ],
                 ),
@@ -467,8 +463,12 @@ class _DownloadListTile extends StatelessWidget {
 
   Color _statusColor(BuildContext context) {
     switch (task.status) {
+      case DownloadStatus.extracting:
+        return Colors.blue;
       case DownloadStatus.downloading:
         return Theme.of(context).colorScheme.primary;
+      case DownloadStatus.postProcessing:
+        return Colors.purple;
       case DownloadStatus.completed:
         return Colors.green;
       case DownloadStatus.failed:
@@ -486,8 +486,12 @@ class _DownloadListTile extends StatelessWidget {
     switch (task.status) {
       case DownloadStatus.queued:
         return 'Queued';
+      case DownloadStatus.extracting:
+        return 'Extracting';
       case DownloadStatus.downloading:
         return 'Downloading';
+      case DownloadStatus.postProcessing:
+        return 'Post-processing';
       case DownloadStatus.paused:
         return 'Paused';
       case DownloadStatus.completed:
@@ -538,90 +542,130 @@ class _DownloadListTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    task.fileName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      task.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                if (hostLabel.isNotEmpty)
-                  Text(
-                    hostLabel,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              task.filePath,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            if (progress != null) ...[
-              LinearProgressIndicator(value: progress),
-              const SizedBox(height: 4),
-              Text('${(progress * 100).toStringAsFixed(0)}%'),
-            ] else ...[
-              const LinearProgressIndicator(),
-              const SizedBox(height: 4),
-              const Text('Preparing'),
-            ],
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _statusLabel(),
-                  style: TextStyle(
-                    color: _statusColor(context),
-                  ),
-                ),
-                Row(
-                  children: [
-                    if (task.status == DownloadStatus.downloading)
-                      TextButton(
-                        onPressed: () => manager.pauseDownload(task.id),
-                        child: const Text('Pause'),
-                      ),
-                    if (task.status == DownloadStatus.paused ||
-                        task.status == DownloadStatus.failed ||
-                        task.status == DownloadStatus.cancelled)
-                      TextButton(
-                        onPressed: () => manager.resumeDownload(task.id),
-                        child: const Text('Resume'),
-                      ),
-                    if (task.status == DownloadStatus.queued ||
-                        task.status == DownloadStatus.downloading ||
-                        task.status == DownloadStatus.paused)
-                      TextButton(
-                        onPressed: () => manager.cancelDownload(task.id),
-                        child: const Text('Cancel'),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            if (task.errorMessage != null &&
-                task.errorMessage!.trim().isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  if (hostLabel.isNotEmpty)
+                    Text(
+                      hostLabel,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
               const SizedBox(height: 4),
               Text(
-                task.errorMessage!,
-                style: const TextStyle(color: Colors.red),
+                [
+                  if (task.playlistTitle != null) task.playlistTitle!,
+                  if (task.playlistIndex != null && task.playlistCount != null)
+                    'Item ${task.playlistIndex} of ${task.playlistCount}',
+                  if (task.formatLabel != null) task.formatLabel!,
+                  task.filePath,
+                ].join(' • '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ],
+              const SizedBox(height: 8),
+              if (progress != null) ...[
+                LinearProgressIndicator(value: progress),
+                const SizedBox(height: 4),
+                Text(
+                  '${(progress * 100).toStringAsFixed(0)}% • '
+                  '${task.currentStage}${_transferLabel(task)}',
+                ),
+              ] else ...[
+                const LinearProgressIndicator(),
+                const SizedBox(height: 4),
+                Text(task.currentStage),
+              ],
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _statusLabel(),
+                    style: TextStyle(
+                      color: _statusColor(context),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      if (task.status == DownloadStatus.downloading ||
+                          task.status == DownloadStatus.extracting ||
+                          task.status == DownloadStatus.postProcessing)
+                        TextButton(
+                          onPressed: () => manager.pauseDownload(task.id),
+                          child: const Text('Pause'),
+                        ),
+                      if (task.status == DownloadStatus.paused ||
+                          task.status == DownloadStatus.failed ||
+                          task.status == DownloadStatus.cancelled)
+                        TextButton(
+                          onPressed: () => manager.resumeDownload(task.id),
+                          child: const Text('Resume'),
+                        ),
+                      if (task.status == DownloadStatus.queued ||
+                          task.status == DownloadStatus.downloading ||
+                          task.status == DownloadStatus.extracting ||
+                          task.status == DownloadStatus.postProcessing ||
+                          task.status == DownloadStatus.paused)
+                        TextButton(
+                          onPressed: () => manager.cancelDownload(task.id),
+                          child: const Text('Cancel'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              if (task.errorMessage != null &&
+                  task.errorMessage!.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  task.errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _transferLabel(DownloadTask task) {
+    final parts = <String>[];
+    final speed = task.speedBytesPerSecond;
+    if (speed != null && speed > 0) {
+      parts.add(_formatBytes(speed.round()) + '/s');
+    }
+    final eta = task.etaSeconds;
+    if (eta != null && eta >= 0) {
+      final minutes = (eta ~/ 60).toString().padLeft(2, '0');
+      final seconds = (eta % 60).toString().padLeft(2, '0');
+      parts.add('ETA $minutes:$seconds');
+    }
+    if (parts.isEmpty) return '';
+    return ' • ${parts.join(' • ')}';
+  }
+
+  String _formatBytes(int value) {
+    if (value < 1024) return '$value B';
+    if (value < 1024 * 1024) {
+      return '${(value / 1024).toStringAsFixed(1)} KB';
+    }
+    if (value < 1024 * 1024 * 1024) {
+      return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
 
@@ -679,8 +723,7 @@ class _SettingsDrawer extends StatelessWidget {
                         ),
                         actions: [
                           TextButton(
-                            onPressed: () =>
-                                Navigator.of(context).pop(null),
+                            onPressed: () => Navigator.of(context).pop(null),
                             child: const Text('Cancel'),
                           ),
                           TextButton(
@@ -739,8 +782,7 @@ class _SettingsDrawer extends StatelessWidget {
                         ),
                         actions: [
                           TextButton(
-                            onPressed: () =>
-                                Navigator.of(context).pop(null),
+                            onPressed: () => Navigator.of(context).pop(null),
                             child: const Text('Cancel'),
                           ),
                           TextButton(
@@ -762,13 +804,89 @@ class _SettingsDrawer extends StatelessWidget {
                 },
               ),
             ),
+            SwitchListTile(
+              title: const Text('Scan folders recursively'),
+              value: settings.recursiveLibraryScan,
+              onChanged: settings.setRecursiveLibraryScan,
+            ),
+            const Divider(),
+            ListTile(
+              title: const Text('Conversion output folder'),
+              subtitle: Text(settings.conversionOutputDirectory),
+              trailing: TextButton(
+                onPressed: () async {
+                  final controller = TextEditingController(
+                    text: settings.conversionOutputDirectory,
+                  );
+                  final result = await showDialog<String>(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text('Change conversion output folder'),
+                        content: TextField(
+                          controller: controller,
+                          decoration: const InputDecoration(
+                            labelText: 'Folder path',
+                            hintText: '/home/user/Videos/Playlizt',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(null),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              final value = controller.text.trim();
+                              if (value.isEmpty) return;
+                              Navigator.of(context).pop(value);
+                            },
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+
+                  if (result != null && result.isNotEmpty) {
+                    await settings.setConversionOutputDirectory(result.trim());
+                  }
+                },
+                child: const Text('Change…'),
+              ),
+            ),
+            ListTile(
+              title: const Text('Maximum concurrent downloads'),
+              subtitle: Text(settings.maxConcurrentDownloads.toString()),
+              trailing: SizedBox(
+                width: 140,
+                child: Slider(
+                  value: settings.maxConcurrentDownloads.toDouble(),
+                  min: 1,
+                  max: 8,
+                  divisions: 7,
+                  label: settings.maxConcurrentDownloads.toString(),
+                  onChanged: (value) {
+                    settings.setMaxConcurrentDownloads(value.round());
+                  },
+                ),
+              ),
+            ),
+            SwitchListTile(
+              title: const Text('Hardware acceleration'),
+              value: settings.hardwareAccelerationEnabled,
+              onChanged: settings.setHardwareAccelerationEnabled,
+            ),
+            SwitchListTile(
+              title: const Text('Renderer discovery'),
+              value: settings.rendererDiscoveryEnabled,
+              onChanged: settings.setRendererDiscoveryEnabled,
+            ),
             const Divider(),
             ListTile(
               title: const Text('Theme'),
               subtitle: Text(
-                themeProvider.themeMode == ThemeMode.dark
-                    ? 'Dark'
-                    : 'Light',
+                themeProvider.themeMode == ThemeMode.dark ? 'Dark' : 'Light',
               ),
               onTap: () => themeProvider.toggleTheme(),
             ),
@@ -865,7 +983,9 @@ class _SettingsDrawer extends StatelessWidget {
               }),
             ),
             const Divider(),
-            if (authProvider.isAuthenticated && (authProvider.token?.isNotEmpty ?? false) && !(authProvider.token == 'guest')) ...[
+            if (authProvider.isAuthenticated &&
+                (authProvider.token?.isNotEmpty ?? false) &&
+                !(authProvider.token == 'guest')) ...[
               ListTile(
                 leading: const Icon(Icons.cloud_upload),
                 title: const Text('Upload content'),

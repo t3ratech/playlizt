@@ -17,6 +17,7 @@ import '../providers/playlist_provider.dart';
 import 'download_manager_models.dart';
 import 'extractor/extraction_engine.dart';
 import 'extractor/core/types.dart';
+import 'library_manager_platform.dart';
 
 /// Web implementation of DownloadManager.
 ///
@@ -27,6 +28,7 @@ class DownloadManager with ChangeNotifier {
 
   final SettingsProvider settingsProvider;
   final PlaylistProvider playlistProvider;
+  final LibraryManager? libraryManager;
   final Dio _dio = Dio();
   final ExtractionEngine _extractionEngine = ExtractionEngine();
 
@@ -39,6 +41,7 @@ class DownloadManager with ChangeNotifier {
   DownloadManager({
     required this.settingsProvider,
     required this.playlistProvider,
+    this.libraryManager,
   }) {
     _loadPersistedTasks();
   }
@@ -85,6 +88,8 @@ class DownloadManager with ChangeNotifier {
     String? title;
     String? thumbnailUrl;
     Map<String, String>? headers;
+    String? formatLabel;
+    String? extractorName;
     bool extractionSucceeded = false;
 
     try {
@@ -92,8 +97,10 @@ class DownloadManager with ChangeNotifier {
       extractionSucceeded = true;
       title = mediaInfo.title;
       thumbnailUrl = mediaInfo.thumbnailUrl;
+      extractorName = mediaInfo.extractorKey;
       if (mediaInfo.formats.isNotEmpty) {
         final bestFormat = _selectBestFormat(mediaInfo.formats);
+        formatLabel = bestFormat.friendlyLabel;
         actualUrl = bestFormat.url;
         headers = bestFormat.httpHeaders;
 
@@ -156,6 +163,9 @@ class DownloadManager with ChangeNotifier {
       title: title,
       thumbnailUrl: thumbnailUrl,
       headers: headers,
+      formatLabel: formatLabel,
+      extractorName: extractorName,
+      currentStage: 'Queued',
       status: DownloadStatus.queued,
       receivedBytes: 0,
       totalBytes: 0,
@@ -195,7 +205,7 @@ class DownloadManager with ChangeNotifier {
       status: DownloadStatus.queued,
       receivedBytes: 0,
       totalBytes: 0,
-      errorMessage: null,
+      clearErrorMessage: true,
     );
     _tasks[id] = reset;
     await _persistTasks();
@@ -273,7 +283,8 @@ class DownloadManager with ChangeNotifier {
       status: DownloadStatus.downloading,
       receivedBytes: 0,
       totalBytes: 0,
-      errorMessage: null,
+      currentStage: 'Starting browser download',
+      clearErrorMessage: true,
     );
     _tasks[task.id] = updated;
 
@@ -296,6 +307,7 @@ class DownloadManager with ChangeNotifier {
           _tasks[task.id] = current.copyWith(
             receivedBytes: received,
             totalBytes: total,
+            currentStage: 'Downloading',
           );
           notifyListeners();
         },

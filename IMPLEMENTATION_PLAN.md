@@ -272,6 +272,7 @@ This document tracks the outstanding tasks and features to be implemented.
 ---
 
 ## ✅ Recently Completed
+- [x] **Local Media Engine Implementation Slice**: Added real Flutter services and UI wiring for Library folder scanning/index persistence, Playlists CRUD/reorder UI, FFmpeg/FFprobe-backed conversion job queue/progress/cancel/retry scaffolding, completed conversion Library import, richer downloader metadata/progress models, playlist-aware downloader queue entries, completed download Library import, and focused tests for library/conversion/downloader model behaviour.
 - [x] **Database Migration**: Switched from Flyway to Hibernate Auto-DDL (`create`).
 - [x] **Data Seeding**: Implemented `import.sql` for initial user (`tkaviya`) and content (Tha Streetz TV).
 - [x] **Auth Service**: User registration and Login (JWT) for a single generic authenticated user (no roles).

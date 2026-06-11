@@ -26,6 +26,13 @@ class SettingsProvider with ChangeNotifier {
   static const _keyStartupTabIndex = 'settings.startupTabIndex';
   static const _keyCompactLayout = 'settings.compactLayout';
   static const _keyVisibleTabs = 'settings.visibleTabs';
+  static const _keyRecursiveLibraryScan = 'settings.recursiveLibraryScan';
+  static const _keyConversionOutputDirectory =
+      'settings.conversionOutputDirectory';
+  static const _keyHardwareAccelerationEnabled =
+      'settings.hardwareAccelerationEnabled';
+  static const _keyRendererDiscoveryEnabled =
+      'settings.rendererDiscoveryEnabled';
 
   bool _useDefaultDownloadLocation = true;
   String _downloadDirectory = '~/Downloads';
@@ -33,6 +40,10 @@ class SettingsProvider with ChangeNotifier {
   int _maxConcurrentDownloads = 2;
   int _startupTabIndex = 2; // 0=Library,1=Playlists,2=Streaming(default),...
   bool _compactLayout = false;
+  bool _recursiveLibraryScan = true;
+  String _conversionOutputDirectory = '~/Videos/Playlizt';
+  bool _hardwareAccelerationEnabled = true;
+  bool _rendererDiscoveryEnabled = true;
 
   // Indices of visible tabs in the global shell, in order.
   // 0=Library,1=Playlists,2=Streaming,3=Download,4=Convert,5=Devices.
@@ -48,6 +59,10 @@ class SettingsProvider with ChangeNotifier {
   int get maxConcurrentDownloads => _maxConcurrentDownloads;
   int get startupTabIndex => _startupTabIndex;
   bool get compactLayout => _compactLayout;
+  bool get recursiveLibraryScan => _recursiveLibraryScan;
+  String get conversionOutputDirectory => _conversionOutputDirectory;
+  bool get hardwareAccelerationEnabled => _hardwareAccelerationEnabled;
+  bool get rendererDiscoveryEnabled => _rendererDiscoveryEnabled;
   List<int> get visibleTabIndices => List.unmodifiable(_visibleTabIndices);
   bool isTabVisible(int index) => _visibleTabIndices.contains(index);
 
@@ -75,12 +90,16 @@ class SettingsProvider with ChangeNotifier {
           prefs.getInt(_keyMaxConcurrentDownloads) ?? _maxConcurrentDownloads;
       _startupTabIndex = prefs.getInt(_keyStartupTabIndex) ?? _startupTabIndex;
       _compactLayout = prefs.getBool(_keyCompactLayout) ?? _compactLayout;
-
-      // Map backend tab identifiers to indices used by the shell.
-      int? _tabIndexForId(String id) {
-        final tab = playliztTabFromId(id);
-        return tab?.index;
-      }
+      _recursiveLibraryScan =
+          prefs.getBool(_keyRecursiveLibraryScan) ?? _recursiveLibraryScan;
+      _conversionOutputDirectory =
+          prefs.getString(_keyConversionOutputDirectory) ??
+              _conversionOutputDirectory;
+      _hardwareAccelerationEnabled =
+          prefs.getBool(_keyHardwareAccelerationEnabled) ??
+              _hardwareAccelerationEnabled;
+      _rendererDiscoveryEnabled = prefs.getBool(_keyRendererDiscoveryEnabled) ??
+          _rendererDiscoveryEnabled;
 
       final storedVisible = prefs.getStringList(_keyVisibleTabs);
       if (storedVisible != null && storedVisible.isNotEmpty) {
@@ -95,11 +114,11 @@ class SettingsProvider with ChangeNotifier {
 
       _enforceVisibilityConstraints();
 
-    _isLoaded = true;
-    if (!(_loadCompleter?.isCompleted ?? true)) {
-      _loadCompleter!.complete();
-    }
-    notifyListeners();
+      _isLoaded = true;
+      if (!(_loadCompleter?.isCompleted ?? true)) {
+        _loadCompleter!.complete();
+      }
+      notifyListeners();
     } catch (e) {
       if (!(_loadCompleter?.isCompleted ?? true)) {
         _loadCompleter!.completeError(e);
@@ -147,6 +166,17 @@ class SettingsProvider with ChangeNotifier {
     await prefs.setString(_keyDownloadDirectory, _downloadDirectory);
     await prefs.setStringList(_keyLibraryScanFolders, _libraryScanFolders);
     await prefs.setInt(_keyMaxConcurrentDownloads, _maxConcurrentDownloads);
+    await prefs.setBool(_keyRecursiveLibraryScan, _recursiveLibraryScan);
+    await prefs.setString(
+      _keyConversionOutputDirectory,
+      _conversionOutputDirectory,
+    );
+    await prefs.setBool(
+      _keyHardwareAccelerationEnabled,
+      _hardwareAccelerationEnabled,
+    );
+    await prefs.setBool(
+        _keyRendererDiscoveryEnabled, _rendererDiscoveryEnabled);
     await prefs.setStringList(
       _keyVisibleTabs,
       _visibleTabIndices.map((e) => e.toString()).toList(),
@@ -215,6 +245,38 @@ class SettingsProvider with ChangeNotifier {
     _compactLayout = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyCompactLayout, value);
+    notifyListeners();
+  }
+
+  Future<void> setRecursiveLibraryScan(bool value) async {
+    _recursiveLibraryScan = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyRecursiveLibraryScan, value);
+    notifyListeners();
+  }
+
+  Future<void> setConversionOutputDirectory(String directory) async {
+    if (directory.trim().isEmpty) return;
+    _conversionOutputDirectory = directory.trim();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _keyConversionOutputDirectory,
+      _conversionOutputDirectory,
+    );
+    notifyListeners();
+  }
+
+  Future<void> setHardwareAccelerationEnabled(bool value) async {
+    _hardwareAccelerationEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyHardwareAccelerationEnabled, value);
+    notifyListeners();
+  }
+
+  Future<void> setRendererDiscoveryEnabled(bool value) async {
+    _rendererDiscoveryEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyRendererDiscoveryEnabled, value);
     notifyListeners();
   }
 

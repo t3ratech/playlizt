@@ -13,20 +13,13 @@
 // without relying on DOM selectors, which are unreliable with Flutter's
 // canvas-based rendering.
 
-import 'dart:html' as html;
-import 'dart:js_util' as js_util;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 void registerPlayliztTestBridge(void Function(int tabIndex) onSelectTab) {
-  // Safely install the bridge on the window object.
-  js_util.setProperty(
-    html.window,
-    'playliztNavigateToTab',
-    js_util.allowInterop((Object? index) {
-      if (index is int) {
-        onSelectTab(index);
-      } else if (index is num) {
-        onSelectTab(index.toInt());
-      }
-    }),
-  );
+  globalContext['playliztNavigateToTab'] = ((JSAny? index) {
+    if (index is JSNumber) {
+      onSelectTab(index.toDartDouble.round());
+    }
+  }).toJS;
 }

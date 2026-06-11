@@ -13,7 +13,9 @@ import 'providers/content_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/playlist_provider.dart';
+import 'services/conversion_manager_platform.dart';
 import 'services/download_manager_platform.dart';
+import 'services/library_manager_platform.dart';
 import 'services/video_backend.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell_screen.dart';
@@ -37,9 +39,21 @@ class PlayliztApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => PlaylistProvider()),
         ChangeNotifierProvider(
+          create: (ctx) => LibraryManager(
+            settingsProvider: Provider.of<SettingsProvider>(ctx, listen: false),
+          ),
+        ),
+        ChangeNotifierProvider(
           create: (ctx) => DownloadManager(
             settingsProvider: Provider.of<SettingsProvider>(ctx, listen: false),
             playlistProvider: Provider.of<PlaylistProvider>(ctx, listen: false),
+            libraryManager: Provider.of<LibraryManager>(ctx, listen: false),
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (ctx) => ConversionManager(
+            settingsProvider: Provider.of<SettingsProvider>(ctx, listen: false),
+            libraryManager: Provider.of<LibraryManager>(ctx, listen: false),
           ),
         ),
       ],
@@ -81,8 +95,8 @@ class PlayliztApp extends StatelessWidget {
               ),
               scaffoldBackgroundColor: Colors.black,
             ),
-            home: authProvider.isAuthenticated 
-                ? const MainShellScreen() 
+            home: authProvider.isAuthenticated
+                ? const MainShellScreen()
                 : const LoginScreen(),
           );
         },

@@ -20,6 +20,94 @@ class YoutubeDlInventory {
   });
 }
 
+class YoutubeDlProgress {
+  final double? percent;
+  final int? downloadedBytes;
+  final int? totalBytes;
+  final double? speedBytesPerSecond;
+  final int? etaSeconds;
+  final String stage;
+
+  const YoutubeDlProgress({
+    this.percent,
+    this.downloadedBytes,
+    this.totalBytes,
+    this.speedBytesPerSecond,
+    this.etaSeconds,
+    required this.stage,
+  });
+
+  static YoutubeDlProgress? parse(String line) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) return null;
+
+    final progressMatch = RegExp(
+      r'^\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~?([0-9.]+)([KMGTP]?i?B)?(?:\s+at\s+([0-9.]+)([KMGTP]?i?B)/s)?(?:\s+ETA\s+([0-9:]+))?',
+    ).firstMatch(trimmed);
+    if (progressMatch != null) {
+      final percent = double.tryParse(progressMatch.group(1) ?? '');
+      final total = _parseSize(
+        progressMatch.group(2),
+        progressMatch.group(3),
+      );
+      final speed = _parseSize(
+        progressMatch.group(4),
+        progressMatch.group(5),
+      )?.toDouble();
+      final downloaded = percent != null && total != null
+          ? ((percent / 100) * total).round()
+          : null;
+      return YoutubeDlProgress(
+        percent: percent,
+        downloadedBytes: downloaded,
+        totalBytes: total,
+        speedBytesPerSecond: speed,
+        etaSeconds: _parseEta(progressMatch.group(6)),
+        stage: 'Downloading',
+      );
+    }
+
+    if (trimmed.startsWith('[download] Destination:')) {
+      return const YoutubeDlProgress(stage: 'Preparing output');
+    }
+    if (trimmed.startsWith('[download] 100%')) {
+      return const YoutubeDlProgress(percent: 100, stage: 'Download complete');
+    }
+    if (trimmed.startsWith('[ffmpeg]') ||
+        trimmed.startsWith('[ExtractAudio]') ||
+        trimmed.startsWith('[EmbedSubtitle]') ||
+        trimmed.startsWith('[Metadata]')) {
+      return YoutubeDlProgress(
+          stage: trimmed.replaceFirst(RegExp(r'^\[[^\]]+\]\s*'), ''));
+    }
+    return null;
+  }
+
+  static int? _parseSize(String? rawNumber, String? rawUnit) {
+    if (rawNumber == null || rawNumber.trim().isEmpty) return null;
+    final number = double.tryParse(rawNumber);
+    if (number == null) return null;
+    final unit = (rawUnit ?? 'B').toLowerCase();
+    final multiplier = switch (unit) {
+      'kib' || 'kb' => 1024,
+      'mib' || 'mb' => 1024 * 1024,
+      'gib' || 'gb' => 1024 * 1024 * 1024,
+      'tib' || 'tb' => 1024 * 1024 * 1024 * 1024,
+      _ => 1,
+    };
+    return (number * multiplier).round();
+  }
+
+  static int? _parseEta(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final parts =
+        value.split(':').map((part) => int.tryParse(part) ?? 0).toList();
+    if (parts.length == 2) return parts[0] * 60 + parts[1];
+    if (parts.length == 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return null;
+  }
+}
+
 class YoutubeDlProcess {
   static const _vendoredSourceCandidates = <String>[
     'vendor/youtube-dl',
@@ -65,7 +153,6 @@ class YoutubeDlProcess {
     final command = _buildCommand([
       '--dump-single-json',
       '--skip-download',
-      '--no-playlist',
       '--no-warnings',
       '--ignore-config',
       '--format',
@@ -143,19 +230,40 @@ class YoutubeDlProcess {
     required String sourceUrl,
     required String outputPath,
     required CancelToken cancelToken,
-    required void Function(double percent) onProgress,
+    String? formatId,
+    bool audioOnly = false,
+    bool writeSubtitles = false,
+    bool writeThumbnail = false,
+    bool writeMetadata = false,
+    String? proxy,
+    String? rateLimit,
+    required void Function(YoutubeDlProgress progress) onProgress,
   }) async {
-    final command = _buildCommand([
+    final args = <String>[
       '--no-playlist',
       '--no-warnings',
       '--ignore-config',
       '--newline',
       '--format',
-      'best',
+      audioOnly
+          ? 'bestaudio/best'
+          : (formatId?.trim().isNotEmpty == true ? formatId!.trim() : 'best'),
       '--output',
       outputPath,
-      sourceUrl,
-    ]);
+    ];
+
+    if (writeSubtitles) args.add('--write-sub');
+    if (writeThumbnail) args.add('--write-thumbnail');
+    if (writeMetadata) args.add('--add-metadata');
+    if (proxy != null && proxy.trim().isNotEmpty) {
+      args.addAll(['--proxy', proxy.trim()]);
+    }
+    if (rateLimit != null && rateLimit.trim().isNotEmpty) {
+      args.addAll(['--limit-rate', rateLimit.trim()]);
+    }
+    args.add(sourceUrl);
+
+    final command = _buildCommand(args);
 
     final process = await Process.start(
       command.executable,
@@ -175,14 +283,8 @@ class YoutubeDlProcess {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) {
-      final match = RegExp(
-        r'\[download\]\s+(\d+(?:\.\d+)?)%',
-      ).firstMatch(line);
-      if (match == null) return;
-      final percent = double.tryParse(match.group(1) ?? '');
-      if (percent != null) {
-        onProgress(percent.clamp(0, 100).toDouble());
-      }
+      final progress = YoutubeDlProgress.parse(line);
+      if (progress != null) onProgress(progress);
     });
 
     final stderrFuture = process.stderr.transform(utf8.decoder).join();

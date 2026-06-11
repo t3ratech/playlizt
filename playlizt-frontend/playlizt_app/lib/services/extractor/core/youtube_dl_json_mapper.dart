@@ -8,14 +8,19 @@ class YoutubeDlJsonMapper {
     Map<String, dynamic> json, {
     required String sourceUrl,
   }) {
-    final id =
-        _stringValue(json['id']) ??
+    final id = _stringValue(json['id']) ??
         _stringValue(json['display_id']) ??
         sourceUrl;
     final title =
         _stringValue(json['title']) ?? _stringValue(json['fulltitle']) ?? id;
     final headers = _stringMap(json['http_headers']);
     final formats = _extractFormats(json, headers);
+    final thumbnails = _extractThumbnails(json);
+    final subtitles = [
+      ..._extractSubtitles(json['subtitles'], automatic: false),
+      ..._extractSubtitles(json['automatic_captions'], automatic: true),
+    ];
+    final entries = _extractPlaylistEntries(json, sourceUrl: sourceUrl);
 
     return MediaInfo(
       id: id,
@@ -31,6 +36,10 @@ class YoutubeDlJsonMapper {
       viewCount: _intValue(json['view_count']),
       likeCount: _intValue(json['like_count']),
       formats: formats,
+      thumbnails: thumbnails,
+      subtitles: subtitles,
+      playlistEntries: entries,
+      warnings: _stringList(json['warnings']),
       httpHeaders: headers,
     );
   }
@@ -66,10 +75,13 @@ class YoutubeDlJsonMapper {
           acodec: acodec,
           width: _intValue(item['width']),
           height: _intValue(item['height']),
-          bitrate:
-              _intValue(item['tbr']) ??
+          bitrate: _intValue(item['tbr']) ??
               _intValue(item['vbr']) ??
               _intValue(item['abr']),
+          filesize:
+              _intValue(item['filesize']) ?? _intValue(item['filesize_approx']),
+          fps: _doubleValue(item['fps']),
+          formatNote: _stringValue(item['format_note']),
           quality: _intValue(item['height']) ?? _intValue(item['quality']),
           httpHeaders: {
             ...topLevelHeaders,
@@ -117,13 +129,6 @@ class YoutubeDlJsonMapper {
       return false;
     }
 
-    final hasVideoOnlyCodec =
-        vcodec != null &&
-        vcodec != 'none' &&
-        acodec != null &&
-        acodec == 'none';
-    if (hasVideoOnlyCodec) return false;
-
     final lowerExt = ext?.toLowerCase();
     if (lowerExt == 'mpd' || lowerExt == 'f4m' || lowerExt == 'ism') {
       return false;
@@ -139,6 +144,99 @@ class YoutubeDlJsonMapper {
     }
 
     return uri != null && (uri.isScheme('http') || uri.isScheme('https'));
+  }
+
+  List<MediaThumbnail> _extractThumbnails(Map<String, dynamic> json) {
+    final thumbnails = <MediaThumbnail>[];
+    final seen = <String>{};
+
+    void addThumbnail(Map<String, dynamic> item) {
+      final url = _stringValue(item['url']);
+      if (url == null || url.trim().isEmpty || !seen.add(url)) return;
+      thumbnails.add(
+        MediaThumbnail(
+          url: url,
+          width: _intValue(item['width']),
+          height: _intValue(item['height']),
+          id: _stringValue(item['id']),
+        ),
+      );
+    }
+
+    final topThumbnail = _stringValue(json['thumbnail']);
+    if (topThumbnail != null && topThumbnail.trim().isNotEmpty) {
+      addThumbnail({'url': topThumbnail, 'id': 'default'});
+    }
+
+    final rawThumbnails = json['thumbnails'];
+    if (rawThumbnails is List) {
+      for (final raw in rawThumbnails) {
+        if (raw is Map<String, dynamic>) {
+          addThumbnail(raw);
+        } else if (raw is Map) {
+          addThumbnail(
+              raw.map((key, value) => MapEntry(key.toString(), value)));
+        }
+      }
+    }
+
+    return thumbnails;
+  }
+
+  List<MediaSubtitle> _extractSubtitles(
+    dynamic rawSubtitles, {
+    required bool automatic,
+  }) {
+    final subtitles = <MediaSubtitle>[];
+    if (rawSubtitles is! Map) return subtitles;
+
+    for (final entry in rawSubtitles.entries) {
+      final language = entry.key.toString();
+      final values = entry.value;
+      if (values is! List) continue;
+      for (final raw in values) {
+        if (raw is! Map) continue;
+        final url = _stringValue(raw['url']);
+        if (url == null || url.trim().isEmpty) continue;
+        subtitles.add(
+          MediaSubtitle(
+            language: language,
+            url: url,
+            ext: _stringValue(raw['ext']),
+            automatic: automatic,
+          ),
+        );
+      }
+    }
+
+    return subtitles;
+  }
+
+  List<MediaInfo> _extractPlaylistEntries(
+    Map<String, dynamic> json, {
+    required String sourceUrl,
+  }) {
+    final rawEntries = json['entries'];
+    if (rawEntries is! List) return const [];
+
+    final entries = <MediaInfo>[];
+    for (final raw in rawEntries) {
+      if (raw is Map<String, dynamic>) {
+        entries
+            .add(mapMediaInfo(raw, sourceUrl: _entrySourceUrl(raw, sourceUrl)));
+      } else if (raw is Map) {
+        final mapped = raw.map((key, value) => MapEntry(key.toString(), value));
+        entries.add(mapMediaInfo(mapped,
+            sourceUrl: _entrySourceUrl(mapped, sourceUrl)));
+      }
+    }
+    return entries;
+  }
+
+  String _entrySourceUrl(Map<String, dynamic> item, String fallback) {
+    return _stringValue(item['webpage_url']) ??
+        _stringValue(item['url']) ??
+        fallback;
   }
 
   static String? _stringValue(dynamic value) {
@@ -157,6 +255,25 @@ class YoutubeDlJsonMapper {
       return parsedDouble?.round();
     }
     return null;
+  }
+
+  static double? _doubleValue(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  static List<String> _stringList(dynamic value) {
+    if (value is List) {
+      return value.map((item) => item.toString()).toList();
+    }
+    if (value is String && value.trim().isNotEmpty) {
+      return [value];
+    }
+    return const [];
   }
 
   static Map<String, String> _stringMap(dynamic value) {

@@ -9,7 +9,9 @@ import 'dart:convert';
 
 enum DownloadStatus {
   queued,
+  extracting,
   downloading,
+  postProcessing,
   paused,
   completed,
   failed,
@@ -31,6 +33,14 @@ class DownloadTask {
   final DownloadStatus status;
   final int receivedBytes;
   final int totalBytes;
+  final double? speedBytesPerSecond;
+  final int? etaSeconds;
+  final String currentStage;
+  final String? formatLabel;
+  final String? extractorName;
+  final String? playlistTitle;
+  final int? playlistIndex;
+  final int? playlistCount;
   final String? errorMessage;
 
   const DownloadTask({
@@ -46,6 +56,14 @@ class DownloadTask {
     required this.status,
     required this.receivedBytes,
     required this.totalBytes,
+    this.speedBytesPerSecond,
+    this.etaSeconds,
+    this.currentStage = 'Queued',
+    this.formatLabel,
+    this.extractorName,
+    this.playlistTitle,
+    this.playlistIndex,
+    this.playlistCount,
     this.errorMessage,
   });
 
@@ -67,7 +85,16 @@ class DownloadTask {
     DownloadStatus? status,
     int? receivedBytes,
     int? totalBytes,
+    double? speedBytesPerSecond,
+    int? etaSeconds,
+    String? currentStage,
+    String? formatLabel,
+    String? extractorName,
+    String? playlistTitle,
+    int? playlistIndex,
+    int? playlistCount,
     String? errorMessage,
+    bool clearErrorMessage = false,
   }) {
     return DownloadTask(
       id: id ?? this.id,
@@ -82,7 +109,16 @@ class DownloadTask {
       status: status ?? this.status,
       receivedBytes: receivedBytes ?? this.receivedBytes,
       totalBytes: totalBytes ?? this.totalBytes,
-      errorMessage: errorMessage ?? this.errorMessage,
+      speedBytesPerSecond: speedBytesPerSecond ?? this.speedBytesPerSecond,
+      etaSeconds: etaSeconds ?? this.etaSeconds,
+      currentStage: currentStage ?? this.currentStage,
+      formatLabel: formatLabel ?? this.formatLabel,
+      extractorName: extractorName ?? this.extractorName,
+      playlistTitle: playlistTitle ?? this.playlistTitle,
+      playlistIndex: playlistIndex ?? this.playlistIndex,
+      playlistCount: playlistCount ?? this.playlistCount,
+      errorMessage:
+          clearErrorMessage ? null : errorMessage ?? this.errorMessage,
     );
   }
 
@@ -100,6 +136,14 @@ class DownloadTask {
       'status': status.name,
       'receivedBytes': receivedBytes,
       'totalBytes': totalBytes,
+      'speedBytesPerSecond': speedBytesPerSecond,
+      'etaSeconds': etaSeconds,
+      'currentStage': currentStage,
+      'formatLabel': formatLabel,
+      'extractorName': extractorName,
+      'playlistTitle': playlistTitle,
+      'playlistIndex': playlistIndex,
+      'playlistCount': playlistCount,
       'errorMessage': errorMessage,
     };
   }
@@ -119,7 +163,9 @@ class DownloadTask {
     );
 
     DownloadStatus finalStatus = resolvedStatus;
-    if (resolvedStatus == DownloadStatus.downloading) {
+    if (resolvedStatus == DownloadStatus.downloading ||
+        resolvedStatus == DownloadStatus.extracting ||
+        resolvedStatus == DownloadStatus.postProcessing) {
       finalStatus = DownloadStatus.failed;
     }
 
@@ -138,6 +184,14 @@ class DownloadTask {
       status: finalStatus,
       receivedBytes: (json['receivedBytes'] as num?)?.toInt() ?? 0,
       totalBytes: (json['totalBytes'] as num?)?.toInt() ?? 0,
+      speedBytesPerSecond: (json['speedBytesPerSecond'] as num?)?.toDouble(),
+      etaSeconds: (json['etaSeconds'] as num?)?.toInt(),
+      currentStage: json['currentStage'] as String? ?? finalStatus.name,
+      formatLabel: json['formatLabel'] as String?,
+      extractorName: json['extractorName'] as String?,
+      playlistTitle: json['playlistTitle'] as String?,
+      playlistIndex: (json['playlistIndex'] as num?)?.toInt(),
+      playlistCount: (json['playlistCount'] as num?)?.toInt(),
       errorMessage: json['errorMessage'] as String?,
     );
   }

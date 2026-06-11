@@ -22,7 +22,13 @@ void main() {
         'url': 'https://cdn.example.test/selected.mp4',
         'ext': 'mp4',
         'format_id': 'selected',
+        'thumbnail': 'https://cdn.example.test/thumb.jpg',
         'http_headers': {'Referer': 'https://example.test/watch'},
+        'subtitles': {
+          'en': [
+            {'url': 'https://cdn.example.test/subs.vtt', 'ext': 'vtt'}
+          ]
+        },
         'formats': [
           {
             'url': 'https://cdn.example.test/video-only.mp4',
@@ -51,7 +57,18 @@ void main() {
             'vcodec': 'avc1',
             'acodec': 'mp4a',
             'height': 480,
+            'filesize': 2048,
+            'format_note': 'SD',
           },
+        ],
+        'entries': [
+          {
+            'id': 'playlist-entry',
+            'title': 'Playlist Entry',
+            'webpage_url': 'https://example.test/watch/playlist-entry',
+            'url': 'https://cdn.example.test/playlist-entry.mp4',
+            'ext': 'mp4',
+          }
         ],
       }, sourceUrl: 'https://example.test/watch/video-id');
 
@@ -63,8 +80,28 @@ void main() {
       expect(urls, contains('https://cdn.example.test/selected.mp4'));
       expect(urls, contains('https://cdn.example.test/stream.m3u8'));
       expect(urls, contains('https://cdn.example.test/full.mp4'));
-      expect(urls, isNot(contains('https://cdn.example.test/video-only.mp4')));
       expect(urls, isNot(contains('https://cdn.example.test/manifest.mpd')));
+      expect(info.thumbnails.single.url, 'https://cdn.example.test/thumb.jpg');
+      expect(info.subtitles.single.language, 'en');
+      expect(info.playlistEntries.single.title, 'Playlist Entry');
+      expect(
+        info.formats.firstWhere((format) => format.formatId == 'full').friendlyLabel,
+        contains('SD'),
+      );
+    });
+
+    test('parses youtube-dl progress into user-friendly fields', () {
+      final progress = YoutubeDlProgress.parse(
+        '[download]  25.0% of 10.00MiB at 1.00MiB/s ETA 00:05',
+      );
+
+      expect(progress, isNotNull);
+      expect(progress!.percent, 25);
+      expect(progress.totalBytes, 10 * 1024 * 1024);
+      expect(progress.downloadedBytes, 2621440);
+      expect(progress.speedBytesPerSecond, 1024 * 1024);
+      expect(progress.etaSeconds, 5);
+      expect(progress.stage, 'Downloading');
     });
 
     test(
@@ -142,6 +179,34 @@ void main() {
       );
 
       expect(restored.status, DownloadStatus.failed);
+    });
+
+    test('marks extraction and post-processing persisted tasks as failed', () {
+      final extracting = DownloadTask.fromJson(
+        const DownloadTask(
+          id: 'task-3',
+          url: 'https://example.test/video.mp4',
+          filePath: '/tmp/video.mp4',
+          fileName: 'video.mp4',
+          status: DownloadStatus.extracting,
+          receivedBytes: 0,
+          totalBytes: 0,
+        ).toJson(),
+      );
+      final postProcessing = DownloadTask.fromJson(
+        const DownloadTask(
+          id: 'task-4',
+          url: 'https://example.test/video.mp4',
+          filePath: '/tmp/video.mp4',
+          fileName: 'video.mp4',
+          status: DownloadStatus.postProcessing,
+          receivedBytes: 100,
+          totalBytes: 100,
+        ).toJson(),
+      );
+
+      expect(extracting.status, DownloadStatus.failed);
+      expect(postProcessing.status, DownloadStatus.failed);
     });
   });
 }

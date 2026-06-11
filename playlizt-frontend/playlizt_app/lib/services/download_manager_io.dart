@@ -20,6 +20,7 @@ import 'extractor/extraction_engine.dart';
 import 'extractor/core/youtube_dl_json_mapper.dart';
 import 'extractor/core/types.dart';
 import 'extractor/extractors/youtube_dl_bridge_ie_io.dart';
+import 'library_manager_platform.dart';
 
 /// Manages the lifecycle of media downloads including queuing, progress
 /// tracking, pause/cancel behaviour and basic persistence across restarts.
@@ -28,6 +29,7 @@ class DownloadManager with ChangeNotifier {
 
   final SettingsProvider settingsProvider;
   final PlaylistProvider playlistProvider;
+  final LibraryManager? libraryManager;
   final Dio _dio = Dio();
   final ExtractionEngine _extractionEngine = ExtractionEngine();
   final YoutubeDlProcess _youtubeDlProcess = const YoutubeDlProcess();
@@ -41,6 +43,7 @@ class DownloadManager with ChangeNotifier {
   DownloadManager({
     required this.settingsProvider,
     required this.playlistProvider,
+    this.libraryManager,
   }) {
     _loadPersistedTasks();
   }
@@ -77,6 +80,11 @@ class DownloadManager with ChangeNotifier {
     return 'download.bin';
   }
 
+  String _safeTitle(String value) {
+    final safe = value.replaceAll(RegExp(r'[^\w\s\.-]'), '_').trim();
+    return safe.isEmpty ? 'download' : safe;
+  }
+
   bool get isInitialised => _initialised;
 
   List<DownloadTask> get tasks {
@@ -98,6 +106,8 @@ class DownloadManager with ChangeNotifier {
     String? thumbnailUrl;
     Map<String, String>? headers;
     DownloadBackend backend = DownloadBackend.native;
+    String? formatLabel;
+    String? extractorName;
     String? originalUrl;
     bool extractionSucceeded = false;
 
@@ -106,9 +116,27 @@ class DownloadManager with ChangeNotifier {
       extractionSucceeded = true;
       title = mediaInfo.title;
       thumbnailUrl = mediaInfo.thumbnailUrl;
+      extractorName = mediaInfo.extractorKey;
       print(
         'DownloadManager: Extraction success. Title: ${mediaInfo.title}, Formats: ${mediaInfo.formats.length}',
       );
+      if (mediaInfo.playlistEntries.isNotEmpty && explicitFileName == null) {
+        final playlistCount = mediaInfo.playlistEntries.length;
+        for (var i = 0; i < mediaInfo.playlistEntries.length; i++) {
+          await _enqueueExtractedMediaInfo(
+            requestedUrl: url,
+            mediaInfo: mediaInfo.playlistEntries[i],
+            targetDirectory: targetDirectory,
+            playlistTitle: mediaInfo.title,
+            playlistIndex: i + 1,
+            playlistCount: playlistCount,
+          );
+        }
+        await _persistTasks();
+        _startNextIfPossible();
+        notifyListeners();
+        return;
+      }
       if (mediaInfo.extractorKey == YoutubeDlJsonMapper.extractorKey) {
         backend = DownloadBackend.youtubeDl;
         originalUrl = mediaInfo.sourceUrl ?? url;
@@ -117,6 +145,7 @@ class DownloadManager with ChangeNotifier {
       if (mediaInfo.formats.isNotEmpty) {
         // Select best format based on quality/resolution
         final bestFormat = _selectBestFormat(mediaInfo.formats);
+        formatLabel = bestFormat.friendlyLabel;
         if (backend == DownloadBackend.native) {
           actualUrl = bestFormat.url;
           headers = bestFormat.httpHeaders;
@@ -188,6 +217,9 @@ class DownloadManager with ChangeNotifier {
       backend: backend,
       title: title,
       thumbnailUrl: thumbnailUrl,
+      formatLabel: formatLabel,
+      extractorName: extractorName,
+      currentStage: 'Queued',
       status: DownloadStatus.queued,
       receivedBytes: 0,
       totalBytes: 0,
@@ -198,6 +230,73 @@ class DownloadManager with ChangeNotifier {
     _startNextIfPossible();
     notifyListeners();
     print('DownloadManager: Task added. Total tasks: ${_tasks.length}');
+  }
+
+  Future<void> _enqueueExtractedMediaInfo({
+    required String requestedUrl,
+    required MediaInfo mediaInfo,
+    String? targetDirectory,
+    String? playlistTitle,
+    int? playlistIndex,
+    int? playlistCount,
+  }) async {
+    final backend = mediaInfo.extractorKey == YoutubeDlJsonMapper.extractorKey
+        ? DownloadBackend.youtubeDl
+        : DownloadBackend.native;
+    final originalUrl = backend == DownloadBackend.youtubeDl
+        ? (mediaInfo.sourceUrl ?? mediaInfo.url ?? requestedUrl)
+        : null;
+
+    String actualUrl = mediaInfo.url ?? mediaInfo.sourceUrl ?? requestedUrl;
+    Map<String, String>? headers;
+    String? formatLabel;
+    String finalFileName = '';
+
+    if (mediaInfo.formats.isNotEmpty) {
+      final bestFormat = _selectBestFormat(mediaInfo.formats);
+      formatLabel = bestFormat.friendlyLabel;
+      if (backend == DownloadBackend.native) {
+        actualUrl = bestFormat.url;
+        headers = bestFormat.httpHeaders;
+      }
+      final rawExt = (bestFormat.ext ?? '').toLowerCase();
+      var ext = rawExt.isNotEmpty ? rawExt : '';
+      if (ext.isEmpty || ext == 'm3u8') ext = 'mp4';
+      finalFileName = '${_safeTitle(mediaInfo.title)}.$ext';
+    } else {
+      finalFileName = '${_safeTitle(mediaInfo.title)}.mp4';
+    }
+
+    final directory = targetDirectory?.trim().isNotEmpty == true
+        ? targetDirectory!.trim()
+        : settingsProvider.downloadDirectory;
+    final resolvedDirectory = _resolveHome(directory);
+    final pathSeparator = resolvedDirectory.endsWith(Platform.pathSeparator)
+        ? ''
+        : Platform.pathSeparator;
+    final fullPath = '$resolvedDirectory$pathSeparator$finalFileName';
+    final id = '${DateTime.now().microsecondsSinceEpoch}-${playlistIndex ?? 0}';
+
+    _tasks[id] = DownloadTask(
+      id: id,
+      url: backend == DownloadBackend.youtubeDl ? originalUrl! : actualUrl,
+      originalUrl: originalUrl,
+      filePath: fullPath,
+      fileName: finalFileName,
+      title: mediaInfo.title,
+      thumbnailUrl: mediaInfo.thumbnailUrl,
+      headers: headers,
+      backend: backend,
+      status: DownloadStatus.queued,
+      receivedBytes: 0,
+      totalBytes: 0,
+      currentStage: 'Queued',
+      formatLabel: formatLabel,
+      extractorName: mediaInfo.extractorKey,
+      playlistTitle: playlistTitle,
+      playlistIndex: playlistIndex,
+      playlistCount: playlistCount,
+    );
   }
 
   Future<void> pauseDownload(String id) async {
@@ -228,7 +327,7 @@ class DownloadManager with ChangeNotifier {
       status: DownloadStatus.queued,
       receivedBytes: 0,
       totalBytes: 0,
-      errorMessage: null,
+      clearErrorMessage: true,
     );
     _tasks[id] = reset;
     await _persistTasks();
@@ -319,7 +418,8 @@ class DownloadManager with ChangeNotifier {
       status: DownloadStatus.downloading,
       receivedBytes: 0,
       totalBytes: 0,
-      errorMessage: null,
+      currentStage: 'Starting download',
+      clearErrorMessage: true,
     );
     _tasks[task.id] = updated;
     final token = CancelToken();
@@ -349,6 +449,7 @@ class DownloadManager with ChangeNotifier {
             _tasks[task.id] = current.copyWith(
               receivedBytes: received,
               totalBytes: total,
+              currentStage: 'Downloading',
             );
             notifyListeners();
           },
@@ -382,6 +483,19 @@ class DownloadManager with ChangeNotifier {
       } catch (e) {
         if (kDebugMode) {
           print('Failed to add to playlist: $e');
+        }
+      }
+
+      try {
+        await libraryManager?.importPath(
+          path: _tasks[task.id]!.filePath,
+          source: LibraryItemSource.downloaded,
+          displayTitle: _tasks[task.id]!.title ?? _tasks[task.id]!.fileName,
+          thumbnailPath: _tasks[task.id]!.thumbnailUrl,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Failed to import download into library: $e');
         }
       }
 
@@ -451,13 +565,28 @@ class DownloadManager with ChangeNotifier {
       sourceUrl: task.originalUrl ?? task.url,
       outputPath: task.filePath,
       cancelToken: cancelToken,
-      onProgress: (percent) {
+      onProgress: (progress) {
         final current = _tasks[taskId];
         if (current == null) return;
         const syntheticTotal = 10000;
+        final percent = progress.percent?.clamp(0, 100).toDouble();
+        final totalBytes = progress.totalBytes ??
+            (percent != null ? syntheticTotal : current.totalBytes);
+        final receivedBytes = progress.downloadedBytes ??
+            (percent != null ? (percent * 100).round() : current.receivedBytes);
+        final stage = progress.stage;
+        final status = stage == 'Downloading' ||
+                stage == 'Preparing output' ||
+                stage == 'Download complete'
+            ? DownloadStatus.downloading
+            : DownloadStatus.postProcessing;
         _tasks[taskId] = current.copyWith(
-          receivedBytes: (percent * 100).round(),
-          totalBytes: syntheticTotal,
+          status: status,
+          receivedBytes: receivedBytes,
+          totalBytes: totalBytes,
+          speedBytesPerSecond: progress.speedBytesPerSecond,
+          etaSeconds: progress.etaSeconds,
+          currentStage: stage,
         );
         notifyListeners();
       },
@@ -619,6 +748,7 @@ class DownloadManager with ChangeNotifier {
       _tasks[taskId] = current.copyWith(
         receivedBytes: receivedBytes,
         totalBytes: 0,
+        currentStage: 'Downloading HLS segments',
       );
       notifyListeners();
       sinceLastNotifyBytes = 0;

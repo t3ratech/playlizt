@@ -224,6 +224,14 @@ To use the installed executable instead of the source checkout:
   --dart-define=PLAYLIZT_YOUTUBE_DL_EXECUTABLE=/usr/local/bin/youtube-dl
 ```
 
+Desktop conversion requires explicit FFmpeg and FFprobe executables:
+```bash
+/opt/flutter/bin/flutter run -d linux \
+  --dart-define=API_URL=http://localhost:4080/api/v1 \
+  --dart-define=PLAYLIZT_FFMPEG_EXECUTABLE=/usr/local/bin/ffmpeg \
+  --dart-define=PLAYLIZT_FFPROBE_EXECUTABLE=/usr/local/bin/ffprobe
+```
+
 ### Running the Platform
 
 **Start all services**:
