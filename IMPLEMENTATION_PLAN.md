@@ -142,9 +142,9 @@ This document tracks the outstanding tasks and features to be implemented.
 
 - [x] **youtube-dl Extractor/Downloader Bridge (Desktop)**:
   - Verify the existing native Dart extractors and remove placeholder extractor registrations from the production stack.
-  - Add an optional desktop bridge that uses the configured upstream youtube-dl source checkout or executable after native extractors and before the generic fallback.
+  - Vendor the upstream youtube-dl runtime package into the Flutter workspace and use it after native extractors and before the generic fallback.
   - Persist youtube-dl-backed queued downloads with explicit backend metadata so restarts preserve queue state and active downloads fail clearly.
-  - Verify `/home/tkaviya/Projects/resources/youtube-dl` exposes 1,273 upstream extractors and cover the bridge mapper, inventory check, extractor registration and task persistence with Flutter tests.
+  - Verify the vendored youtube-dl package exposes 1,273 upstream extractors and cover the bridge mapper, inventory check, extractor registration and task persistence with Flutter tests.
 
 #### 5.5 Convert Tab – Conversion Shell (Phase 1: UI)
 - [x] **Convert Landing UI**:

@@ -21,6 +21,10 @@ class YoutubeDlInventory {
 }
 
 class YoutubeDlProcess {
+  static const _vendoredSourceCandidates = <String>[
+    'vendor/youtube-dl',
+    'playlizt-frontend/playlizt_app/vendor/youtube-dl',
+  ];
   static const configuredSourcePath = String.fromEnvironment(
     'PLAYLIZT_YOUTUBE_DL_SOURCE',
   );
@@ -38,7 +42,16 @@ class YoutubeDlProcess {
     this.extractionTimeout = const Duration(seconds: 45),
   });
 
-  String get resolvedSourcePath => (sourcePath ?? configuredSourcePath).trim();
+  String get resolvedSourcePath {
+    final explicit = (sourcePath ?? configuredSourcePath).trim();
+    if (explicit.isNotEmpty) return explicit;
+
+    for (final candidate in _vendoredSourceCandidates) {
+      if (Directory(candidate).existsSync()) return candidate;
+    }
+
+    return '';
+  }
 
   String get resolvedExecutable => (executable ?? configuredExecutable).trim();
 
@@ -82,7 +95,7 @@ class YoutubeDlProcess {
     final source = resolvedSourcePath;
     if (source.isEmpty) {
       throw ExtractionError(
-        'PLAYLIZT_YOUTUBE_DL_SOURCE is required for inventory verification',
+        'Vendored youtube-dl source or PLAYLIZT_YOUTUBE_DL_SOURCE is required',
         expected: true,
       );
     }

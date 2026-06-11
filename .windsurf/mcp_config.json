@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "t3rnel": {
+      "command": "/home/tkaviya/Projects/t3rnel/target/debug/t3rnel",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "T3RNEL_DAEMON_URL": "http://127.0.0.1:50051/",
+        "T3RNEL_API_KEY": "",
+        "T3RNEL_MCP_TIER": "full"
+      }
+    }
+  }
+}

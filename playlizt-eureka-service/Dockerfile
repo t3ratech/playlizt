@@ -2,10 +2,6 @@
 FROM eclipse-temurin:25-jdk-jammy AS build
 WORKDIR /workspace
 
-# Copy local Gradle distribution to avoid downloading (speeds up builds)
-RUN mkdir -p /opt/gradle-wrapper
-COPY gradle/wrapper/gradle-9.2.1-bin.zip /opt/gradle-wrapper/
-
 # Copy Gradle wrapper and build files
 COPY gradlew .
 COPY gradle gradle
@@ -20,14 +16,6 @@ COPY playlizt-playback playlizt-playback
 COPY playlizt-api-gateway playlizt-api-gateway
 COPY playlizt-content playlizt-content
 COPY playlizt-ui-tests playlizt-ui-tests
-
-# Override gradle-wrapper.properties to use local distribution
-RUN echo 'distributionBase=GRADLE_USER_HOME' > gradle/wrapper/gradle-wrapper.properties && \
-    echo 'distributionPath=wrapper/dists' >> gradle/wrapper/gradle-wrapper.properties && \
-    echo 'distributionUrl=file:/opt/gradle-wrapper/gradle-9.2.1-bin.zip' >> gradle/wrapper/gradle-wrapper.properties && \
-    echo 'networkTimeout=10000' >> gradle/wrapper/gradle-wrapper.properties && \
-    echo 'zipStoreBase=GRADLE_USER_HOME' >> gradle/wrapper/gradle-wrapper.properties && \
-    echo 'zipStorePath=wrapper/dists' >> gradle/wrapper/gradle-wrapper.properties
 
 # Copy playlizt-eureka-service source
 COPY playlizt-eureka-service/build.gradle playlizt-eureka-service/

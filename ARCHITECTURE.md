@@ -90,7 +90,7 @@ database → playlizt-eureka-service → playlizt-authentication → playlizt-co
 - **Database**: PostgreSQL 17
 - **ORM**: Spring Data JPA
 - **API Docs**: Springdoc OpenAPI 3
-- **Build**: Gradle 9.2.1 with Groovy DSL
+- **Build**: Gradle 9.5.1 with Groovy DSL
 - **Container**: Docker & Docker Compose
  - **Base Package & Naming**: All backend code lives under `zw.co.t3ratech.playlizt` packages, and every Java type (entities, DTOs, repositories, services, controllers and tests) is prefixed with `Playlizt` (for example, `PlayliztUser`, `PlayliztAuthService`, `PlayliztContentController`).
 
@@ -115,7 +115,7 @@ All tab content is **top‑aligned** within its scrollable area to match traditi
 
 The selected tab indicator is rendered as a pill/oval highlight that surrounds the icon and label without obscuring them in either Light or Dark theme; in particular, light‑mode colours are chosen so the icon remains clearly visible.
 
-The **Download** tab is backed by a `DownloadManager` service that uses `dio` for native HTTP/HLS transfers, honours a per-user concurrency limit from `SettingsProvider`, and persists task metadata via `SharedPreferences` so active, queued and completed downloads are visible after restarts. The extractor stack runs native Dart site extractors first, then an optional desktop `youtube-dl` bridge, then the generic HTML/media fallback. When `PLAYLIZT_YOUTUBE_DL_SOURCE` or `PLAYLIZT_YOUTUBE_DL_EXECUTABLE` is supplied as a Flutter dart define, the bridge uses the upstream youtube-dl extractor/downloader stack for long-tail site support; the verified local source checkout at `/home/tkaviya/Projects/resources/youtube-dl` exposes 1,273 upstream extractors. Flutter Web does not run local processes, so it remains on native and generic extraction only.
+The **Download** tab is backed by a `DownloadManager` service that uses `dio` for native HTTP/HLS transfers, honours a per-user concurrency limit from `SettingsProvider`, and persists task metadata via `SharedPreferences` so active, queued and completed downloads are visible after restarts. The extractor stack runs native Dart site extractors first, then the desktop `youtube-dl` bridge, then the generic HTML/media fallback. The bridge defaults to the vendored youtube-dl package at `playlizt-frontend/playlizt_app/vendor/youtube-dl`, which carries the upstream extractor source and exposes 1,273 extractors in verification. `PLAYLIZT_YOUTUBE_DL_SOURCE` or `PLAYLIZT_YOUTUBE_DL_EXECUTABLE` can override the vendored source. Flutter Web does not run local processes, so it remains on native and generic extraction only.
 
 ### AI
 - **Provider**: Google Gemini API

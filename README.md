@@ -45,7 +45,7 @@ The Flutter frontend uses a unified multimedia shell:
   - Switch to choose between using a **default download folder** (`~/Downloads` by default, user-editable) or prompting for a folder/name on each download.
   - Scrollable download queue panel listing active and recent downloads with status, progress bar, and per-item controls to **Pause**, **Resume**, or **Cancel**.
   - Backed by a `DownloadManager` service that performs real HTTP downloads, enforces a configurable concurrency limit, and persists task state across app restarts.
-  - Desktop builds can enable the upstream `youtube-dl` extractor/downloader bridge for long-tail site support with `PLAYLIZT_YOUTUBE_DL_SOURCE` or `PLAYLIZT_YOUTUBE_DL_EXECUTABLE` dart defines.
+  - Desktop builds use the vendored upstream `youtube-dl` extractor/downloader package for long-tail site support, with optional `PLAYLIZT_YOUTUBE_DL_SOURCE` or `PLAYLIZT_YOUTUBE_DL_EXECUTABLE` dart-define overrides.
 
 - **Convert Tab**:
   - Dedicated area for transcoding and clipping media into library-friendly formats.
@@ -88,7 +88,7 @@ These features work entirely on your local machine without any backend:
 - Downloads media to a configured or chosen folder using the original filename by default.
 - Optionally normalizes file names and target folders according to Library rules when enabled.
 - Optionally ingests successful downloads into the Library as first-class entries.
-- Uses native Dart extractors for first-party supported sites, direct media, HTML5 media and HLS; desktop builds can delegate supported long-tail sites to youtube-dl when the source path or executable dart define is configured.
+- Uses native Dart extractors for first-party supported sites, direct media, HTML5 media and HLS; desktop builds delegate supported long-tail sites to the vendored youtube-dl package.
   
 The Download tab surfaces these behaviours via the URL input, default/custom destination switch, and a full download manager queue with pause/resume/cancel controls.
 
@@ -158,7 +158,7 @@ Analyzes user comments and ratings to determine sentiment (Positive, Neutral, Ne
 - JDK 25 (for development)
 - Flutter SDK 3.24+ (for frontend development)
 - Gemini API key from Google
-- Optional for broad desktop URL downloader support: the local youtube-dl source checkout at `/home/tkaviya/Projects/resources/youtube-dl` or the installed executable at `/usr/local/bin/youtube-dl`
+- Python 3 for the vendored youtube-dl desktop downloader bridge.
 
 ### Environment Setup
 
@@ -196,7 +196,7 @@ PLAYLIZT_CONTENT_PROCESSING_PORT=4084
 PLAYLIZT_API_GATEWAY_PORT=4080
 ```
 
-For Flutter desktop downloader builds that should use the local youtube-dl source bridge, pass the source checkout explicitly:
+Flutter desktop downloader builds use the vendored youtube-dl source at `playlizt-frontend/playlizt_app/vendor/youtube-dl`. To override the vendored source, pass another source checkout explicitly:
 ```bash
 /opt/flutter/bin/flutter run -d linux \
   --dart-define=API_URL=http://localhost:4080/api/v1 \

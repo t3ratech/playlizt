@@ -6,9 +6,9 @@ import 'package:playlizt_app/services/extractor/core/youtube_dl_json_mapper.dart
 import 'package:playlizt_app/services/extractor/extraction_engine.dart';
 import 'package:playlizt_app/services/extractor/extractors/youtube_dl_bridge_ie_io.dart';
 
-const _localYoutubeDlSource = String.fromEnvironment(
+const _vendoredYoutubeDlSource = String.fromEnvironment(
   'PLAYLIZT_TEST_YOUTUBE_DL_SOURCE',
-  defaultValue: '/home/tkaviya/Projects/resources/youtube-dl',
+  defaultValue: 'vendor/youtube-dl',
 );
 
 void main() {
@@ -68,9 +68,9 @@ void main() {
     });
 
     test(
-      'verifies the local youtube-dl extractor inventory',
+      'verifies the vendored youtube-dl extractor inventory',
       () async {
-        const process = YoutubeDlProcess(sourcePath: _localYoutubeDlSource);
+        const process = YoutubeDlProcess();
         final inventory = await process.loadInventory();
 
         expect(inventory.version, isNotEmpty);
@@ -79,16 +79,16 @@ void main() {
         expect(inventory.extractorNames, contains('vimeo'));
         expect(inventory.extractorNames, contains('generic'));
       },
-      skip: Directory(_localYoutubeDlSource).existsSync()
+      skip: Directory(_vendoredYoutubeDlSource).existsSync()
           ? false
-          : 'Local youtube-dl source checkout not found',
+          : 'Vendored youtube-dl source checkout not found',
     );
 
     test(
       'registers youtube-dl before the generic fallback when configured',
       () {
         final engine = ExtractionEngine(
-          youtubeDlSourcePath: _localYoutubeDlSource,
+          youtubeDlSourcePath: _vendoredYoutubeDlSource,
         );
 
         expect(
@@ -97,7 +97,7 @@ void main() {
         );
         expect(engine.extractorNames.last, 'generic');
 
-        if (Directory(_localYoutubeDlSource).existsSync()) {
+        if (Directory(_vendoredYoutubeDlSource).existsSync()) {
           final youtubeDlIndex = engine.extractorNames.indexOf('youtube-dl');
           final genericIndex = engine.extractorNames.indexOf('generic');
           expect(youtubeDlIndex, greaterThanOrEqualTo(0));
