@@ -45,6 +45,47 @@ void main() {
       expect(args.last, '/tmp/out.mkv');
     });
 
+    test('builds structured advanced codec and filter arguments', () {
+      final preset = ConversionPreset.byId(ConversionPresetId.mp41080);
+
+      final args = preset.buildFfmpegArguments(
+        inputPath: '/tmp/source.mkv',
+        outputPath: '/tmp/out.mp4',
+        advancedOptions: const ConversionAdvancedOptions(
+          videoCodec: 'libx265',
+          audioCodec: 'aac',
+          videoBitrate: '3000k',
+          audioBitrate: '160k',
+          crf: '24',
+          sampleRate: '48000',
+          channels: '2',
+          pixelFormat: 'yuv420p',
+          videoFilter: 'crop=1280:720:0:0',
+          audioFilter: 'loudnorm',
+          subtitleMode: ConversionSubtitleMode.copy,
+        ),
+      );
+
+      expect(args, containsAll(['-c:v', 'libx265']));
+      expect(args, containsAll(['-c:a', 'aac']));
+      expect(args, containsAll(['-b:v', '3000k', '-b:a', '160k']));
+      expect(args, containsAll(['-crf', '24']));
+      expect(args, containsAll(['-ar', '48000', '-ac', '2']));
+      expect(args, containsAll(['-pix_fmt', 'yuv420p']));
+      expect(args, containsAll(['-vf', 'crop=1280:720:0:0']));
+      expect(args, containsAll(['-af', 'loudnorm']));
+      expect(args, containsAll(['-c:s', 'copy']));
+      expect(args.last, '/tmp/out.mp4');
+    });
+
+    test('validates subtitle burn-in requires a subtitle path', () {
+      const options = ConversionAdvancedOptions(
+        subtitleMode: ConversionSubtitleMode.burnIn,
+      );
+
+      expect(options.validate, throwsArgumentError);
+    });
+
     test('parses ffmpeg progress snapshots into Playlizt progress', () {
       final parser = FfmpegProgressParser();
 
@@ -68,6 +109,12 @@ void main() {
         presetId: ConversionPresetId.custom,
         status: ConversionStatus.queued,
         customArguments: const ['-c:v', 'libx265'],
+        advancedOptions: const ConversionAdvancedOptions(
+          containerExtension: 'mp4',
+          videoCodec: 'libx265',
+          audioCodec: 'aac',
+          subtitleMode: ConversionSubtitleMode.remove,
+        ),
         currentStage: 'Queued',
         createdAt: now,
         updatedAt: now,
@@ -77,6 +124,13 @@ void main() {
 
       expect(restored.presetId, ConversionPresetId.custom);
       expect(restored.customArguments, const ['-c:v', 'libx265']);
+      expect(restored.advancedOptions.normalizedContainerExtension, 'mp4');
+      expect(restored.advancedOptions.videoCodec, 'libx265');
+      expect(restored.advancedOptions.audioCodec, 'aac');
+      expect(
+        restored.advancedOptions.subtitleMode,
+        ConversionSubtitleMode.remove,
+      );
     });
   });
 }

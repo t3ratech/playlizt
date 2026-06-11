@@ -57,8 +57,11 @@ class ConversionManager with ChangeNotifier {
     String? startTime,
     String? endTime,
     List<String> customArguments = const [],
+    ConversionAdvancedOptions advancedOptions =
+        const ConversionAdvancedOptions(),
   }) async {
     await settingsProvider.ensureLoaded();
+    advancedOptions.validate();
     final resolvedInput = _resolveHome(inputPath);
     final inputFile = File(resolvedInput);
     if (!await inputFile.exists()) {
@@ -74,7 +77,8 @@ class ConversionManager with ChangeNotifier {
     final outputPath = await _nextOutputPath(
       directory: directory,
       inputPath: resolvedInput,
-      extension: preset.outputExtension,
+      extension: advancedOptions.normalizedContainerExtension ??
+          preset.outputExtension,
     );
 
     final now = DateTime.now();
@@ -88,6 +92,7 @@ class ConversionManager with ChangeNotifier {
       startTime: _emptyToNull(startTime),
       endTime: _emptyToNull(endTime),
       customArguments: customArguments,
+      advancedOptions: advancedOptions,
       currentStage: 'Queued',
       createdAt: now,
       updatedAt: now,
@@ -217,6 +222,7 @@ class ConversionManager with ChangeNotifier {
         startTime: job.startTime,
         endTime: job.endTime,
         customArguments: job.customArguments,
+        advancedOptions: job.advancedOptions,
       );
 
       final process = await Process.start(ffmpeg, args);

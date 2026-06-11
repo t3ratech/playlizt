@@ -30,6 +30,174 @@ enum ConversionPresetId {
   custom,
 }
 
+enum ConversionSubtitleMode {
+  preserve,
+  copy,
+  burnIn,
+  remove,
+}
+
+class ConversionAdvancedOptions {
+  final String? containerExtension;
+  final String? videoCodec;
+  final String? audioCodec;
+  final String? videoBitrate;
+  final String? audioBitrate;
+  final String? crf;
+  final String? sampleRate;
+  final String? channels;
+  final String? pixelFormat;
+  final String? videoFilter;
+  final String? audioFilter;
+  final ConversionSubtitleMode subtitleMode;
+  final String? subtitlePath;
+
+  const ConversionAdvancedOptions({
+    this.containerExtension,
+    this.videoCodec,
+    this.audioCodec,
+    this.videoBitrate,
+    this.audioBitrate,
+    this.crf,
+    this.sampleRate,
+    this.channels,
+    this.pixelFormat,
+    this.videoFilter,
+    this.audioFilter,
+    this.subtitleMode = ConversionSubtitleMode.preserve,
+    this.subtitlePath,
+  });
+
+  bool get isEmpty =>
+      _isBlank(containerExtension) &&
+      _isBlank(videoCodec) &&
+      _isBlank(audioCodec) &&
+      _isBlank(videoBitrate) &&
+      _isBlank(audioBitrate) &&
+      _isBlank(crf) &&
+      _isBlank(sampleRate) &&
+      _isBlank(channels) &&
+      _isBlank(pixelFormat) &&
+      _isBlank(videoFilter) &&
+      _isBlank(audioFilter) &&
+      subtitleMode == ConversionSubtitleMode.preserve &&
+      _isBlank(subtitlePath);
+
+  String? get normalizedContainerExtension {
+    final value = _normalize(containerExtension);
+    if (value == null) return null;
+    return value.startsWith('.') ? value.substring(1) : value;
+  }
+
+  void validate() {
+    if (subtitleMode == ConversionSubtitleMode.burnIn &&
+        _isBlank(subtitlePath)) {
+      throw ArgumentError('Subtitle burn-in requires a subtitle file path');
+    }
+  }
+
+  List<String> toFfmpegArguments() {
+    validate();
+    final args = <String>[];
+
+    void addOption(String flag, String? value) {
+      final normalized = _normalize(value);
+      if (normalized == null) return;
+      args.addAll([flag, normalized]);
+    }
+
+    addOption('-c:v', videoCodec);
+    addOption('-c:a', audioCodec);
+    addOption('-b:v', videoBitrate);
+    addOption('-b:a', audioBitrate);
+    addOption('-crf', crf);
+    addOption('-ar', sampleRate);
+    addOption('-ac', channels);
+    addOption('-pix_fmt', pixelFormat);
+
+    final videoFilters = <String>[
+      if (_normalize(videoFilter) != null) _normalize(videoFilter)!,
+      if (subtitleMode == ConversionSubtitleMode.burnIn)
+        'subtitles=${_escapeFilterPath(_normalize(subtitlePath)!)}',
+    ];
+    if (videoFilters.isNotEmpty) {
+      args.addAll(['-vf', videoFilters.join(',')]);
+    }
+
+    addOption('-af', audioFilter);
+
+    switch (subtitleMode) {
+      case ConversionSubtitleMode.preserve:
+        break;
+      case ConversionSubtitleMode.copy:
+        args.addAll(['-c:s', 'copy']);
+        break;
+      case ConversionSubtitleMode.burnIn:
+        break;
+      case ConversionSubtitleMode.remove:
+        args.add('-sn');
+        break;
+    }
+
+    return args;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'containerExtension': containerExtension,
+      'videoCodec': videoCodec,
+      'audioCodec': audioCodec,
+      'videoBitrate': videoBitrate,
+      'audioBitrate': audioBitrate,
+      'crf': crf,
+      'sampleRate': sampleRate,
+      'channels': channels,
+      'pixelFormat': pixelFormat,
+      'videoFilter': videoFilter,
+      'audioFilter': audioFilter,
+      'subtitleMode': subtitleMode.name,
+      'subtitlePath': subtitlePath,
+    };
+  }
+
+  static ConversionAdvancedOptions fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const ConversionAdvancedOptions();
+    return ConversionAdvancedOptions(
+      containerExtension: json['containerExtension'] as String?,
+      videoCodec: json['videoCodec'] as String?,
+      audioCodec: json['audioCodec'] as String?,
+      videoBitrate: json['videoBitrate'] as String?,
+      audioBitrate: json['audioBitrate'] as String?,
+      crf: json['crf'] as String?,
+      sampleRate: json['sampleRate'] as String?,
+      channels: json['channels'] as String?,
+      pixelFormat: json['pixelFormat'] as String?,
+      videoFilter: json['videoFilter'] as String?,
+      audioFilter: json['audioFilter'] as String?,
+      subtitleMode: ConversionJob._enumByName(
+        ConversionSubtitleMode.values,
+        json['subtitleMode'] as String?,
+        ConversionSubtitleMode.preserve,
+      ),
+      subtitlePath: json['subtitlePath'] as String?,
+    );
+  }
+
+  static bool _isBlank(String? value) => value == null || value.trim().isEmpty;
+
+  static String? _normalize(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String _escapeFilterPath(String path) {
+    return path
+        .replaceAll(r'\', r'\\')
+        .replaceAll(':', r'\:')
+        .replaceAll("'", r"\'");
+  }
+}
+
 class FfmpegCapabilityInventory {
   static const requiredEncoders = 273;
   static const requiredDecoders = 607;
@@ -168,6 +336,8 @@ class ConversionPreset {
     String? startTime,
     String? endTime,
     List<String> customArguments = const [],
+    ConversionAdvancedOptions advancedOptions =
+        const ConversionAdvancedOptions(),
   }) {
     final args = <String>[
       '-hide_banner',
@@ -272,6 +442,7 @@ class ConversionPreset {
         break;
     }
 
+    args.addAll(advancedOptions.toFfmpegArguments());
     args.add(outputPath);
     return args;
   }
@@ -291,6 +462,7 @@ class ConversionJob {
   final double? speed;
   final int? outputSizeBytes;
   final List<String> customArguments;
+  final ConversionAdvancedOptions advancedOptions;
   final String currentStage;
   final String? errorMessage;
   final DateTime createdAt;
@@ -310,6 +482,7 @@ class ConversionJob {
     this.speed,
     this.outputSizeBytes,
     this.customArguments = const [],
+    this.advancedOptions = const ConversionAdvancedOptions(),
     required this.currentStage,
     this.errorMessage,
     required this.createdAt,
@@ -326,6 +499,7 @@ class ConversionJob {
     double? speed,
     int? outputSizeBytes,
     List<String>? customArguments,
+    ConversionAdvancedOptions? advancedOptions,
     String? currentStage,
     String? errorMessage,
     DateTime? updatedAt,
@@ -344,6 +518,7 @@ class ConversionJob {
       speed: speed ?? this.speed,
       outputSizeBytes: outputSizeBytes ?? this.outputSizeBytes,
       customArguments: customArguments ?? this.customArguments,
+      advancedOptions: advancedOptions ?? this.advancedOptions,
       currentStage: currentStage ?? this.currentStage,
       errorMessage: errorMessage,
       createdAt: createdAt,
@@ -366,6 +541,7 @@ class ConversionJob {
       'speed': speed,
       'outputSizeBytes': outputSizeBytes,
       'customArguments': customArguments,
+      'advancedOptions': advancedOptions.toJson(),
       'currentStage': currentStage,
       'errorMessage': errorMessage,
       'createdAt': createdAt.toIso8601String(),
@@ -408,6 +584,11 @@ class ConversionJob {
               ?.map((item) => item.toString())
               .toList() ??
           const [],
+      advancedOptions: ConversionAdvancedOptions.fromJson(
+        (json['advancedOptions'] as Map?)?.map(
+          (key, value) => MapEntry(key.toString(), value),
+        ),
+      ),
       currentStage: json['currentStage'] as String? ?? 'Restored',
       errorMessage: json['errorMessage'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),

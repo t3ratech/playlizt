@@ -24,8 +24,21 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
   final TextEditingController _startController = TextEditingController();
   final TextEditingController _endController = TextEditingController();
   final TextEditingController _customArgsController = TextEditingController();
+  final TextEditingController _containerController = TextEditingController();
+  final TextEditingController _videoCodecController = TextEditingController();
+  final TextEditingController _audioCodecController = TextEditingController();
+  final TextEditingController _videoBitrateController = TextEditingController();
+  final TextEditingController _audioBitrateController = TextEditingController();
+  final TextEditingController _crfController = TextEditingController();
+  final TextEditingController _sampleRateController = TextEditingController();
+  final TextEditingController _channelsController = TextEditingController();
+  final TextEditingController _pixelFormatController = TextEditingController();
+  final TextEditingController _videoFilterController = TextEditingController();
+  final TextEditingController _audioFilterController = TextEditingController();
+  final TextEditingController _subtitlePathController = TextEditingController();
 
   ConversionPresetId _selectedPreset = ConversionPresetId.mp3;
+  ConversionSubtitleMode _subtitleMode = ConversionSubtitleMode.preserve;
   bool _isSubmitting = false;
 
   @override
@@ -35,6 +48,18 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
     _startController.dispose();
     _endController.dispose();
     _customArgsController.dispose();
+    _containerController.dispose();
+    _videoCodecController.dispose();
+    _audioCodecController.dispose();
+    _videoBitrateController.dispose();
+    _audioBitrateController.dispose();
+    _crfController.dispose();
+    _sampleRateController.dispose();
+    _channelsController.dispose();
+    _pixelFormatController.dispose();
+    _videoFilterController.dispose();
+    _audioFilterController.dispose();
+    _subtitlePathController.dispose();
     super.dispose();
   }
 
@@ -59,6 +84,21 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
       if (outputDir != settings.conversionOutputDirectory) {
         await settings.setConversionOutputDirectory(outputDir);
       }
+      final advancedOptions = ConversionAdvancedOptions(
+        containerExtension: _emptyToNull(_containerController.text),
+        videoCodec: _emptyToNull(_videoCodecController.text),
+        audioCodec: _emptyToNull(_audioCodecController.text),
+        videoBitrate: _emptyToNull(_videoBitrateController.text),
+        audioBitrate: _emptyToNull(_audioBitrateController.text),
+        crf: _emptyToNull(_crfController.text),
+        sampleRate: _emptyToNull(_sampleRateController.text),
+        channels: _emptyToNull(_channelsController.text),
+        pixelFormat: _emptyToNull(_pixelFormatController.text),
+        videoFilter: _emptyToNull(_videoFilterController.text),
+        audioFilter: _emptyToNull(_audioFilterController.text),
+        subtitleMode: _subtitleMode,
+        subtitlePath: _emptyToNull(_subtitlePathController.text),
+      );
       await manager.enqueueConversion(
         inputPath: input,
         presetId: _selectedPreset,
@@ -66,6 +106,7 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
         startTime: _startController.text,
         endTime: _endController.text,
         customArguments: _splitCustomArguments(_customArgsController.text),
+        advancedOptions: advancedOptions,
       );
       _inputController.clear();
     } catch (e) {
@@ -81,6 +122,24 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return const [];
     return trimmed.split(RegExp(r'\s+'));
+  }
+
+  String? _emptyToNull(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  String _subtitleModeLabel(ConversionSubtitleMode mode) {
+    switch (mode) {
+      case ConversionSubtitleMode.preserve:
+        return 'Preserve';
+      case ConversionSubtitleMode.copy:
+        return 'Copy';
+      case ConversionSubtitleMode.burnIn:
+        return 'Burn in';
+      case ConversionSubtitleMode.remove:
+        return 'Remove';
+    }
   }
 
   @override
@@ -171,7 +230,7 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<ConversionPresetId>(
-                              value: _selectedPreset,
+                              initialValue: _selectedPreset,
                               decoration: const InputDecoration(
                                 labelText: 'Output profile',
                                 border: OutlineInputBorder(),
@@ -200,6 +259,189 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
                                 prefixIcon: Icon(Icons.folder),
                               ),
                             ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: const Text('Advanced codec and filter controls'),
+                        childrenPadding: const EdgeInsets.only(bottom: 12),
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _containerController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Container',
+                                    hintText: 'mp4',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _videoCodecController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Video codec',
+                                    hintText: 'libx264',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _audioCodecController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Audio codec',
+                                    hintText: 'aac',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _videoBitrateController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Video bitrate',
+                                    hintText: '2500k',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _audioBitrateController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Audio bitrate',
+                                    hintText: '160k',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _crfController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'CRF',
+                                    hintText: '23',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _sampleRateController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Sample rate',
+                                    hintText: '48000',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _channelsController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Channels',
+                                    hintText: '2',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _pixelFormatController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Pixel format',
+                                    hintText: 'yuv420p',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _videoFilterController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Video filter chain',
+                                    hintText: 'scale=-2:720',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _audioFilterController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Audio filter chain',
+                                    hintText: 'loudnorm',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<
+                                    ConversionSubtitleMode>(
+                                  initialValue: _subtitleMode,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Subtitles',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items:
+                                      ConversionSubtitleMode.values.map((mode) {
+                                    return DropdownMenuItem(
+                                      value: mode,
+                                      child: Text(_subtitleModeLabel(mode)),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() => _subtitleMode = value);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _subtitlePathController,
+                                  enabled: _subtitleMode ==
+                                      ConversionSubtitleMode.burnIn,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Subtitle file',
+                                    hintText: '/home/user/subtitles.srt',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
