@@ -240,6 +240,11 @@ class YoutubeDlProcess {
     String? cookieFile,
     String? username,
     String? password,
+    String? retries,
+    String? fragmentRetries,
+    String? socketTimeoutSeconds,
+    String? userAgent,
+    String? referer,
     required void Function(YoutubeDlProgress progress) onProgress,
   }) async {
     final args = <String>[
@@ -275,6 +280,22 @@ class YoutubeDlProcess {
     }
     if (password != null && password.isNotEmpty) {
       args.addAll(['--password', password]);
+    }
+    if (retries != null && retries.trim().isNotEmpty) {
+      args.addAll(['--retries', retries.trim()]);
+    }
+    if (fragmentRetries != null && fragmentRetries.trim().isNotEmpty) {
+      args.addAll(['--fragment-retries', fragmentRetries.trim()]);
+    }
+    if (socketTimeoutSeconds != null &&
+        socketTimeoutSeconds.trim().isNotEmpty) {
+      args.addAll(['--socket-timeout', socketTimeoutSeconds.trim()]);
+    }
+    if (userAgent != null && userAgent.trim().isNotEmpty) {
+      args.addAll(['--user-agent', userAgent.trim()]);
+    }
+    if (referer != null && referer.trim().isNotEmpty) {
+      args.addAll(['--referer', referer.trim()]);
     }
     args.add(sourceUrl);
 

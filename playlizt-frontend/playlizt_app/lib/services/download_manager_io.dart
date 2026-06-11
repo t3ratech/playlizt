@@ -612,22 +612,7 @@ class DownloadManager with ChangeNotifier {
       } else if (_isUnsupportedManifestUrl(task.url)) {
         throw Exception('Unsupported native manifest URL: ${task.url}');
       } else {
-        await _dio.download(
-          task.url,
-          file.path,
-          cancelToken: token,
-          options: Options(headers: task.headers, followRedirects: true),
-          onReceiveProgress: (received, total) {
-            final current = _tasks[task.id];
-            if (current == null) return;
-            _tasks[task.id] = current.copyWith(
-              receivedBytes: received,
-              totalBytes: total,
-              currentStage: 'Downloading',
-            );
-            notifyListeners();
-          },
-        );
+        await _downloadDirectFile(task.id, cancelToken: token);
       }
 
       _tokens.remove(task.id);
@@ -709,6 +694,49 @@ class DownloadManager with ChangeNotifier {
     }
   }
 
+  Future<void> _downloadDirectFile(
+    String taskId, {
+    required CancelToken cancelToken,
+  }) async {
+    final task = _tasks[taskId];
+    if (task == null) return;
+
+    final attempts = _nativeDownloadAttempts(task.options);
+    Object? lastError;
+    for (var attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        await _dio.download(
+          task.url,
+          task.filePath,
+          cancelToken: cancelToken,
+          options: Options(
+            headers: _downloadHeaders(task),
+            followRedirects: true,
+            receiveTimeout: _socketTimeout(task.options),
+            sendTimeout: _socketTimeout(task.options),
+          ),
+          onReceiveProgress: (received, total) {
+            final current = _tasks[task.id];
+            if (current == null) return;
+            _tasks[task.id] = current.copyWith(
+              receivedBytes: received,
+              totalBytes: total,
+              currentStage:
+                  attempt == 1 ? 'Downloading' : 'Retry $attempt downloading',
+            );
+            notifyListeners();
+          },
+        );
+        return;
+      } catch (e) {
+        lastError = e;
+        if (cancelToken.isCancelled || attempt >= attempts) rethrow;
+      }
+    }
+
+    if (lastError != null) throw lastError;
+  }
+
   bool _isHlsUrl(String url) {
     final uri = Uri.tryParse(url);
     final path = (uri?.path ?? url).toLowerCase();
@@ -722,6 +750,43 @@ class DownloadManager with ChangeNotifier {
         path.endsWith('.f4m') ||
         path.endsWith('.ism') ||
         path.endsWith('/manifest');
+  }
+
+  Map<String, String>? _downloadHeaders(DownloadTask task) {
+    final headers = <String, String>{
+      ...?task.headers,
+    };
+    final userAgent = task.options.userAgent?.trim();
+    if (userAgent != null && userAgent.isNotEmpty) {
+      headers['User-Agent'] = userAgent;
+    }
+    final referer = task.options.referer?.trim();
+    if (referer != null && referer.isNotEmpty) {
+      headers['Referer'] = referer;
+    }
+    return headers.isEmpty ? null : headers;
+  }
+
+  Duration? _socketTimeout(DownloadOptions options) {
+    final raw = options.socketTimeoutSeconds?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    final seconds = double.tryParse(raw);
+    if (seconds == null || seconds <= 0) {
+      throw ArgumentError(
+          'Socket timeout must be a positive number of seconds');
+    }
+    return Duration(milliseconds: (seconds * 1000).round());
+  }
+
+  int _nativeDownloadAttempts(DownloadOptions options) {
+    final raw = options.retries?.trim();
+    if (raw == null || raw.isEmpty) return 1;
+    final retries = int.tryParse(raw);
+    if (retries == null || retries < 0) {
+      throw ArgumentError(
+          'Native download retries must be a non-negative integer');
+    }
+    return retries + 1;
   }
 
   Future<void> _downloadWithYoutubeDl(
@@ -750,6 +815,11 @@ class DownloadManager with ChangeNotifier {
       cookieFile: task.options.cookieFile,
       username: task.options.username,
       password: task.options.password,
+      retries: task.options.retries,
+      fragmentRetries: task.options.fragmentRetries,
+      socketTimeoutSeconds: task.options.socketTimeoutSeconds,
+      userAgent: task.options.userAgent,
+      referer: task.options.referer,
       onProgress: (progress) {
         final current = _tasks[taskId];
         if (current == null) return;
@@ -785,7 +855,8 @@ class DownloadManager with ChangeNotifier {
     final initialTask = _tasks[taskId];
     if (initialTask == null) return;
 
-    final headers = initialTask.headers;
+    final headers = _downloadHeaders(initialTask);
+    final timeout = _socketTimeout(initialTask.options);
     final masterUri = Uri.parse(initialTask.url);
 
     final masterResponse = await _dio.get<String>(
@@ -795,6 +866,8 @@ class DownloadManager with ChangeNotifier {
         headers: headers,
         responseType: ResponseType.plain,
         followRedirects: true,
+        receiveTimeout: timeout,
+        sendTimeout: timeout,
       ),
     );
 
@@ -833,6 +906,8 @@ class DownloadManager with ChangeNotifier {
             headers: headers,
             responseType: ResponseType.plain,
             followRedirects: true,
+            receiveTimeout: timeout,
+            sendTimeout: timeout,
           ),
         );
         final candidateBody = playlistResponse.data?.toString() ?? '';
@@ -949,6 +1024,8 @@ class DownloadManager with ChangeNotifier {
           headers: headers,
           responseType: ResponseType.stream,
           followRedirects: true,
+          receiveTimeout: timeout,
+          sendTimeout: timeout,
         ),
       );
       final body = resp.data;

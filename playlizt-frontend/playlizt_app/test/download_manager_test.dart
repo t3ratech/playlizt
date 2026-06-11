@@ -181,6 +181,11 @@ void main() {
           cookieFile: '/tmp/cookies.txt',
           username: 'demo-user',
           password: 'demo-pass',
+          retries: '5',
+          fragmentRetries: '3',
+          socketTimeoutSeconds: '15',
+          userAgent: 'PlayliztTest/1.0',
+          referer: 'https://example.test/watch',
         ),
         status: DownloadStatus.queued,
         receivedBytes: 0,
@@ -202,6 +207,11 @@ void main() {
       expect(restored.options.cookieFile, '/tmp/cookies.txt');
       expect(restored.options.username, 'demo-user');
       expect(restored.options.password, isNull);
+      expect(restored.options.retries, '5');
+      expect(restored.options.fragmentRetries, '3');
+      expect(restored.options.socketTimeoutSeconds, '15');
+      expect(restored.options.userAgent, 'PlayliztTest/1.0');
+      expect(restored.options.referer, 'https://example.test/watch');
     });
 
     test('marks in-flight persisted tasks as failed on restore', () {

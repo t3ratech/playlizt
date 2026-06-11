@@ -32,6 +32,11 @@ class DownloadOptions {
   final String? cookieFile;
   final String? username;
   final String? password;
+  final String? retries;
+  final String? fragmentRetries;
+  final String? socketTimeoutSeconds;
+  final String? userAgent;
+  final String? referer;
 
   const DownloadOptions({
     this.formatId,
@@ -44,6 +49,11 @@ class DownloadOptions {
     this.cookieFile,
     this.username,
     this.password,
+    this.retries,
+    this.fragmentRetries,
+    this.socketTimeoutSeconds,
+    this.userAgent,
+    this.referer,
   });
 
   bool get hasPostProcessing =>
@@ -61,6 +71,11 @@ class DownloadOptions {
       'cookieFile': cookieFile,
       'username': username,
       'password': null,
+      'retries': retries,
+      'fragmentRetries': fragmentRetries,
+      'socketTimeoutSeconds': socketTimeoutSeconds,
+      'userAgent': userAgent,
+      'referer': referer,
     };
   }
 
@@ -77,6 +92,11 @@ class DownloadOptions {
       cookieFile: json['cookieFile'] as String?,
       username: json['username'] as String?,
       password: json['password'] as String?,
+      retries: json['retries'] as String?,
+      fragmentRetries: json['fragmentRetries'] as String?,
+      socketTimeoutSeconds: json['socketTimeoutSeconds'] as String?,
+      userAgent: json['userAgent'] as String?,
+      referer: json['referer'] as String?,
     );
   }
 }

@@ -191,6 +191,13 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   final TextEditingController _cookieFileController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _retriesController = TextEditingController();
+  final TextEditingController _fragmentRetriesController =
+      TextEditingController();
+  final TextEditingController _socketTimeoutController =
+      TextEditingController();
+  final TextEditingController _userAgentController = TextEditingController();
+  final TextEditingController _refererController = TextEditingController();
   bool _isSubmitting = false;
   bool _isEditingDefaultPath = false;
   bool _audioOnly = false;
@@ -218,6 +225,11 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
     _cookieFileController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _retriesController.dispose();
+    _fragmentRetriesController.dispose();
+    _socketTimeoutController.dispose();
+    _userAgentController.dispose();
+    _refererController.dispose();
     super.dispose();
   }
 
@@ -258,6 +270,11 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         cookieFile: _emptyToNull(_cookieFileController.text),
         username: _emptyToNull(_usernameController.text),
         password: _emptyToNull(_passwordController.text),
+        retries: _emptyToNull(_retriesController.text),
+        fragmentRetries: _emptyToNull(_fragmentRetriesController.text),
+        socketTimeoutSeconds: _emptyToNull(_socketTimeoutController.text),
+        userAgent: _emptyToNull(_userAgentController.text),
+        referer: _emptyToNull(_refererController.text),
       );
 
       if (settings.useDefaultDownloadLocation) {
@@ -613,6 +630,68 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                       hintText: 'socks5://127.0.0.1:1080',
                       border: OutlineInputBorder(),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _retriesController,
+                          decoration: const InputDecoration(
+                            labelText: 'Retries',
+                            hintText: '10',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _fragmentRetriesController,
+                          decoration: const InputDecoration(
+                            labelText: 'Fragment retries',
+                            hintText: '10',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _socketTimeoutController,
+                          decoration: const InputDecoration(
+                            labelText: 'Socket timeout',
+                            hintText: '20',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _userAgentController,
+                          decoration: const InputDecoration(
+                            labelText: 'User agent',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _refererController,
+                          decoration: const InputDecoration(
+                            labelText: 'Referrer',
+                            hintText: 'https://example.com',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   TextField(
