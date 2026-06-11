@@ -953,6 +953,21 @@ class _DownloadListTile extends StatelessWidget {
                   style: const TextStyle(color: Colors.red),
                 ),
               ],
+              if (task.sidecarFiles.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: task.sidecarFiles.map((file) {
+                    return Chip(
+                      avatar: Icon(_sidecarIcon(file.type), size: 18),
+                      label: Text(
+                        '${_sidecarLabel(file)}: ${file.fileName}',
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
             ],
           ),
         ),
@@ -985,6 +1000,28 @@ class _DownloadListTile extends StatelessWidget {
       return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
     return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  IconData _sidecarIcon(DownloadSidecarType type) {
+    switch (type) {
+      case DownloadSidecarType.subtitle:
+        return Icons.subtitles_outlined;
+      case DownloadSidecarType.thumbnail:
+        return Icons.image_outlined;
+      case DownloadSidecarType.metadata:
+        return Icons.description_outlined;
+    }
+  }
+
+  String _sidecarLabel(DownloadSidecarFile file) {
+    switch (file.type) {
+      case DownloadSidecarType.subtitle:
+        return file.language == null ? 'Subtitle' : 'Subtitle ${file.language}';
+      case DownloadSidecarType.thumbnail:
+        return 'Thumbnail';
+      case DownloadSidecarType.metadata:
+        return 'Metadata';
+    }
   }
 }
 

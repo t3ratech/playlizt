@@ -616,8 +616,11 @@ class DownloadManager with ChangeNotifier {
       }
 
       _tokens.remove(task.id);
+      final completedSidecars =
+          await _discoverCompletedSidecars(_tasks[task.id]!);
       _tasks[task.id] = _tasks[task.id]!.copyWith(
         status: DownloadStatus.completed,
+        sidecarFiles: completedSidecars,
       );
       await _recordArchive(_tasks[task.id]!);
       await _persistTasks();
@@ -846,6 +849,72 @@ class DownloadManager with ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  Future<List<DownloadSidecarFile>> _discoverCompletedSidecars(
+    DownloadTask task,
+  ) async {
+    if (task.backend != DownloadBackend.youtubeDl ||
+        !task.options.hasPostProcessing) {
+      return task.sidecarFiles;
+    }
+
+    final mediaFile = File(task.filePath);
+    final directory = mediaFile.parent;
+    if (!await directory.exists()) return task.sidecarFiles;
+
+    final mediaName = mediaFile.uri.pathSegments.isEmpty
+        ? task.fileName
+        : mediaFile.uri.pathSegments.last;
+    final mediaBase = _baseName(mediaName);
+    final sidecars = <DownloadSidecarFile>[];
+
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is! File) continue;
+      if (entity.path == task.filePath) continue;
+
+      final name = entity.uri.pathSegments.isEmpty
+          ? entity.path.split(Platform.pathSeparator).last
+          : entity.uri.pathSegments.last;
+      if (!name.startsWith(mediaBase)) continue;
+
+      final type = DownloadSidecarFile.typeForPath(entity.path);
+      if (type == null) continue;
+      if (type == DownloadSidecarType.subtitle &&
+          !task.options.writeSubtitles) {
+        continue;
+      }
+      if (type == DownloadSidecarType.thumbnail &&
+          !task.options.writeThumbnail) {
+        continue;
+      }
+      if (type == DownloadSidecarType.metadata && !task.options.writeMetadata) {
+        continue;
+      }
+
+      final stat = await entity.stat();
+      sidecars.add(
+        DownloadSidecarFile(
+          type: type,
+          path: entity.path,
+          language: type == DownloadSidecarType.subtitle
+              ? DownloadSidecarFile.languageForPath(
+                  sidecarPath: entity.path,
+                  mediaPath: task.filePath,
+                )
+              : null,
+          format: DownloadSidecarFile.extensionForPath(entity.path),
+          sizeBytes: stat.size,
+        ),
+      );
+    }
+
+    sidecars.sort((a, b) {
+      final typeCompare = a.type.name.compareTo(b.type.name);
+      if (typeCompare != 0) return typeCompare;
+      return a.fileName.toLowerCase().compareTo(b.fileName.toLowerCase());
+    });
+    return sidecars;
   }
 
   Future<void> _downloadHlsToFile(
@@ -1157,5 +1226,10 @@ class DownloadManager with ChangeNotifier {
       return '$home/${trimmed.substring(2)}';
     }
     return trimmed;
+  }
+
+  String _baseName(String name) {
+    final dot = name.lastIndexOf('.');
+    return dot <= 0 ? name : name.substring(0, dot);
   }
 }

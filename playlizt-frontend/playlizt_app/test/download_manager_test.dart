@@ -365,4 +365,64 @@ https://example.test/one.mp4
           manager.tasks.single.currentStage, 'Already downloaded in archive');
     });
   });
+
+  group('Download sidecars', () {
+    test('classifies subtitle thumbnail and metadata files', () {
+      expect(
+        DownloadSidecarFile.typeForPath('/tmp/video.en.vtt'),
+        DownloadSidecarType.subtitle,
+      );
+      expect(
+        DownloadSidecarFile.typeForPath('/tmp/video.jpg'),
+        DownloadSidecarType.thumbnail,
+      );
+      expect(
+        DownloadSidecarFile.typeForPath('/tmp/video.info.json'),
+        DownloadSidecarType.metadata,
+      );
+      expect(
+        DownloadSidecarFile.languageForPath(
+          sidecarPath: '/tmp/video.en.vtt',
+          mediaPath: '/tmp/video.mp4',
+        ),
+        'en',
+      );
+    });
+
+    test('persists sidecar files on download tasks', () {
+      const task = DownloadTask(
+        id: 'task-sidecar',
+        url: 'https://example.test/video',
+        filePath: '/tmp/video.mp4',
+        fileName: 'video.mp4',
+        backend: DownloadBackend.youtubeDl,
+        status: DownloadStatus.completed,
+        receivedBytes: 100,
+        totalBytes: 100,
+        sidecarFiles: [
+          DownloadSidecarFile(
+            type: DownloadSidecarType.subtitle,
+            path: '/tmp/video.en.vtt',
+            language: 'en',
+            format: 'vtt',
+            sizeBytes: 128,
+          ),
+          DownloadSidecarFile(
+            type: DownloadSidecarType.metadata,
+            path: '/tmp/video.info.json',
+            format: 'json',
+            sizeBytes: 256,
+          ),
+        ],
+      );
+
+      final restored = DownloadTask.fromJson(task.toJson());
+
+      expect(restored.sidecarFiles, hasLength(2));
+      expect(restored.sidecarFiles.first.type, DownloadSidecarType.subtitle);
+      expect(restored.sidecarFiles.first.language, 'en');
+      expect(restored.sidecarFiles.last.type, DownloadSidecarType.metadata);
+      expect(restored.sidecarFiles.last.sizeBytes, 256);
+    });
+  });
 }

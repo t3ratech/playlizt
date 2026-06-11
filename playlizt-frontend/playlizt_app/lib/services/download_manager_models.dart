@@ -21,6 +21,8 @@ enum DownloadStatus {
 
 enum DownloadBackend { native, youtubeDl }
 
+enum DownloadSidecarType { subtitle, thumbnail, metadata }
+
 class DownloadOptions {
   final String? formatId;
   final bool audioOnly;
@@ -129,6 +131,114 @@ class DownloadBatchParser {
   }
 }
 
+class DownloadSidecarFile {
+  final DownloadSidecarType type;
+  final String path;
+  final String? language;
+  final String? format;
+  final int? sizeBytes;
+
+  const DownloadSidecarFile({
+    required this.type,
+    required this.path,
+    this.language,
+    this.format,
+    this.sizeBytes,
+  });
+
+  String get fileName => path.split(RegExp(r'[/\\]')).last;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type.name,
+      'path': path,
+      'language': language,
+      'format': format,
+      'sizeBytes': sizeBytes,
+    };
+  }
+
+  static DownloadSidecarFile fromJson(Map<String, dynamic> json) {
+    return DownloadSidecarFile(
+      type: _enumByName(
+        DownloadSidecarType.values,
+        json['type'] as String?,
+        DownloadSidecarType.metadata,
+      ),
+      path: json['path'] as String,
+      language: json['language'] as String?,
+      format: json['format'] as String?,
+      sizeBytes: (json['sizeBytes'] as num?)?.toInt(),
+    );
+  }
+
+  static DownloadSidecarType? typeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.info.json')) return DownloadSidecarType.metadata;
+    final extension = extensionForPath(path);
+    if (_subtitleExtensions.contains(extension)) {
+      return DownloadSidecarType.subtitle;
+    }
+    if (_thumbnailExtensions.contains(extension)) {
+      return DownloadSidecarType.thumbnail;
+    }
+    return null;
+  }
+
+  static String? languageForPath({
+    required String sidecarPath,
+    required String mediaPath,
+  }) {
+    final sidecarName = sidecarPath.split(RegExp(r'[/\\]')).last;
+    final mediaName = mediaPath.split(RegExp(r'[/\\]')).last;
+    final mediaBase = _baseName(mediaName);
+    final sidecarBase = _baseName(sidecarName.replaceAll('.info', ''));
+    if (!sidecarBase.startsWith('$mediaBase.')) return null;
+    final suffix = sidecarBase.substring(mediaBase.length + 1);
+    return suffix.trim().isEmpty ? null : suffix;
+  }
+
+  static String extensionForPath(String path) {
+    final name = path.split(RegExp(r'[/\\]')).last;
+    final dot = name.lastIndexOf('.');
+    if (dot == -1 || dot == name.length - 1) return '';
+    return name.substring(dot + 1).toLowerCase();
+  }
+
+  static String _baseName(String name) {
+    final dot = name.lastIndexOf('.');
+    return dot <= 0 ? name : name.substring(0, dot);
+  }
+
+  static T _enumByName<T extends Enum>(
+    List<T> values,
+    String? name,
+    T fallback,
+  ) {
+    for (final value in values) {
+      if (value.name == name) return value;
+    }
+    return fallback;
+  }
+
+  static const _subtitleExtensions = {
+    'ass',
+    'srt',
+    'ssa',
+    'sub',
+    'vtt',
+  };
+
+  static const _thumbnailExtensions = {
+    'avif',
+    'gif',
+    'jpeg',
+    'jpg',
+    'png',
+    'webp',
+  };
+}
+
 class DownloadTask {
   final String id;
   final String url;
@@ -151,6 +261,7 @@ class DownloadTask {
   final String? playlistTitle;
   final int? playlistIndex;
   final int? playlistCount;
+  final List<DownloadSidecarFile> sidecarFiles;
   final String? errorMessage;
 
   const DownloadTask({
@@ -175,6 +286,7 @@ class DownloadTask {
     this.playlistTitle,
     this.playlistIndex,
     this.playlistCount,
+    this.sidecarFiles = const [],
     this.errorMessage,
   });
 
@@ -205,6 +317,7 @@ class DownloadTask {
     String? playlistTitle,
     int? playlistIndex,
     int? playlistCount,
+    List<DownloadSidecarFile>? sidecarFiles,
     String? errorMessage,
     bool clearErrorMessage = false,
   }) {
@@ -230,6 +343,7 @@ class DownloadTask {
       playlistTitle: playlistTitle ?? this.playlistTitle,
       playlistIndex: playlistIndex ?? this.playlistIndex,
       playlistCount: playlistCount ?? this.playlistCount,
+      sidecarFiles: sidecarFiles ?? this.sidecarFiles,
       errorMessage:
           clearErrorMessage ? null : errorMessage ?? this.errorMessage,
     );
@@ -258,6 +372,7 @@ class DownloadTask {
       'playlistTitle': playlistTitle,
       'playlistIndex': playlistIndex,
       'playlistCount': playlistCount,
+      'sidecarFiles': sidecarFiles.map((file) => file.toJson()).toList(),
       'errorMessage': errorMessage,
     };
   }
@@ -311,6 +426,21 @@ class DownloadTask {
       playlistTitle: json['playlistTitle'] as String?,
       playlistIndex: (json['playlistIndex'] as num?)?.toInt(),
       playlistCount: (json['playlistCount'] as num?)?.toInt(),
+      sidecarFiles: (json['sidecarFiles'] as List<dynamic>?)
+              ?.map((item) {
+                if (item is Map<String, dynamic>) {
+                  return DownloadSidecarFile.fromJson(item);
+                }
+                if (item is Map) {
+                  return DownloadSidecarFile.fromJson(
+                    item.map((key, value) => MapEntry(key.toString(), value)),
+                  );
+                }
+                return null;
+              })
+              .whereType<DownloadSidecarFile>()
+              .toList() ??
+          const [],
       errorMessage: json['errorMessage'] as String?,
     );
   }
