@@ -836,6 +836,7 @@ class DownloadManager with ChangeNotifier {
       cookieFile: task.options.cookieFile,
       username: task.options.username,
       password: task.options.password,
+      twoFactorCode: task.options.twoFactorCode,
       retries: task.options.retries,
       fragmentRetries: task.options.fragmentRetries,
       concurrentFragments: task.options.concurrentFragments,

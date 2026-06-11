@@ -36,6 +36,7 @@ class DownloadOptions {
   final String? cookieFile;
   final String? username;
   final String? password;
+  final String? twoFactorCode;
   final String? retries;
   final String? fragmentRetries;
   final String? concurrentFragments;
@@ -64,6 +65,7 @@ class DownloadOptions {
     this.cookieFile,
     this.username,
     this.password,
+    this.twoFactorCode,
     this.retries,
     this.fragmentRetries,
     this.concurrentFragments,
@@ -97,6 +99,7 @@ class DownloadOptions {
       'cookieFile': cookieFile,
       'username': username,
       'password': null,
+      'twoFactorCode': null,
       'retries': retries,
       'fragmentRetries': fragmentRetries,
       'concurrentFragments': concurrentFragments,
@@ -129,6 +132,7 @@ class DownloadOptions {
       cookieFile: json['cookieFile'] as String?,
       username: json['username'] as String?,
       password: json['password'] as String?,
+      twoFactorCode: null,
       retries: json['retries'] as String?,
       fragmentRetries: json['fragmentRetries'] as String?,
       concurrentFragments: json['concurrentFragments'] as String?,

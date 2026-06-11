@@ -192,6 +192,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   final TextEditingController _cookieFileController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _twoFactorController = TextEditingController();
   final TextEditingController _retriesController = TextEditingController();
   final TextEditingController _fragmentRetriesController =
       TextEditingController();
@@ -244,6 +245,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
     _cookieFileController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _twoFactorController.dispose();
     _retriesController.dispose();
     _fragmentRetriesController.dispose();
     _concurrentFragmentsController.dispose();
@@ -298,6 +300,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         cookieFile: _emptyToNull(_cookieFileController.text),
         username: _emptyToNull(_usernameController.text),
         password: _emptyToNull(_passwordController.text),
+        twoFactorCode: _emptyToNull(_twoFactorController.text),
         retries: _emptyToNull(_retriesController.text),
         fragmentRetries: _emptyToNull(_fragmentRetriesController.text),
         concurrentFragments: _emptyToNull(_concurrentFragmentsController.text),
@@ -951,6 +954,16 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                           obscureText: true,
                           decoration: const InputDecoration(
                             labelText: 'Password',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _twoFactorController,
+                          decoration: const InputDecoration(
+                            labelText: '2FA code',
                             border: OutlineInputBorder(),
                           ),
                         ),

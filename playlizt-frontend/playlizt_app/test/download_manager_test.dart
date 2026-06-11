@@ -253,6 +253,7 @@ void main() {
           cookieFile: '/tmp/cookies.txt',
           username: 'demo-user',
           password: 'demo-pass',
+          twoFactorCode: '123456',
           retries: '5',
           fragmentRetries: '3',
           concurrentFragments: '4',
@@ -290,6 +291,7 @@ void main() {
       expect(restored.options.cookieFile, '/tmp/cookies.txt');
       expect(restored.options.username, 'demo-user');
       expect(restored.options.password, isNull);
+      expect(restored.options.twoFactorCode, isNull);
       expect(restored.options.retries, '5');
       expect(restored.options.fragmentRetries, '3');
       expect(restored.options.concurrentFragments, '4');
@@ -435,6 +437,9 @@ https://example.test/one.mp4
         sourceUrl: 'https://example.test/playlist',
         outputPath: '/tmp/%(title)s.%(ext)s',
         formatId: 'bestvideo+bestaudio/best',
+        username: 'demo-user',
+        password: 'demo-pass',
+        twoFactorCode: '123456',
         playlistStart: '2',
         playlistEnd: '5',
         playlistItems: '2,4-6',
@@ -449,6 +454,9 @@ https://example.test/one.mp4
       );
 
       expect(args.first, '--yes-playlist');
+      expect(args, containsAll(['--username', 'demo-user']));
+      expect(args, containsAll(['--password', 'demo-pass']));
+      expect(args, containsAll(['--twofactor', '123456']));
       expect(args, containsAll(['--playlist-start', '2']));
       expect(args, containsAll(['--playlist-end', '5']));
       expect(args, containsAll(['--playlist-items', '2,4-6']));

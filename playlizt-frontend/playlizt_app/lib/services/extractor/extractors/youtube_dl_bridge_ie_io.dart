@@ -240,6 +240,7 @@ class YoutubeDlProcess {
     String? cookieFile,
     String? username,
     String? password,
+    String? twoFactorCode,
     String? retries,
     String? fragmentRetries,
     String? concurrentFragments,
@@ -271,6 +272,7 @@ class YoutubeDlProcess {
       cookieFile: cookieFile,
       username: username,
       password: password,
+      twoFactorCode: twoFactorCode,
       retries: retries,
       fragmentRetries: fragmentRetries,
       concurrentFragments: concurrentFragments,
@@ -346,6 +348,7 @@ class YoutubeDlProcess {
     String? cookieFile,
     String? username,
     String? password,
+    String? twoFactorCode,
     String? retries,
     String? fragmentRetries,
     String? concurrentFragments,
@@ -396,6 +399,9 @@ class YoutubeDlProcess {
     }
     if (password != null && password.isNotEmpty) {
       args.addAll(['--password', password]);
+    }
+    if (twoFactorCode != null && twoFactorCode.trim().isNotEmpty) {
+      args.addAll(['--twofactor', twoFactorCode.trim()]);
     }
     if (retries != null && retries.trim().isNotEmpty) {
       args.addAll(['--retries', retries.trim()]);
