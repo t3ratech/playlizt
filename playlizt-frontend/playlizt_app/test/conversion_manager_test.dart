@@ -78,6 +78,40 @@ void main() {
       expect(args.last, '/tmp/out.mp4');
     });
 
+    test('builds thumbnail and short clip workflow presets', () {
+      final thumbnail = ConversionPreset.byId(ConversionPresetId.thumbnail);
+      final gif = ConversionPreset.byId(ConversionPresetId.gifClip);
+      final webm = ConversionPreset.byId(ConversionPresetId.webmClip);
+
+      expect(thumbnail.outputExtension, 'jpg');
+      expect(
+        thumbnail.buildFfmpegArguments(
+          inputPath: '/tmp/source.mkv',
+          outputPath: '/tmp/thumb.jpg',
+          startTime: '00:00:03',
+        ),
+        containsAll(['-frames:v', '1', '-q:v', '2', '-an']),
+      );
+
+      expect(gif.outputExtension, 'gif');
+      expect(
+        gif.buildFfmpegArguments(
+          inputPath: '/tmp/source.mkv',
+          outputPath: '/tmp/clip.gif',
+        ),
+        containsAll(['-vf', 'fps=15,scale=640:-1:flags=lanczos']),
+      );
+
+      expect(webm.outputExtension, 'webm');
+      expect(
+        webm.buildFfmpegArguments(
+          inputPath: '/tmp/source.mkv',
+          outputPath: '/tmp/clip.webm',
+        ),
+        containsAll(['-c:v', 'libvpx-vp9', '-c:a', 'libopus']),
+      );
+    });
+
     test('validates subtitle burn-in requires a subtitle path', () {
       const options = ConversionAdvancedOptions(
         subtitleMode: ConversionSubtitleMode.burnIn,

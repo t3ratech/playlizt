@@ -26,6 +26,9 @@ enum ConversionPresetId {
   remux,
   audioOnly,
   webClip,
+  webmClip,
+  gifClip,
+  thumbnail,
   mobileVideo,
   custom,
 }
@@ -313,6 +316,24 @@ class ConversionPreset {
       outputExtension: 'mp4',
     ),
     ConversionPreset(
+      id: ConversionPresetId.webmClip,
+      label: 'WebM Clip',
+      description: 'VP9/Opus clip for lightweight web sharing',
+      outputExtension: 'webm',
+    ),
+    ConversionPreset(
+      id: ConversionPresetId.gifClip,
+      label: 'GIF Clip',
+      description: 'Animated GIF clip with web-friendly scaling',
+      outputExtension: 'gif',
+    ),
+    ConversionPreset(
+      id: ConversionPresetId.thumbnail,
+      label: 'Thumbnail',
+      description: 'Single JPEG frame from the selected timestamp',
+      outputExtension: 'jpg',
+    ),
+    ConversionPreset(
       id: ConversionPresetId.mobileVideo,
       label: 'Mobile Video',
       description: 'H.264/AAC video tuned for phone playback',
@@ -418,6 +439,31 @@ class ConversionPreset {
           '-movflags',
           '+faststart',
         ]);
+        break;
+      case ConversionPresetId.webmClip:
+        args.addAll([
+          '-c:v',
+          'libvpx-vp9',
+          '-b:v',
+          '0',
+          '-crf',
+          '32',
+          '-c:a',
+          'libopus',
+          '-b:a',
+          '96k',
+        ]);
+        break;
+      case ConversionPresetId.gifClip:
+        args.addAll([
+          '-vf',
+          'fps=15,scale=640:-1:flags=lanczos',
+          '-loop',
+          '0',
+        ]);
+        break;
+      case ConversionPresetId.thumbnail:
+        args.addAll(['-frames:v', '1', '-q:v', '2', '-an']);
         break;
       case ConversionPresetId.mobileVideo:
         args.addAll([
