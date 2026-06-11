@@ -610,36 +610,137 @@ class ConversionJob {
 
 class MediaProbeInfo {
   final String path;
+  final String? formatName;
+  final String? formatLongName;
   final int? durationSeconds;
   final int? bitrate;
+  final int? sizeBytes;
+  final Map<String, String> metadata;
   final List<MediaProbeStream> streams;
 
   const MediaProbeInfo({
     required this.path,
+    this.formatName,
+    this.formatLongName,
     this.durationSeconds,
     this.bitrate,
+    this.sizeBytes,
+    this.metadata = const {},
     this.streams = const [],
   });
+
+  static MediaProbeInfo fromFfprobeJson(
+    Map<String, dynamic> json, {
+    required String path,
+  }) {
+    final format = json['format'];
+    final streams = <MediaProbeStream>[];
+    final rawStreams = json['streams'];
+    if (rawStreams is List) {
+      for (final raw in rawStreams) {
+        if (raw is! Map) continue;
+        streams.add(
+          MediaProbeStream.fromFfprobeJson(
+            raw.map((key, value) => MapEntry(key.toString(), value)),
+            fallbackIndex: streams.length,
+          ),
+        );
+      }
+    }
+
+    if (format is! Map) {
+      return MediaProbeInfo(path: path, streams: streams);
+    }
+
+    final rawFormat =
+        format.map((key, value) => MapEntry(key.toString(), value));
+    return MediaProbeInfo(
+      path: path,
+      formatName: rawFormat['format_name']?.toString(),
+      formatLongName: rawFormat['format_long_name']?.toString(),
+      durationSeconds:
+          double.tryParse(rawFormat['duration']?.toString() ?? '')?.round(),
+      bitrate: int.tryParse(rawFormat['bit_rate']?.toString() ?? ''),
+      sizeBytes: int.tryParse(rawFormat['size']?.toString() ?? ''),
+      metadata: _stringMap(rawFormat['tags']),
+      streams: streams,
+    );
+  }
+
+  static Map<String, String> _stringMap(Object? value) {
+    if (value is! Map) return const {};
+    return value.map((key, raw) => MapEntry(key.toString(), raw.toString()));
+  }
 }
 
 class MediaProbeStream {
   final int index;
   final String codecType;
   final String? codecName;
+  final String? codecLongName;
   final int? width;
   final int? height;
+  final double? frameRate;
+  final int? bitrate;
+  final int? durationSeconds;
   final int? sampleRate;
   final int? channels;
+  final String? language;
 
   const MediaProbeStream({
     required this.index,
     required this.codecType,
     this.codecName,
+    this.codecLongName,
     this.width,
     this.height,
+    this.frameRate,
+    this.bitrate,
+    this.durationSeconds,
     this.sampleRate,
     this.channels,
+    this.language,
   });
+
+  static MediaProbeStream fromFfprobeJson(
+    Map<String, dynamic> json, {
+    required int fallbackIndex,
+  }) {
+    return MediaProbeStream(
+      index: (json['index'] as num?)?.toInt() ?? fallbackIndex,
+      codecType: json['codec_type']?.toString() ?? 'unknown',
+      codecName: json['codec_name']?.toString(),
+      codecLongName: json['codec_long_name']?.toString(),
+      width: (json['width'] as num?)?.toInt(),
+      height: (json['height'] as num?)?.toInt(),
+      frameRate: _parseFrameRate(json['avg_frame_rate']?.toString()),
+      bitrate: int.tryParse(json['bit_rate']?.toString() ?? ''),
+      durationSeconds:
+          double.tryParse(json['duration']?.toString() ?? '')?.round(),
+      sampleRate: int.tryParse(json['sample_rate']?.toString() ?? ''),
+      channels: (json['channels'] as num?)?.toInt(),
+      language: _stringMap(json['tags'])['language'],
+    );
+  }
+
+  static double? _parseFrameRate(String? value) {
+    if (value == null || value.isEmpty || value == '0/0') return null;
+    final parts = value.split('/');
+    if (parts.length == 2) {
+      final numerator = double.tryParse(parts[0]);
+      final denominator = double.tryParse(parts[1]);
+      if (numerator == null || denominator == null || denominator == 0) {
+        return null;
+      }
+      return numerator / denominator;
+    }
+    return double.tryParse(value);
+  }
+
+  static Map<String, String> _stringMap(Object? value) {
+    if (value is! Map) return const {};
+    return value.map((key, raw) => MapEntry(key.toString(), raw.toString()));
+  }
 }
 
 class FfmpegProgressSnapshot {

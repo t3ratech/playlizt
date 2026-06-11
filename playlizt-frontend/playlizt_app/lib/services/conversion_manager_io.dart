@@ -158,7 +158,10 @@ class ConversionManager with ChangeNotifier {
     if (decoded is! Map<String, dynamic>) {
       throw StateError('Media probe returned invalid JSON');
     }
-    return _mapProbe(decoded, _resolveHome(inputPath));
+    return MediaProbeInfo.fromFfprobeJson(
+      decoded,
+      path: _resolveHome(inputPath),
+    );
   }
 
   Future<FfmpegCapabilityInventory> loadCapabilityInventory() async {
@@ -367,44 +370,6 @@ class ConversionManager with ChangeNotifier {
       index++;
     }
     return candidate;
-  }
-
-  MediaProbeInfo _mapProbe(Map<String, dynamic> json, String path) {
-    final format = json['format'];
-    final streams = <MediaProbeStream>[];
-    final rawStreams = json['streams'];
-    if (rawStreams is List) {
-      for (final raw in rawStreams) {
-        if (raw is! Map) continue;
-        streams.add(
-          MediaProbeStream(
-            index: (raw['index'] as num?)?.toInt() ?? streams.length,
-            codecType: raw['codec_type']?.toString() ?? 'unknown',
-            codecName: raw['codec_name']?.toString(),
-            width: (raw['width'] as num?)?.toInt(),
-            height: (raw['height'] as num?)?.toInt(),
-            sampleRate: int.tryParse(raw['sample_rate']?.toString() ?? ''),
-            channels: (raw['channels'] as num?)?.toInt(),
-          ),
-        );
-      }
-    }
-
-    int? duration;
-    int? bitrate;
-    if (format is Map) {
-      final durationText = format['duration']?.toString();
-      final bitrateText = format['bit_rate']?.toString();
-      duration = double.tryParse(durationText ?? '')?.round();
-      bitrate = int.tryParse(bitrateText ?? '');
-    }
-
-    return MediaProbeInfo(
-      path: path,
-      durationSeconds: duration,
-      bitrate: bitrate,
-      streams: streams,
-    );
   }
 
   Future<int> _countCapabilityLines(String executable, String flag) async {

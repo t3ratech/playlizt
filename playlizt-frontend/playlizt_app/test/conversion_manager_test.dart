@@ -86,6 +86,53 @@ void main() {
       expect(options.validate, throwsArgumentError);
     });
 
+    test('maps ffprobe JSON into media probe metadata', () {
+      final info = MediaProbeInfo.fromFfprobeJson({
+        'format': {
+          'format_name': 'matroska,webm',
+          'format_long_name': 'Matroska / WebM',
+          'duration': '125.42',
+          'bit_rate': '2500000',
+          'size': '39321600',
+          'tags': {'title': 'Probe Sample'},
+        },
+        'streams': [
+          {
+            'index': 0,
+            'codec_type': 'video',
+            'codec_name': 'h264',
+            'codec_long_name': 'H.264 / AVC',
+            'width': 1920,
+            'height': 1080,
+            'avg_frame_rate': '30000/1001',
+            'bit_rate': '2200000',
+            'tags': {'language': 'eng'},
+          },
+          {
+            'index': 1,
+            'codec_type': 'audio',
+            'codec_name': 'aac',
+            'sample_rate': '48000',
+            'channels': 2,
+          },
+        ],
+      }, path: '/tmp/source.mkv');
+
+      expect(info.path, '/tmp/source.mkv');
+      expect(info.formatName, 'matroska,webm');
+      expect(info.formatLongName, 'Matroska / WebM');
+      expect(info.durationSeconds, 125);
+      expect(info.bitrate, 2500000);
+      expect(info.sizeBytes, 39321600);
+      expect(info.metadata['title'], 'Probe Sample');
+      expect(info.streams, hasLength(2));
+      expect(info.streams.first.codecType, 'video');
+      expect(info.streams.first.frameRate, closeTo(29.97, 0.01));
+      expect(info.streams.first.language, 'eng');
+      expect(info.streams.last.sampleRate, 48000);
+      expect(info.streams.last.channels, 2);
+    });
+
     test('parses ffmpeg progress snapshots into Playlizt progress', () {
       final parser = FfmpegProgressParser();
 

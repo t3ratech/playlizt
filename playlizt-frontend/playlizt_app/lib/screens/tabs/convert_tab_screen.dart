@@ -40,6 +40,9 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
   ConversionPresetId _selectedPreset = ConversionPresetId.mp3;
   ConversionSubtitleMode _subtitleMode = ConversionSubtitleMode.preserve;
   bool _isSubmitting = false;
+  bool _isProbing = false;
+  MediaProbeInfo? _probeInfo;
+  String? _probeError;
 
   @override
   void dispose() {
@@ -115,6 +118,39 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _probeInput(ConversionManager manager) async {
+    final input = _inputController.text.trim();
+    if (input.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose or paste an input file path')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isProbing = true;
+      _probeError = null;
+      _probeInfo = null;
+    });
+
+    try {
+      final probe = await manager.probeMedia(input);
+      if (!mounted) return;
+      setState(() {
+        _probeInfo = probe;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _probeError = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isProbing = false);
+      }
     }
   }
 
@@ -204,15 +240,43 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: _inputController,
-                        decoration: const InputDecoration(
-                          labelText: 'Input file path',
-                          hintText: '/home/user/Videos/source.mkv',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.video_file),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _inputController,
+                              decoration: const InputDecoration(
+                                labelText: 'Input file path',
+                                hintText: '/home/user/Videos/source.mkv',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.video_file),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            onPressed:
+                                _isProbing ? null : () => _probeInput(manager),
+                            icon: _isProbing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.info_outline),
+                            label: Text(_isProbing ? 'Probing' : 'Probe'),
+                          ),
+                        ],
                       ),
+                      if (_probeInfo != null || _probeError != null) ...[
+                        const SizedBox(height: 12),
+                        _ProbeSummary(
+                          probeInfo: _probeInfo,
+                          errorMessage: _probeError,
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       if (_selectedPreset == ConversionPresetId.custom) ...[
                         TextField(
@@ -532,6 +596,148 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
         );
       },
     );
+  }
+}
+
+class _ProbeSummary extends StatelessWidget {
+  final MediaProbeInfo? probeInfo;
+  final String? errorMessage;
+
+  const _ProbeSummary({required this.probeInfo, required this.errorMessage});
+
+  @override
+  Widget build(BuildContext context) {
+    final error = errorMessage?.trim();
+    if (error != null && error.isNotEmpty) {
+      return Text(error, style: const TextStyle(color: Colors.red));
+    }
+
+    final info = probeInfo;
+    if (info == null) return const SizedBox.shrink();
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (info.formatLongName != null || info.formatName != null)
+                  Chip(
+                    label: Text(info.formatLongName ?? info.formatName!),
+                  ),
+                if (info.durationSeconds != null)
+                  Chip(label: Text(_duration(info.durationSeconds!))),
+                if (info.bitrate != null)
+                  Chip(label: Text(_bitrate(info.bitrate!))),
+                if (info.sizeBytes != null)
+                  Chip(label: Text(_bytes(info.sizeBytes!))),
+              ],
+            ),
+            if (info.metadata.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                info.metadata.entries
+                    .take(4)
+                    .map((entry) => '${entry.key}: ${entry.value}')
+                    .join(' • '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (info.streams.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Column(
+                children: info.streams.map((stream) {
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(_streamIcon(stream.codecType)),
+                    title: Text(
+                      _streamTitle(stream),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      _streamSubtitle(stream),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _streamIcon(String type) {
+    switch (type) {
+      case 'video':
+        return Icons.movie_outlined;
+      case 'audio':
+        return Icons.audiotrack_outlined;
+      case 'subtitle':
+        return Icons.subtitles_outlined;
+      default:
+        return Icons.notes_outlined;
+    }
+  }
+
+  String _streamTitle(MediaProbeStream stream) {
+    final language = stream.language == null ? '' : ' • ${stream.language}';
+    return '#${stream.index} ${stream.codecType}$language';
+  }
+
+  String _streamSubtitle(MediaProbeStream stream) {
+    final details = <String>[
+      if (stream.codecLongName != null) stream.codecLongName!,
+      if (stream.codecLongName == null && stream.codecName != null)
+        stream.codecName!,
+      if (stream.width != null && stream.height != null)
+        '${stream.width}x${stream.height}',
+      if (stream.frameRate != null)
+        '${stream.frameRate!.toStringAsFixed(2)} fps',
+      if (stream.sampleRate != null) '${stream.sampleRate} Hz',
+      if (stream.channels != null) '${stream.channels} channels',
+      if (stream.bitrate != null) _bitrate(stream.bitrate!),
+    ];
+    return details.isEmpty ? 'Stream details unavailable' : details.join(' • ');
+  }
+
+  String _duration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final remaining = seconds % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:'
+          '${remaining.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${remaining.toString().padLeft(2, '0')}';
+  }
+
+  String _bitrate(int value) {
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(2)} Mb/s';
+    return '${(value / 1000).round()} kb/s';
+  }
+
+  String _bytes(int value) {
+    if (value < 1024) return '$value B';
+    if (value < 1024 * 1024) return '${(value / 1024).toStringAsFixed(1)} KB';
+    if (value < 1024 * 1024 * 1024) {
+      return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
 
