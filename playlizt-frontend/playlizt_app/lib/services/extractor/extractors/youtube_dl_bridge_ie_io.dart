@@ -245,10 +245,120 @@ class YoutubeDlProcess {
     String? socketTimeoutSeconds,
     String? userAgent,
     String? referer,
+    String? playlistStart,
+    String? playlistEnd,
+    String? playlistItems,
+    String? matchTitle,
+    String? rejectTitle,
+    String? ageLimit,
+    bool geoBypass = false,
+    String? geoVerificationProxy,
+    bool forcePlaylist = false,
     required void Function(YoutubeDlProgress progress) onProgress,
   }) async {
+    final args = buildDownloadArguments(
+      sourceUrl: sourceUrl,
+      outputPath: outputPath,
+      formatId: formatId,
+      audioOnly: audioOnly,
+      writeSubtitles: writeSubtitles,
+      writeThumbnail: writeThumbnail,
+      writeMetadata: writeMetadata,
+      proxy: proxy,
+      rateLimit: rateLimit,
+      cookieFile: cookieFile,
+      username: username,
+      password: password,
+      retries: retries,
+      fragmentRetries: fragmentRetries,
+      socketTimeoutSeconds: socketTimeoutSeconds,
+      userAgent: userAgent,
+      referer: referer,
+      playlistStart: playlistStart,
+      playlistEnd: playlistEnd,
+      playlistItems: playlistItems,
+      matchTitle: matchTitle,
+      rejectTitle: rejectTitle,
+      ageLimit: ageLimit,
+      geoBypass: geoBypass,
+      geoVerificationProxy: geoVerificationProxy,
+      forcePlaylist: forcePlaylist,
+    );
+
+    final command = _buildCommand(args);
+
+    final process = await Process.start(
+      command.executable,
+      command.arguments,
+      workingDirectory: command.workingDirectory,
+      environment: command.environment,
+      runInShell: Platform.isWindows,
+    );
+
+    unawaited(
+      cancelToken.whenCancel.then((_) {
+        process.kill(ProcessSignal.sigterm);
+      }),
+    );
+
+    final stdoutLines = process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
+      final progress = YoutubeDlProgress.parse(line);
+      if (progress != null) onProgress(progress);
+    });
+
+    final stderrFuture = process.stderr.transform(utf8.decoder).join();
+    final exitCode = await process.exitCode;
+    await stdoutLines.cancel();
+    final stderr = await stderrFuture;
+
+    if (cancelToken.isCancelled) {
+      throw DioException(
+        requestOptions: RequestOptions(path: sourceUrl),
+        type: DioExceptionType.cancel,
+        message: 'cancelled',
+      );
+    }
+
+    if (exitCode != 0) {
+      throw ExtractionError(
+        'youtube-dl download failed: ${_trimProcessText(stderr)}',
+      );
+    }
+  }
+
+  List<String> buildDownloadArguments({
+    required String sourceUrl,
+    required String outputPath,
+    String? formatId,
+    bool audioOnly = false,
+    bool writeSubtitles = false,
+    bool writeThumbnail = false,
+    bool writeMetadata = false,
+    String? proxy,
+    String? rateLimit,
+    String? cookieFile,
+    String? username,
+    String? password,
+    String? retries,
+    String? fragmentRetries,
+    String? socketTimeoutSeconds,
+    String? userAgent,
+    String? referer,
+    String? playlistStart,
+    String? playlistEnd,
+    String? playlistItems,
+    String? matchTitle,
+    String? rejectTitle,
+    String? ageLimit,
+    bool geoBypass = false,
+    String? geoVerificationProxy,
+    bool forcePlaylist = false,
+  }) {
     final args = <String>[
-      '--no-playlist',
+      forcePlaylist ? '--yes-playlist' : '--no-playlist',
       '--no-warnings',
       '--ignore-config',
       '--newline',
@@ -297,50 +407,33 @@ class YoutubeDlProcess {
     if (referer != null && referer.trim().isNotEmpty) {
       args.addAll(['--referer', referer.trim()]);
     }
+    if (playlistStart != null && playlistStart.trim().isNotEmpty) {
+      args.addAll(['--playlist-start', playlistStart.trim()]);
+    }
+    if (playlistEnd != null && playlistEnd.trim().isNotEmpty) {
+      args.addAll(['--playlist-end', playlistEnd.trim()]);
+    }
+    if (playlistItems != null && playlistItems.trim().isNotEmpty) {
+      args.addAll(['--playlist-items', playlistItems.trim()]);
+    }
+    if (matchTitle != null && matchTitle.trim().isNotEmpty) {
+      args.addAll(['--match-title', matchTitle.trim()]);
+    }
+    if (rejectTitle != null && rejectTitle.trim().isNotEmpty) {
+      args.addAll(['--reject-title', rejectTitle.trim()]);
+    }
+    if (ageLimit != null && ageLimit.trim().isNotEmpty) {
+      args.addAll(['--age-limit', ageLimit.trim()]);
+    }
+    if (geoBypass) {
+      args.add('--geo-bypass');
+    }
+    if (geoVerificationProxy != null &&
+        geoVerificationProxy.trim().isNotEmpty) {
+      args.addAll(['--geo-verification-proxy', geoVerificationProxy.trim()]);
+    }
     args.add(sourceUrl);
-
-    final command = _buildCommand(args);
-
-    final process = await Process.start(
-      command.executable,
-      command.arguments,
-      workingDirectory: command.workingDirectory,
-      environment: command.environment,
-      runInShell: Platform.isWindows,
-    );
-
-    unawaited(
-      cancelToken.whenCancel.then((_) {
-        process.kill(ProcessSignal.sigterm);
-      }),
-    );
-
-    final stdoutLines = process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((line) {
-      final progress = YoutubeDlProgress.parse(line);
-      if (progress != null) onProgress(progress);
-    });
-
-    final stderrFuture = process.stderr.transform(utf8.decoder).join();
-    final exitCode = await process.exitCode;
-    await stdoutLines.cancel();
-    final stderr = await stderrFuture;
-
-    if (cancelToken.isCancelled) {
-      throw DioException(
-        requestOptions: RequestOptions(path: sourceUrl),
-        type: DioExceptionType.cancel,
-        message: 'cancelled',
-      );
-    }
-
-    if (exitCode != 0) {
-      throw ExtractionError(
-        'youtube-dl download failed: ${_trimProcessText(stderr)}',
-      );
-    }
+    return args;
   }
 
   _ProcessCommand _buildCommand(List<String> youtubeDlArguments) {

@@ -823,6 +823,15 @@ class DownloadManager with ChangeNotifier {
       socketTimeoutSeconds: task.options.socketTimeoutSeconds,
       userAgent: task.options.userAgent,
       referer: task.options.referer,
+      playlistStart: task.options.playlistStart,
+      playlistEnd: task.options.playlistEnd,
+      playlistItems: task.options.playlistItems,
+      matchTitle: task.options.matchTitle,
+      rejectTitle: task.options.rejectTitle,
+      ageLimit: task.options.ageLimit,
+      geoBypass: task.options.geoBypass,
+      geoVerificationProxy: task.options.geoVerificationProxy,
+      forcePlaylist: task.options.forcePlaylist,
       onProgress: (progress) {
         final current = _tasks[taskId];
         if (current == null) return;

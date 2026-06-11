@@ -39,6 +39,15 @@ class DownloadOptions {
   final String? socketTimeoutSeconds;
   final String? userAgent;
   final String? referer;
+  final String? playlistStart;
+  final String? playlistEnd;
+  final String? playlistItems;
+  final String? matchTitle;
+  final String? rejectTitle;
+  final String? ageLimit;
+  final bool geoBypass;
+  final String? geoVerificationProxy;
+  final bool forcePlaylist;
 
   const DownloadOptions({
     this.formatId,
@@ -56,6 +65,15 @@ class DownloadOptions {
     this.socketTimeoutSeconds,
     this.userAgent,
     this.referer,
+    this.playlistStart,
+    this.playlistEnd,
+    this.playlistItems,
+    this.matchTitle,
+    this.rejectTitle,
+    this.ageLimit,
+    this.geoBypass = false,
+    this.geoVerificationProxy,
+    this.forcePlaylist = false,
   });
 
   bool get hasPostProcessing =>
@@ -78,6 +96,15 @@ class DownloadOptions {
       'socketTimeoutSeconds': socketTimeoutSeconds,
       'userAgent': userAgent,
       'referer': referer,
+      'playlistStart': playlistStart,
+      'playlistEnd': playlistEnd,
+      'playlistItems': playlistItems,
+      'matchTitle': matchTitle,
+      'rejectTitle': rejectTitle,
+      'ageLimit': ageLimit,
+      'geoBypass': geoBypass,
+      'geoVerificationProxy': geoVerificationProxy,
+      'forcePlaylist': forcePlaylist,
     };
   }
 
@@ -99,6 +126,15 @@ class DownloadOptions {
       socketTimeoutSeconds: json['socketTimeoutSeconds'] as String?,
       userAgent: json['userAgent'] as String?,
       referer: json['referer'] as String?,
+      playlistStart: json['playlistStart'] as String?,
+      playlistEnd: json['playlistEnd'] as String?,
+      playlistItems: json['playlistItems'] as String?,
+      matchTitle: json['matchTitle'] as String?,
+      rejectTitle: json['rejectTitle'] as String?,
+      ageLimit: json['ageLimit'] as String?,
+      geoBypass: json['geoBypass'] as bool? ?? false,
+      geoVerificationProxy: json['geoVerificationProxy'] as String?,
+      forcePlaylist: json['forcePlaylist'] as bool? ?? false,
     );
   }
 }

@@ -186,6 +186,15 @@ void main() {
           socketTimeoutSeconds: '15',
           userAgent: 'PlayliztTest/1.0',
           referer: 'https://example.test/watch',
+          playlistStart: '2',
+          playlistEnd: '5',
+          playlistItems: '2,4-6',
+          matchTitle: 'episode',
+          rejectTitle: 'trailer',
+          ageLimit: '18',
+          geoBypass: true,
+          geoVerificationProxy: 'socks5://127.0.0.1:1081',
+          forcePlaylist: true,
         ),
         status: DownloadStatus.queued,
         receivedBytes: 0,
@@ -212,6 +221,15 @@ void main() {
       expect(restored.options.socketTimeoutSeconds, '15');
       expect(restored.options.userAgent, 'PlayliztTest/1.0');
       expect(restored.options.referer, 'https://example.test/watch');
+      expect(restored.options.playlistStart, '2');
+      expect(restored.options.playlistEnd, '5');
+      expect(restored.options.playlistItems, '2,4-6');
+      expect(restored.options.matchTitle, 'episode');
+      expect(restored.options.rejectTitle, 'trailer');
+      expect(restored.options.ageLimit, '18');
+      expect(restored.options.geoBypass, isTrue);
+      expect(restored.options.geoVerificationProxy, 'socks5://127.0.0.1:1081');
+      expect(restored.options.forcePlaylist, isTrue);
     });
 
     test('marks in-flight persisted tasks as failed on restore', () {
@@ -303,6 +321,43 @@ https://example.test/one.mp4
       );
 
       expect(urls, contains('ftp://example.test/file.mov'));
+    });
+  });
+
+  group('youtube-dl download arguments', () {
+    test('passes structured site and playlist options', () {
+      const process = YoutubeDlProcess();
+
+      final args = process.buildDownloadArguments(
+        sourceUrl: 'https://example.test/playlist',
+        outputPath: '/tmp/%(title)s.%(ext)s',
+        formatId: 'bestvideo+bestaudio/best',
+        playlistStart: '2',
+        playlistEnd: '5',
+        playlistItems: '2,4-6',
+        matchTitle: 'episode',
+        rejectTitle: 'trailer',
+        ageLimit: '18',
+        geoBypass: true,
+        geoVerificationProxy: 'socks5://127.0.0.1:1081',
+        forcePlaylist: true,
+      );
+
+      expect(args.first, '--yes-playlist');
+      expect(args, containsAll(['--playlist-start', '2']));
+      expect(args, containsAll(['--playlist-end', '5']));
+      expect(args, containsAll(['--playlist-items', '2,4-6']));
+      expect(args, containsAll(['--match-title', 'episode']));
+      expect(args, containsAll(['--reject-title', 'trailer']));
+      expect(args, containsAll(['--age-limit', '18']));
+      expect(args, contains('--geo-bypass'));
+      expect(
+          args,
+          containsAll([
+            '--geo-verification-proxy',
+            'socks5://127.0.0.1:1081',
+          ]));
+      expect(args.last, 'https://example.test/playlist');
     });
   });
 

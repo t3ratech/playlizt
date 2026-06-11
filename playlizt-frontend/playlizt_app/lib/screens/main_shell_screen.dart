@@ -198,12 +198,24 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
       TextEditingController();
   final TextEditingController _userAgentController = TextEditingController();
   final TextEditingController _refererController = TextEditingController();
+  final TextEditingController _playlistStartController =
+      TextEditingController();
+  final TextEditingController _playlistEndController = TextEditingController();
+  final TextEditingController _playlistItemsController =
+      TextEditingController();
+  final TextEditingController _matchTitleController = TextEditingController();
+  final TextEditingController _rejectTitleController = TextEditingController();
+  final TextEditingController _ageLimitController = TextEditingController();
+  final TextEditingController _geoVerificationProxyController =
+      TextEditingController();
   bool _isSubmitting = false;
   bool _isEditingDefaultPath = false;
   bool _audioOnly = false;
   bool _writeSubtitles = false;
   bool _writeThumbnail = false;
   bool _writeMetadata = false;
+  bool _geoBypass = false;
+  bool _forcePlaylist = false;
 
   @override
   void initState() {
@@ -230,6 +242,13 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
     _socketTimeoutController.dispose();
     _userAgentController.dispose();
     _refererController.dispose();
+    _playlistStartController.dispose();
+    _playlistEndController.dispose();
+    _playlistItemsController.dispose();
+    _matchTitleController.dispose();
+    _rejectTitleController.dispose();
+    _ageLimitController.dispose();
+    _geoVerificationProxyController.dispose();
     super.dispose();
   }
 
@@ -275,6 +294,16 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         socketTimeoutSeconds: _emptyToNull(_socketTimeoutController.text),
         userAgent: _emptyToNull(_userAgentController.text),
         referer: _emptyToNull(_refererController.text),
+        playlistStart: _emptyToNull(_playlistStartController.text),
+        playlistEnd: _emptyToNull(_playlistEndController.text),
+        playlistItems: _emptyToNull(_playlistItemsController.text),
+        matchTitle: _emptyToNull(_matchTitleController.text),
+        rejectTitle: _emptyToNull(_rejectTitleController.text),
+        ageLimit: _emptyToNull(_ageLimitController.text),
+        geoBypass: _geoBypass,
+        geoVerificationProxy:
+            _emptyToNull(_geoVerificationProxyController.text),
+        forcePlaylist: _forcePlaylist,
       );
 
       if (settings.useDefaultDownloadLocation) {
@@ -699,6 +728,110 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                     decoration: const InputDecoration(
                       labelText: 'Cookie file',
                       hintText: '/home/user/cookies.txt',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('Force playlist'),
+                        selected: _forcePlaylist,
+                        onSelected: (value) {
+                          setState(() => _forcePlaylist = value);
+                        },
+                      ),
+                      FilterChip(
+                        label: const Text('Geo bypass'),
+                        selected: _geoBypass,
+                        onSelected: (value) {
+                          setState(() => _geoBypass = value);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _playlistStartController,
+                          decoration: const InputDecoration(
+                            labelText: 'Playlist start',
+                            hintText: '1',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _playlistEndController,
+                          decoration: const InputDecoration(
+                            labelText: 'Playlist end',
+                            hintText: '10',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _playlistItemsController,
+                          decoration: const InputDecoration(
+                            labelText: 'Playlist items',
+                            hintText: '1,3,5-8',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _matchTitleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Match title',
+                            hintText: 'regex',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _rejectTitleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Reject title',
+                            hintText: 'regex',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _ageLimitController,
+                          decoration: const InputDecoration(
+                            labelText: 'Age limit',
+                            hintText: '18',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _geoVerificationProxyController,
+                    decoration: const InputDecoration(
+                      labelText: 'Geo verification proxy',
+                      hintText: 'socks5://127.0.0.1:1080',
                       border: OutlineInputBorder(),
                     ),
                   ),
