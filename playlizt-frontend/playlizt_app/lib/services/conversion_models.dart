@@ -150,6 +150,12 @@ class ConversionPreset {
       description: 'H.264/AAC video tuned for phone playback',
       outputExtension: 'mp4',
     ),
+    ConversionPreset(
+      id: ConversionPresetId.custom,
+      label: 'Custom',
+      description: 'User supplied FFmpeg output arguments',
+      outputExtension: 'mkv',
+    ),
   ];
 
   static ConversionPreset byId(ConversionPresetId id) {
@@ -284,6 +290,7 @@ class ConversionJob {
   final int? processedSeconds;
   final double? speed;
   final int? outputSizeBytes;
+  final List<String> customArguments;
   final String currentStage;
   final String? errorMessage;
   final DateTime createdAt;
@@ -302,6 +309,7 @@ class ConversionJob {
     this.processedSeconds,
     this.speed,
     this.outputSizeBytes,
+    this.customArguments = const [],
     required this.currentStage,
     this.errorMessage,
     required this.createdAt,
@@ -317,6 +325,7 @@ class ConversionJob {
     int? processedSeconds,
     double? speed,
     int? outputSizeBytes,
+    List<String>? customArguments,
     String? currentStage,
     String? errorMessage,
     DateTime? updatedAt,
@@ -334,6 +343,7 @@ class ConversionJob {
       processedSeconds: processedSeconds ?? this.processedSeconds,
       speed: speed ?? this.speed,
       outputSizeBytes: outputSizeBytes ?? this.outputSizeBytes,
+      customArguments: customArguments ?? this.customArguments,
       currentStage: currentStage ?? this.currentStage,
       errorMessage: errorMessage,
       createdAt: createdAt,
@@ -355,6 +365,7 @@ class ConversionJob {
       'processedSeconds': processedSeconds,
       'speed': speed,
       'outputSizeBytes': outputSizeBytes,
+      'customArguments': customArguments,
       'currentStage': currentStage,
       'errorMessage': errorMessage,
       'createdAt': createdAt.toIso8601String(),
@@ -393,6 +404,10 @@ class ConversionJob {
       processedSeconds: (json['processedSeconds'] as num?)?.toInt(),
       speed: (json['speed'] as num?)?.toDouble(),
       outputSizeBytes: (json['outputSizeBytes'] as num?)?.toInt(),
+      customArguments: (json['customArguments'] as List<dynamic>?)
+              ?.map((item) => item.toString())
+              .toList() ??
+          const [],
       currentStage: json['currentStage'] as String? ?? 'Restored',
       errorMessage: json['errorMessage'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),

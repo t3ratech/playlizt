@@ -32,6 +32,19 @@ void main() {
       expect(args.last, '/tmp/out.mp4');
     });
 
+    test('builds custom profile arguments before the output path', () {
+      final preset = ConversionPreset.byId(ConversionPresetId.custom);
+
+      final args = preset.buildFfmpegArguments(
+        inputPath: '/tmp/source.mkv',
+        outputPath: '/tmp/out.mkv',
+        customArguments: const ['-c:v', 'libx265', '-crf', '24'],
+      );
+
+      expect(args, containsAll(['-c:v', 'libx265', '-crf', '24']));
+      expect(args.last, '/tmp/out.mkv');
+    });
+
     test('parses ffmpeg progress snapshots into Playlizt progress', () {
       final parser = FfmpegProgressParser();
 
@@ -44,6 +57,26 @@ void main() {
       expect(snapshot.speed, 1.25);
       expect(snapshot.stage, 'Converting');
       expect(snapshot.finished, isFalse);
+    });
+
+    test('persists custom conversion arguments in job JSON', () {
+      final now = DateTime.utc(2026, 6, 11);
+      final job = ConversionJob(
+        id: 'job-1',
+        inputPath: '/tmp/source.mkv',
+        outputPath: '/tmp/out.mkv',
+        presetId: ConversionPresetId.custom,
+        status: ConversionStatus.queued,
+        customArguments: const ['-c:v', 'libx265'],
+        currentStage: 'Queued',
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final restored = ConversionJob.fromJson(job.toJson());
+
+      expect(restored.presetId, ConversionPresetId.custom);
+      expect(restored.customArguments, const ['-c:v', 'libx265']);
     });
   });
 }

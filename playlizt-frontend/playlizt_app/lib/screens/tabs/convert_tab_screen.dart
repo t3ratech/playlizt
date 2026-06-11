@@ -23,6 +23,7 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
   final TextEditingController _outputController = TextEditingController();
   final TextEditingController _startController = TextEditingController();
   final TextEditingController _endController = TextEditingController();
+  final TextEditingController _customArgsController = TextEditingController();
 
   ConversionPresetId _selectedPreset = ConversionPresetId.mp3;
   bool _isSubmitting = false;
@@ -33,6 +34,7 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
     _outputController.dispose();
     _startController.dispose();
     _endController.dispose();
+    _customArgsController.dispose();
     super.dispose();
   }
 
@@ -63,6 +65,7 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
         outputDirectory: outputDir,
         startTime: _startController.text,
         endTime: _endController.text,
+        customArguments: _splitCustomArguments(_customArgsController.text),
       );
       _inputController.clear();
     } catch (e) {
@@ -72,6 +75,12 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  List<String> _splitCustomArguments(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return const [];
+    return trimmed.split(RegExp(r'\s+'));
   }
 
   @override
@@ -146,6 +155,18 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
+                      if (_selectedPreset == ConversionPresetId.custom) ...[
+                        TextField(
+                          controller: _customArgsController,
+                          decoration: const InputDecoration(
+                            labelText: 'Custom FFmpeg output arguments',
+                            hintText: '-c:v libx265 -crf 24 -c:a aac',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.tune),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       Row(
                         children: [
                           Expanded(

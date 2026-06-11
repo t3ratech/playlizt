@@ -45,6 +45,7 @@ class ConversionManager with ChangeNotifier {
     String? outputDirectory,
     String? startTime,
     String? endTime,
+    List<String> customArguments = const [],
   }) async {
     final now = DateTime.now();
     final id = now.microsecondsSinceEpoch.toString();
@@ -58,6 +59,7 @@ class ConversionManager with ChangeNotifier {
       status: ConversionStatus.failed,
       startTime: startTime,
       endTime: endTime,
+      customArguments: customArguments,
       currentStage: 'Unavailable on web',
       errorMessage:
           'Local conversion requires the desktop app with FFmpeg configured.',

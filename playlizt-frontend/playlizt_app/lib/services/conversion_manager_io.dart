@@ -56,6 +56,7 @@ class ConversionManager with ChangeNotifier {
     String? outputDirectory,
     String? startTime,
     String? endTime,
+    List<String> customArguments = const [],
   }) async {
     await settingsProvider.ensureLoaded();
     final resolvedInput = _resolveHome(inputPath);
@@ -86,6 +87,7 @@ class ConversionManager with ChangeNotifier {
       status: ConversionStatus.queued,
       startTime: _emptyToNull(startTime),
       endTime: _emptyToNull(endTime),
+      customArguments: customArguments,
       currentStage: 'Queued',
       createdAt: now,
       updatedAt: now,
@@ -214,6 +216,7 @@ class ConversionManager with ChangeNotifier {
         outputPath: job.outputPath,
         startTime: job.startTime,
         endTime: job.endTime,
+        customArguments: job.customArguments,
       );
 
       final process = await Process.start(ffmpeg, args);
