@@ -255,7 +255,9 @@ void main() {
           password: 'demo-pass',
           retries: '5',
           fragmentRetries: '3',
+          concurrentFragments: '4',
           socketTimeoutSeconds: '15',
+          maxDownloads: '12',
           userAgent: 'PlayliztTest/1.0',
           referer: 'https://example.test/watch',
           playlistStart: '2',
@@ -290,7 +292,9 @@ void main() {
       expect(restored.options.password, isNull);
       expect(restored.options.retries, '5');
       expect(restored.options.fragmentRetries, '3');
+      expect(restored.options.concurrentFragments, '4');
       expect(restored.options.socketTimeoutSeconds, '15');
+      expect(restored.options.maxDownloads, '12');
       expect(restored.options.userAgent, 'PlayliztTest/1.0');
       expect(restored.options.referer, 'https://example.test/watch');
       expect(restored.options.playlistStart, '2');
@@ -394,6 +398,33 @@ https://example.test/one.mp4
 
       expect(urls, contains('ftp://example.test/file.mov'));
     });
+
+    test('applies max download limits to normalized batches', () {
+      const options = DownloadOptions(maxDownloads: '2');
+
+      expect(
+        options.normalizedBatchUrls([
+          ' https://example.test/one.mp4 ',
+          '',
+          'https://example.test/two.mp4',
+          'https://example.test/three.mp4',
+        ]),
+        const [
+          'https://example.test/one.mp4',
+          'https://example.test/two.mp4',
+        ],
+      );
+      expect(options.maxDownloadsLimit, 2);
+      expect(
+        const DownloadOptions(concurrentFragments: '4')
+            .concurrentFragmentsCount,
+        4,
+      );
+      expect(
+        () => const DownloadOptions(maxDownloads: '0').maxDownloadsLimit,
+        throwsArgumentError,
+      );
+    });
   });
 
   group('youtube-dl download arguments', () {
@@ -407,6 +438,8 @@ https://example.test/one.mp4
         playlistStart: '2',
         playlistEnd: '5',
         playlistItems: '2,4-6',
+        concurrentFragments: '4',
+        maxDownloads: '12',
         matchTitle: 'episode',
         rejectTitle: 'trailer',
         ageLimit: '18',
@@ -419,6 +452,8 @@ https://example.test/one.mp4
       expect(args, containsAll(['--playlist-start', '2']));
       expect(args, containsAll(['--playlist-end', '5']));
       expect(args, containsAll(['--playlist-items', '2,4-6']));
+      expect(args, containsAll(['--concurrent-fragments', '4']));
+      expect(args, containsAll(['--max-downloads', '12']));
       expect(args, containsAll(['--match-title', 'episode']));
       expect(args, containsAll(['--reject-title', 'trailer']));
       expect(args, containsAll(['--age-limit', '18']));

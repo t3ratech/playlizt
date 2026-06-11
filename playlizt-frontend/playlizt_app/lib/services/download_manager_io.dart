@@ -211,11 +211,15 @@ class DownloadManager with ChangeNotifier {
         'DownloadManager: Extraction success. Title: ${mediaInfo.title}, Formats: ${mediaInfo.formats.length}',
       );
       if (mediaInfo.playlistEntries.isNotEmpty && explicitFileName == null) {
-        final playlistCount = mediaInfo.playlistEntries.length;
-        for (var i = 0; i < mediaInfo.playlistEntries.length; i++) {
+        final maxDownloads = options.maxDownloadsLimit;
+        final playlistEntries = maxDownloads == null
+            ? mediaInfo.playlistEntries
+            : mediaInfo.playlistEntries.take(maxDownloads).toList();
+        final playlistCount = playlistEntries.length;
+        for (var i = 0; i < playlistEntries.length; i++) {
           await _enqueueExtractedMediaInfo(
             requestedUrl: url,
-            mediaInfo: mediaInfo.playlistEntries[i],
+            mediaInfo: playlistEntries[i],
             targetDirectory: targetDirectory,
             options: options,
             playlistTitle: mediaInfo.title,
@@ -344,9 +348,7 @@ class DownloadManager with ChangeNotifier {
     String? targetDirectory,
     DownloadOptions options = const DownloadOptions(),
   }) async {
-    for (final url in urls) {
-      final trimmed = url.trim();
-      if (trimmed.isEmpty) continue;
+    for (final trimmed in options.normalizedBatchUrls(urls)) {
       await enqueueDownload(
         url: trimmed,
         targetDirectory: targetDirectory,
@@ -836,7 +838,9 @@ class DownloadManager with ChangeNotifier {
       password: task.options.password,
       retries: task.options.retries,
       fragmentRetries: task.options.fragmentRetries,
+      concurrentFragments: task.options.concurrentFragments,
       socketTimeoutSeconds: task.options.socketTimeoutSeconds,
+      maxDownloads: task.options.maxDownloads,
       userAgent: task.options.userAgent,
       referer: task.options.referer,
       playlistStart: task.options.playlistStart,

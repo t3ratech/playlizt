@@ -281,9 +281,7 @@ class DownloadManager with ChangeNotifier {
     String? targetDirectory,
     DownloadOptions options = const DownloadOptions(),
   }) async {
-    for (final url in urls) {
-      final trimmed = url.trim();
-      if (trimmed.isEmpty) continue;
+    for (final trimmed in options.normalizedBatchUrls(urls)) {
       await enqueueDownload(
         url: trimmed,
         targetDirectory: targetDirectory,

@@ -242,7 +242,9 @@ class YoutubeDlProcess {
     String? password,
     String? retries,
     String? fragmentRetries,
+    String? concurrentFragments,
     String? socketTimeoutSeconds,
+    String? maxDownloads,
     String? userAgent,
     String? referer,
     String? playlistStart,
@@ -271,7 +273,9 @@ class YoutubeDlProcess {
       password: password,
       retries: retries,
       fragmentRetries: fragmentRetries,
+      concurrentFragments: concurrentFragments,
       socketTimeoutSeconds: socketTimeoutSeconds,
+      maxDownloads: maxDownloads,
       userAgent: userAgent,
       referer: referer,
       playlistStart: playlistStart,
@@ -344,7 +348,9 @@ class YoutubeDlProcess {
     String? password,
     String? retries,
     String? fragmentRetries,
+    String? concurrentFragments,
     String? socketTimeoutSeconds,
+    String? maxDownloads,
     String? userAgent,
     String? referer,
     String? playlistStart,
@@ -397,9 +403,15 @@ class YoutubeDlProcess {
     if (fragmentRetries != null && fragmentRetries.trim().isNotEmpty) {
       args.addAll(['--fragment-retries', fragmentRetries.trim()]);
     }
+    if (concurrentFragments != null && concurrentFragments.trim().isNotEmpty) {
+      args.addAll(['--concurrent-fragments', concurrentFragments.trim()]);
+    }
     if (socketTimeoutSeconds != null &&
         socketTimeoutSeconds.trim().isNotEmpty) {
       args.addAll(['--socket-timeout', socketTimeoutSeconds.trim()]);
+    }
+    if (maxDownloads != null && maxDownloads.trim().isNotEmpty) {
+      args.addAll(['--max-downloads', maxDownloads.trim()]);
     }
     if (userAgent != null && userAgent.trim().isNotEmpty) {
       args.addAll(['--user-agent', userAgent.trim()]);

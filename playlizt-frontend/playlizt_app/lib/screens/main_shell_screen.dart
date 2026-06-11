@@ -195,8 +195,11 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   final TextEditingController _retriesController = TextEditingController();
   final TextEditingController _fragmentRetriesController =
       TextEditingController();
+  final TextEditingController _concurrentFragmentsController =
+      TextEditingController();
   final TextEditingController _socketTimeoutController =
       TextEditingController();
+  final TextEditingController _maxDownloadsController = TextEditingController();
   final TextEditingController _userAgentController = TextEditingController();
   final TextEditingController _refererController = TextEditingController();
   final TextEditingController _playlistStartController =
@@ -243,7 +246,9 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
     _passwordController.dispose();
     _retriesController.dispose();
     _fragmentRetriesController.dispose();
+    _concurrentFragmentsController.dispose();
     _socketTimeoutController.dispose();
+    _maxDownloadsController.dispose();
     _userAgentController.dispose();
     _refererController.dispose();
     _playlistStartController.dispose();
@@ -295,7 +300,9 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         password: _emptyToNull(_passwordController.text),
         retries: _emptyToNull(_retriesController.text),
         fragmentRetries: _emptyToNull(_fragmentRetriesController.text),
+        concurrentFragments: _emptyToNull(_concurrentFragmentsController.text),
         socketTimeoutSeconds: _emptyToNull(_socketTimeoutController.text),
+        maxDownloads: _emptyToNull(_maxDownloadsController.text),
         userAgent: _emptyToNull(_userAgentController.text),
         referer: _emptyToNull(_refererController.text),
         playlistStart: _emptyToNull(_playlistStartController.text),
@@ -751,10 +758,36 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: TextField(
+                          controller: _concurrentFragmentsController,
+                          decoration: const InputDecoration(
+                            labelText: 'Concurrent fragments',
+                            hintText: '4',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
                           controller: _socketTimeoutController,
                           decoration: const InputDecoration(
                             labelText: 'Socket timeout',
                             hintText: '20',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _maxDownloadsController,
+                          decoration: const InputDecoration(
+                            labelText: 'Max downloads',
+                            hintText: '25',
                             border: OutlineInputBorder(),
                           ),
                         ),

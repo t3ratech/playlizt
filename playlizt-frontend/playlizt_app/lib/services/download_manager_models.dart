@@ -38,7 +38,9 @@ class DownloadOptions {
   final String? password;
   final String? retries;
   final String? fragmentRetries;
+  final String? concurrentFragments;
   final String? socketTimeoutSeconds;
+  final String? maxDownloads;
   final String? userAgent;
   final String? referer;
   final String? playlistStart;
@@ -64,7 +66,9 @@ class DownloadOptions {
     this.password,
     this.retries,
     this.fragmentRetries,
+    this.concurrentFragments,
     this.socketTimeoutSeconds,
+    this.maxDownloads,
     this.userAgent,
     this.referer,
     this.playlistStart,
@@ -95,7 +99,9 @@ class DownloadOptions {
       'password': null,
       'retries': retries,
       'fragmentRetries': fragmentRetries,
+      'concurrentFragments': concurrentFragments,
       'socketTimeoutSeconds': socketTimeoutSeconds,
+      'maxDownloads': maxDownloads,
       'userAgent': userAgent,
       'referer': referer,
       'playlistStart': playlistStart,
@@ -125,7 +131,9 @@ class DownloadOptions {
       password: json['password'] as String?,
       retries: json['retries'] as String?,
       fragmentRetries: json['fragmentRetries'] as String?,
+      concurrentFragments: json['concurrentFragments'] as String?,
       socketTimeoutSeconds: json['socketTimeoutSeconds'] as String?,
+      maxDownloads: json['maxDownloads'] as String?,
       userAgent: json['userAgent'] as String?,
       referer: json['referer'] as String?,
       playlistStart: json['playlistStart'] as String?,
@@ -138,6 +146,38 @@ class DownloadOptions {
       geoVerificationProxy: json['geoVerificationProxy'] as String?,
       forcePlaylist: json['forcePlaylist'] as bool? ?? false,
     );
+  }
+
+  int? get concurrentFragmentsCount => _positiveIntOption(
+        concurrentFragments,
+        'Concurrent fragments',
+      );
+
+  int? get maxDownloadsLimit => _positiveIntOption(
+        maxDownloads,
+        'Max downloads',
+      );
+
+  List<String> normalizedBatchUrls(Iterable<String> urls) {
+    final limit = maxDownloadsLimit;
+    final normalized = <String>[];
+    for (final url in urls) {
+      final trimmed = url.trim();
+      if (trimmed.isEmpty) continue;
+      normalized.add(trimmed);
+      if (limit != null && normalized.length >= limit) break;
+    }
+    return normalized;
+  }
+
+  static int? _positiveIntOption(String? value, String label) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) return null;
+    final parsed = int.tryParse(normalized);
+    if (parsed == null || parsed < 1) {
+      throw ArgumentError('$label must be a positive integer');
+    }
+    return parsed;
   }
 }
 
