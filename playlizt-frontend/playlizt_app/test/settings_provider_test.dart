@@ -31,4 +31,23 @@ void main() {
     expect(restored.maxConcurrentDownloads, 3);
     expect(restored.startupTabIndex, 3);
   });
+
+  test('SettingsProvider persists local media engine settings', () async {
+    SharedPreferences.setMockInitialValues({});
+    final settings = SettingsProvider();
+    await settings.ensureLoaded();
+
+    await settings.setRecursiveLibraryScan(false);
+    await settings.setConversionOutputDirectory('/tmp/playlizt-converted');
+    await settings.setHardwareAccelerationEnabled(false);
+    await settings.setRendererDiscoveryEnabled(false);
+
+    final restored = SettingsProvider();
+    await restored.ensureLoaded();
+
+    expect(restored.recursiveLibraryScan, isFalse);
+    expect(restored.conversionOutputDirectory, '/tmp/playlizt-converted');
+    expect(restored.hardwareAccelerationEnabled, isFalse);
+    expect(restored.rendererDiscoveryEnabled, isFalse);
+  });
 }

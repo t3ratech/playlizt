@@ -14,6 +14,7 @@ import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/playlist_provider.dart';
 import 'services/conversion_manager_platform.dart';
+import 'services/device_manager.dart';
 import 'services/download_manager_platform.dart';
 import 'services/library_manager_platform.dart';
 import 'services/video_backend.dart';
@@ -54,6 +55,11 @@ class PlayliztApp extends StatelessWidget {
           create: (ctx) => ConversionManager(
             settingsProvider: Provider.of<SettingsProvider>(ctx, listen: false),
             libraryManager: Provider.of<LibraryManager>(ctx, listen: false),
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (ctx) => DeviceManager(
+            settingsProvider: Provider.of<SettingsProvider>(ctx, listen: false),
           ),
         ),
       ],
