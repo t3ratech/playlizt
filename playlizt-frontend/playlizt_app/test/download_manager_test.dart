@@ -268,6 +268,34 @@ void main() {
     });
   });
 
+  group('DownloadBatchParser', () {
+    test('parses newline and whitespace separated URL batches', () {
+      final urls = DownloadBatchParser.parseUrls('''
+https://example.test/one.mp4
+https://example.test/two.mp4 https://example.test/three.mp4,
+# https://example.test/commented.mp4
+https://example.test/one.mp4
+''');
+
+      expect(
+        urls,
+        const [
+          'https://example.test/one.mp4',
+          'https://example.test/two.mp4',
+          'https://example.test/three.mp4',
+        ],
+      );
+    });
+
+    test('keeps invalid tokens so the UI can reject the batch', () {
+      final urls = DownloadBatchParser.parseUrls(
+        'https://example.test/one.mp4 ftp://example.test/file.mov',
+      );
+
+      expect(urls, contains('ftp://example.test/file.mov'));
+    });
+  });
+
   group('Download archive', () {
     test('round trips completed source metadata', () {
       final completedAt = DateTime.utc(2026, 6, 11, 12, 30);

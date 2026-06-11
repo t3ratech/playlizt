@@ -183,6 +183,7 @@ class _DownloadTabHost extends StatefulWidget {
 
 class _DownloadTabHostState extends State<_DownloadTabHost> {
   final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _batchUrlsController = TextEditingController();
   final TextEditingController _defaultPathController = TextEditingController();
   final TextEditingController _formatIdController = TextEditingController();
   final TextEditingController _proxyController = TextEditingController();
@@ -209,6 +210,7 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
   @override
   void dispose() {
     _urlController.dispose();
+    _batchUrlsController.dispose();
     _defaultPathController.dispose();
     _formatIdController.dispose();
     _proxyController.dispose();
@@ -229,8 +231,11 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
     SettingsProvider settings,
     DownloadManager downloadManager,
   ) async {
-    final rawUrl = _urlController.text.trim();
-    if (!_isValidUrl(rawUrl)) {
+    final urls = DownloadBatchParser.parseUrls(
+      '${_urlController.text}\n${_batchUrlsController.text}',
+    );
+    final invalidUrls = urls.where((url) => !_isValidUrl(url)).toList();
+    if (urls.isEmpty || invalidUrls.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid http/https URL')),
       );
@@ -260,21 +265,35 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
         if (newPath.isNotEmpty && newPath != settings.downloadDirectory) {
           await settings.setDownloadDirectory(newPath);
         }
-        await downloadManager.enqueueDownload(url: rawUrl, options: options);
-      } else {
-        final saveLocation = await _promptCustomLocation(rawUrl, settings);
+        await downloadManager.enqueueBatchDownloads(
+          urls: urls,
+          options: options,
+        );
+      } else if (urls.length == 1) {
+        final saveLocation = await _promptCustomLocation(urls.single, settings);
         if (saveLocation == null) {
           return;
         }
         await downloadManager.enqueueDownload(
-          url: rawUrl,
+          url: urls.single,
           targetDirectory: saveLocation.directory,
           explicitFileName: saveLocation.fileName,
+          options: options,
+        );
+      } else {
+        final targetDirectory = await _promptCustomBatchDirectory(settings);
+        if (targetDirectory == null) {
+          return;
+        }
+        await downloadManager.enqueueBatchDownloads(
+          urls: urls,
+          targetDirectory: targetDirectory,
           options: options,
         );
       }
 
       _urlController.clear();
+      _batchUrlsController.clear();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to enqueue download: $e')),
@@ -344,6 +363,43 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                 Navigator.of(context).pop(
                   _SaveLocation(directory: folder, fileName: name),
                 );
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<String?> _promptCustomBatchDirectory(SettingsProvider settings) async {
+    final folderController =
+        TextEditingController(text: settings.downloadDirectory);
+
+    return showDialog<String?>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Batch Download Folder'),
+          content: TextField(
+            controller: folderController,
+            decoration: const InputDecoration(
+              labelText: 'Folder',
+              hintText: '/home/user/Downloads',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final folder = folderController.text.trim();
+                if (folder.isEmpty) {
+                  return;
+                }
+                Navigator.of(context).pop(folder);
               },
               child: const Text('Save'),
             ),
@@ -478,6 +534,17 @@ class _DownloadTabHostState extends State<_DownloadTabHost> {
                           ),
                   ),
                   const SizedBox(height: 8),
+                  TextField(
+                    controller: _batchUrlsController,
+                    minLines: 2,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      labelText: 'Batch URLs',
+                      hintText: 'https://example.com/video.mp4',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,

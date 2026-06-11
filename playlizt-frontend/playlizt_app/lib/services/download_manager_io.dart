@@ -323,6 +323,22 @@ class DownloadManager with ChangeNotifier {
     print('DownloadManager: Task added. Total tasks: ${_tasks.length}');
   }
 
+  Future<void> enqueueBatchDownloads({
+    required Iterable<String> urls,
+    String? targetDirectory,
+    DownloadOptions options = const DownloadOptions(),
+  }) async {
+    for (final url in urls) {
+      final trimmed = url.trim();
+      if (trimmed.isEmpty) continue;
+      await enqueueDownload(
+        url: trimmed,
+        targetDirectory: targetDirectory,
+        options: options,
+      );
+    }
+  }
+
   Future<void> _enqueueExtractedMediaInfo({
     required String requestedUrl,
     required MediaInfo mediaInfo,

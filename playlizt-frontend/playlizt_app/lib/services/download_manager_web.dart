@@ -260,6 +260,22 @@ class DownloadManager with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> enqueueBatchDownloads({
+    required Iterable<String> urls,
+    String? targetDirectory,
+    DownloadOptions options = const DownloadOptions(),
+  }) async {
+    for (final url in urls) {
+      final trimmed = url.trim();
+      if (trimmed.isEmpty) continue;
+      await enqueueDownload(
+        url: trimmed,
+        targetDirectory: targetDirectory,
+        options: options,
+      );
+    }
+  }
+
   Future<void> pauseDownload(String id) async {
     if (_tokens.containsKey(id)) {
       _pendingCancelStatus[id] = DownloadStatus.paused;

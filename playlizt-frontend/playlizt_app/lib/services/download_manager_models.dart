@@ -81,6 +81,34 @@ class DownloadOptions {
   }
 }
 
+class DownloadBatchParser {
+  static List<String> parseUrls(String input) {
+    final urls = <String>[];
+    final seen = <String>{};
+
+    for (final rawLine in const LineSplitter().convert(input)) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line.startsWith('#')) continue;
+
+      final tokens = line.split(RegExp(r'\s+'));
+      for (final token in tokens) {
+        final candidate = token.trim().replaceAll(RegExp(r',$'), '');
+        if (candidate.isEmpty) continue;
+        final uri = Uri.tryParse(candidate);
+        if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+          urls.add(candidate);
+          continue;
+        }
+        if (seen.add(candidate)) {
+          urls.add(candidate);
+        }
+      }
+    }
+
+    return urls;
+  }
+}
+
 class DownloadTask {
   final String id;
   final String url;
