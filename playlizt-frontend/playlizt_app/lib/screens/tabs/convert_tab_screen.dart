@@ -21,6 +21,7 @@ class ConvertTabScreen extends StatefulWidget {
 class _ConvertTabScreenState extends State<ConvertTabScreen> {
   final TextEditingController _inputController = TextEditingController();
   final TextEditingController _outputController = TextEditingController();
+  final TextEditingController _streamTargetController = TextEditingController();
   final TextEditingController _startController = TextEditingController();
   final TextEditingController _endController = TextEditingController();
   final TextEditingController _customArgsController = TextEditingController();
@@ -38,7 +39,9 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
   final TextEditingController _subtitlePathController = TextEditingController();
 
   ConversionPresetId _selectedPreset = ConversionPresetId.mp3;
+  StreamOutputProfileId _selectedStreamProfile = StreamOutputProfileId.rtmpH264;
   ConversionSubtitleMode _subtitleMode = ConversionSubtitleMode.preserve;
+  bool _streamOutputMode = false;
   bool _isSubmitting = false;
   bool _isProbing = false;
   MediaProbeInfo? _probeInfo;
@@ -48,6 +51,7 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
   void dispose() {
     _inputController.dispose();
     _outputController.dispose();
+    _streamTargetController.dispose();
     _startController.dispose();
     _endController.dispose();
     _customArgsController.dispose();
@@ -78,15 +82,15 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
       return;
     }
 
-    final outputDir = _outputController.text.trim().isEmpty
-        ? settings.conversionOutputDirectory
-        : _outputController.text.trim();
+    if (_streamOutputMode && _streamTargetController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a stream output target URL')),
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     try {
-      if (outputDir != settings.conversionOutputDirectory) {
-        await settings.setConversionOutputDirectory(outputDir);
-      }
       final advancedOptions = ConversionAdvancedOptions(
         containerExtension: _emptyToNull(_containerController.text),
         videoCodec: _emptyToNull(_videoCodecController.text),
@@ -102,17 +106,35 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
         subtitleMode: _subtitleMode,
         subtitlePath: _emptyToNull(_subtitlePathController.text),
       );
-      await manager.enqueueConversion(
-        inputPath: input,
-        presetId: _selectedPreset,
-        outputDirectory: outputDir,
-        startTime: _startController.text,
-        endTime: _endController.text,
-        customArguments: _splitCustomArguments(_customArgsController.text),
-        advancedOptions: advancedOptions,
-      );
+      if (_streamOutputMode) {
+        await manager.enqueueStreamOutput(
+          inputPath: input,
+          outputUri: _streamTargetController.text.trim(),
+          profileId: _selectedStreamProfile,
+          startTime: _startController.text,
+          endTime: _endController.text,
+          advancedOptions: advancedOptions,
+        );
+      } else {
+        final outputDir = _outputController.text.trim().isEmpty
+            ? settings.conversionOutputDirectory
+            : _outputController.text.trim();
+        if (outputDir != settings.conversionOutputDirectory) {
+          await settings.setConversionOutputDirectory(outputDir);
+        }
+        await manager.enqueueConversion(
+          inputPath: input,
+          presetId: _selectedPreset,
+          outputDirectory: outputDir,
+          startTime: _startController.text,
+          endTime: _endController.text,
+          customArguments: _splitCustomArguments(_customArgsController.text),
+          advancedOptions: advancedOptions,
+        );
+      }
       _inputController.clear();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to queue conversion: $e')),
       );
@@ -278,7 +300,105 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
                         ),
                       ],
                       const SizedBox(height: 12),
-                      if (_selectedPreset == ConversionPresetId.custom) ...[
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: false,
+                            icon: Icon(Icons.save_alt),
+                            label: Text('File'),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            icon: Icon(Icons.cast_connected),
+                            label: Text('Stream'),
+                          ),
+                        ],
+                        selected: {_streamOutputMode},
+                        onSelectionChanged: (selection) {
+                          setState(
+                            () => _streamOutputMode = selection.first,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _streamOutputMode
+                                ? DropdownButtonFormField<
+                                    StreamOutputProfileId>(
+                                    initialValue: _selectedStreamProfile,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Stream profile',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    items: StreamOutputProfile.profiles
+                                        .map((profile) {
+                                      return DropdownMenuItem(
+                                        value: profile.id,
+                                        child: Text(
+                                          '${profile.label} • '
+                                          '${profile.description}',
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(
+                                          () => _selectedStreamProfile = value,
+                                        );
+                                      }
+                                    },
+                                  )
+                                : DropdownButtonFormField<ConversionPresetId>(
+                                    initialValue: _selectedPreset,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Output profile',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    items:
+                                        ConversionPreset.presets.map((preset) {
+                                      return DropdownMenuItem(
+                                        value: preset.id,
+                                        child: Text(
+                                          '${preset.label} • '
+                                          '${preset.description}',
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(() => _selectedPreset = value);
+                                      }
+                                    },
+                                  ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _streamOutputMode
+                                ? TextField(
+                                    controller: _streamTargetController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Stream target URL',
+                                      hintText: 'rtmp://server/live/key',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.link),
+                                    ),
+                                  )
+                                : TextField(
+                                    controller: _outputController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Output folder',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.folder),
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+                      if (!_streamOutputMode &&
+                          _selectedPreset == ConversionPresetId.custom) ...[
+                        const SizedBox(height: 12),
                         TextField(
                           controller: _customArgsController,
                           decoration: const InputDecoration(
@@ -288,44 +408,7 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
                             prefixIcon: Icon(Icons.tune),
                           ),
                         ),
-                        const SizedBox(height: 12),
                       ],
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<ConversionPresetId>(
-                              initialValue: _selectedPreset,
-                              decoration: const InputDecoration(
-                                labelText: 'Output profile',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: ConversionPreset.presets.map((preset) {
-                                return DropdownMenuItem(
-                                  value: preset.id,
-                                  child: Text(
-                                      '${preset.label} • ${preset.description}'),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _selectedPreset = value);
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: _outputController,
-                              decoration: const InputDecoration(
-                                labelText: 'Output folder',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.folder),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                       const SizedBox(height: 12),
                       ExpansionTile(
                         tilePadding: EdgeInsets.zero,
@@ -547,7 +630,13 @@ class _ConvertTabScreenState extends State<ConvertTabScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.play_arrow),
-                            label: Text(_isSubmitting ? 'Queueing' : 'Start'),
+                            label: Text(
+                              _isSubmitting
+                                  ? 'Queueing'
+                                  : _streamOutputMode
+                                      ? 'Stream'
+                                      : 'Start',
+                            ),
                           ),
                         ],
                       ),
@@ -761,7 +850,7 @@ class _ConversionJobTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${job.preset.label}: ${_fileName(job.inputPath)}',
+                    '${job.displayLabel}: ${_fileName(job.inputPath)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w600),
@@ -773,7 +862,8 @@ class _ConversionJobTile extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              job.outputPath,
+              '${job.outputKind == ConversionOutputKind.stream ? 'Target' : 'Output'}: '
+              '${job.outputPath}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall,

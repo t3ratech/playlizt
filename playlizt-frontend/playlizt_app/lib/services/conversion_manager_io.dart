@@ -105,6 +105,53 @@ class ConversionManager with ChangeNotifier {
     return job;
   }
 
+  Future<ConversionJob> enqueueStreamOutput({
+    required String inputPath,
+    required String outputUri,
+    required StreamOutputProfileId profileId,
+    String? startTime,
+    String? endTime,
+    ConversionAdvancedOptions advancedOptions =
+        const ConversionAdvancedOptions(),
+  }) async {
+    await settingsProvider.ensureLoaded();
+    advancedOptions.validate();
+    final resolvedInput = _resolveMediaInput(inputPath);
+    if (!_isNetworkMediaUri(resolvedInput)) {
+      final inputFile = File(resolvedInput);
+      if (!await inputFile.exists()) {
+        throw StateError('Input file does not exist: $inputPath');
+      }
+    }
+
+    final target = outputUri.trim();
+    _validateStreamOutputTarget(profileId, target);
+
+    final now = DateTime.now();
+    final id = now.microsecondsSinceEpoch.toString();
+    final job = ConversionJob(
+      id: id,
+      inputPath: resolvedInput,
+      outputPath: target,
+      presetId: ConversionPresetId.webClip,
+      status: ConversionStatus.queued,
+      startTime: _emptyToNull(startTime),
+      endTime: _emptyToNull(endTime),
+      advancedOptions: advancedOptions,
+      outputKind: ConversionOutputKind.stream,
+      streamProfileId: profileId,
+      currentStage: 'Queued',
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _jobs[id] = job;
+    await _persist();
+    notifyListeners();
+    _startNextIfPossible();
+    return job;
+  }
+
   Future<void> cancelConversion(String id) async {
     final process = _runningProcesses[id];
     if (process != null) {
@@ -218,15 +265,10 @@ class ConversionManager with ChangeNotifier {
       await _persist();
       notifyListeners();
 
-      await File(job.outputPath).parent.create(recursive: true);
-      final args = job.preset.buildFfmpegArguments(
-        inputPath: job.inputPath,
-        outputPath: job.outputPath,
-        startTime: job.startTime,
-        endTime: job.endTime,
-        customArguments: job.customArguments,
-        advancedOptions: job.advancedOptions,
-      );
+      if (job.outputKind == ConversionOutputKind.file) {
+        await File(job.outputPath).parent.create(recursive: true);
+      }
+      final args = _buildJobArguments(job);
 
       final process = await Process.start(ffmpeg, args);
       _runningProcesses[job.id] = process;
@@ -287,13 +329,15 @@ class ConversionManager with ChangeNotifier {
           errorMessage: _friendlyFfmpegError(stderr.toString()),
         );
       } else {
-        await libraryManager.importPath(
-          path: job.outputPath,
-          source: LibraryItemSource.converted,
-          parentId: LibraryItem.stableIdForPath(job.inputPath),
-          displayTitle: _titleFromPath(job.outputPath),
-          durationSeconds: duration,
-        );
+        if (job.outputKind == ConversionOutputKind.file) {
+          await libraryManager.importPath(
+            path: job.outputPath,
+            source: LibraryItemSource.converted,
+            parentId: LibraryItem.stableIdForPath(job.inputPath),
+            displayTitle: _titleFromPath(job.outputPath),
+            durationSeconds: duration,
+          );
+        }
         _jobs[job.id] = current.copyWith(
           status: ConversionStatus.completed,
           progress: 1,
@@ -350,6 +394,31 @@ class ConversionManager with ChangeNotifier {
     await prefs.setString(
       _prefsKeyJobs,
       jsonEncode(_jobs.values.map((job) => job.toJson()).toList()),
+    );
+  }
+
+  List<String> _buildJobArguments(ConversionJob job) {
+    if (job.outputKind == ConversionOutputKind.stream) {
+      final profile = job.streamProfile;
+      if (profile == null) {
+        throw StateError('Stream output profile is required');
+      }
+      return profile.buildFfmpegArguments(
+        inputPath: job.inputPath,
+        outputUri: job.outputPath,
+        startTime: job.startTime,
+        endTime: job.endTime,
+        advancedOptions: job.advancedOptions,
+      );
+    }
+
+    return job.preset.buildFfmpegArguments(
+      inputPath: job.inputPath,
+      outputPath: job.outputPath,
+      startTime: job.startTime,
+      endTime: job.endTime,
+      customArguments: job.customArguments,
+      advancedOptions: job.advancedOptions,
     );
   }
 
@@ -475,6 +544,65 @@ class ConversionManager with ChangeNotifier {
   String? _emptyToNull(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  String _resolveMediaInput(String value) {
+    final trimmed = value.trim();
+    return _isNetworkMediaUri(trimmed) ? trimmed : _resolveHome(trimmed);
+  }
+
+  bool _isNetworkMediaUri(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasScheme) return false;
+    return uri.isScheme('http') ||
+        uri.isScheme('https') ||
+        uri.isScheme('rtsp') ||
+        uri.isScheme('rtmp') ||
+        uri.isScheme('rtmps') ||
+        uri.isScheme('udp') ||
+        uri.isScheme('srt');
+  }
+
+  void _validateStreamOutputTarget(
+    StreamOutputProfileId profileId,
+    String outputUri,
+  ) {
+    if (outputUri.isEmpty) {
+      throw ArgumentError('Stream output target is required');
+    }
+    final uri = Uri.tryParse(outputUri);
+    final scheme = uri?.scheme.toLowerCase();
+    switch (profileId) {
+      case StreamOutputProfileId.rtmpH264:
+        if (scheme == 'rtmp' || scheme == 'rtmps') return;
+        break;
+      case StreamOutputProfileId.rtspH264:
+        if (scheme == 'rtsp') return;
+        break;
+      case StreamOutputProfileId.udpMpegTs:
+        if (scheme == 'udp') return;
+        break;
+      case StreamOutputProfileId.hlsLive:
+        if (scheme == 'http' ||
+            scheme == 'https' ||
+            scheme == 'file' ||
+            outputUri.endsWith('.m3u8')) {
+          return;
+        }
+        break;
+      case StreamOutputProfileId.audioMp3:
+        if (scheme == 'http' ||
+            scheme == 'https' ||
+            scheme == 'icecast' ||
+            scheme == 'tcp') {
+          return;
+        }
+        break;
+    }
+    throw ArgumentError(
+      'Stream output target is not compatible with ${profileId.name}: '
+      '$outputUri',
+    );
   }
 
   String _titleFromPath(String path) {

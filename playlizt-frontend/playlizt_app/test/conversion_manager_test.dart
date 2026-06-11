@@ -112,6 +112,34 @@ void main() {
       );
     });
 
+    test('builds stream output profile arguments', () {
+      final rtmp = StreamOutputProfile.byId(StreamOutputProfileId.rtmpH264);
+      final hls = StreamOutputProfile.byId(StreamOutputProfileId.hlsLive);
+
+      final rtmpArgs = rtmp.buildFfmpegArguments(
+        inputPath: '/tmp/source.mkv',
+        outputUri: 'rtmp://stream.example/live/playlizt',
+      );
+
+      expect(rtmpArgs, containsAll(['-progress', 'pipe:1', '-re']));
+      expect(rtmpArgs, containsAll(['-tune', 'zerolatency']));
+      expect(rtmpArgs, containsAll(['-f', 'flv']));
+      expect(rtmpArgs.last, 'rtmp://stream.example/live/playlizt');
+
+      final hlsArgs = hls.buildFfmpegArguments(
+        inputPath: 'https://media.example/live.m3u8',
+        outputUri: '/tmp/live/index.m3u8',
+        advancedOptions: const ConversionAdvancedOptions(
+          videoFilter: 'scale=-2:720',
+        ),
+      );
+
+      expect(hlsArgs, containsAll(['-f', 'hls']));
+      expect(hlsArgs, containsAll(['-hls_time', '4']));
+      expect(hlsArgs, containsAll(['-vf', 'scale=-2:720']));
+      expect(hlsArgs.last, '/tmp/live/index.m3u8');
+    });
+
     test('validates subtitle burn-in requires a subtitle path', () {
       const options = ConversionAdvancedOptions(
         subtitleMode: ConversionSubtitleMode.burnIn,
@@ -212,6 +240,30 @@ void main() {
         restored.advancedOptions.subtitleMode,
         ConversionSubtitleMode.remove,
       );
+    });
+
+    test('persists stream output jobs in JSON', () {
+      final now = DateTime.utc(2026, 6, 11);
+      final job = ConversionJob(
+        id: 'stream-job-1',
+        inputPath: 'https://media.example/source.m3u8',
+        outputPath: 'rtmp://stream.example/live/playlizt',
+        presetId: ConversionPresetId.webClip,
+        status: ConversionStatus.queued,
+        outputKind: ConversionOutputKind.stream,
+        streamProfileId: StreamOutputProfileId.rtmpH264,
+        currentStage: 'Queued',
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final restored = ConversionJob.fromJson(job.toJson());
+
+      expect(restored.outputKind, ConversionOutputKind.stream);
+      expect(restored.streamProfileId, StreamOutputProfileId.rtmpH264);
+      expect(restored.streamProfile?.outputFormat, 'flv');
+      expect(restored.displayLabel, 'RTMP H.264');
+      expect(restored.outputPath, 'rtmp://stream.example/live/playlizt');
     });
   });
 }

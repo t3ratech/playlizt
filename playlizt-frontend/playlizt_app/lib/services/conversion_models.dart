@@ -40,6 +40,19 @@ enum ConversionSubtitleMode {
   remove,
 }
 
+enum ConversionOutputKind {
+  file,
+  stream,
+}
+
+enum StreamOutputProfileId {
+  rtmpH264,
+  rtspH264,
+  udpMpegTs,
+  hlsLive,
+  audioMp3,
+}
+
 class ConversionAdvancedOptions {
   final String? containerExtension;
   final String? videoCodec;
@@ -494,6 +507,143 @@ class ConversionPreset {
   }
 }
 
+class StreamOutputProfile {
+  final StreamOutputProfileId id;
+  final String label;
+  final String description;
+  final String outputFormat;
+  final List<String> defaultArguments;
+
+  const StreamOutputProfile({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.outputFormat,
+    required this.defaultArguments,
+  });
+
+  static const profiles = [
+    StreamOutputProfile(
+      id: StreamOutputProfileId.rtmpH264,
+      label: 'RTMP H.264',
+      description: 'Low-latency H.264/AAC stream for RTMP endpoints',
+      outputFormat: 'flv',
+      defaultArguments: [
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-tune',
+        'zerolatency',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '160k',
+      ],
+    ),
+    StreamOutputProfile(
+      id: StreamOutputProfileId.rtspH264,
+      label: 'RTSP H.264',
+      description: 'H.264/AAC stream for RTSP receivers',
+      outputFormat: 'rtsp',
+      defaultArguments: [
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-tune',
+        'zerolatency',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '160k',
+      ],
+    ),
+    StreamOutputProfile(
+      id: StreamOutputProfileId.udpMpegTs,
+      label: 'UDP MPEG-TS',
+      description: 'MPEG-TS stream for LAN playback targets',
+      outputFormat: 'mpegts',
+      defaultArguments: [
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-tune',
+        'zerolatency',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '160k',
+      ],
+    ),
+    StreamOutputProfile(
+      id: StreamOutputProfileId.hlsLive,
+      label: 'HLS Live',
+      description: 'Rolling HLS segments for HTTP playback',
+      outputFormat: 'hls',
+      defaultArguments: [
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '160k',
+        '-hls_time',
+        '4',
+        '-hls_list_size',
+        '6',
+        '-hls_flags',
+        'delete_segments+append_list',
+      ],
+    ),
+    StreamOutputProfile(
+      id: StreamOutputProfileId.audioMp3,
+      label: 'Audio MP3 Stream',
+      description: 'Audio-only MP3 stream output',
+      outputFormat: 'mp3',
+      defaultArguments: ['-vn', '-c:a', 'libmp3lame', '-b:a', '192k'],
+    ),
+  ];
+
+  static StreamOutputProfile byId(StreamOutputProfileId id) {
+    return profiles.firstWhere((profile) => profile.id == id);
+  }
+
+  List<String> buildFfmpegArguments({
+    required String inputPath,
+    required String outputUri,
+    String? startTime,
+    String? endTime,
+    ConversionAdvancedOptions advancedOptions =
+        const ConversionAdvancedOptions(),
+  }) {
+    final args = <String>[
+      '-hide_banner',
+      '-y',
+      '-progress',
+      'pipe:1',
+      '-nostats',
+      '-re',
+    ];
+
+    if (startTime != null && startTime.trim().isNotEmpty) {
+      args.addAll(['-ss', startTime.trim()]);
+    }
+    if (endTime != null && endTime.trim().isNotEmpty) {
+      args.addAll(['-to', endTime.trim()]);
+    }
+
+    args.addAll(['-i', inputPath]);
+    args.addAll(defaultArguments);
+    args.addAll(advancedOptions.toFfmpegArguments());
+    args.addAll(['-f', outputFormat, outputUri]);
+    return args;
+  }
+}
+
 class ConversionJob {
   final String id;
   final String inputPath;
@@ -509,6 +659,8 @@ class ConversionJob {
   final int? outputSizeBytes;
   final List<String> customArguments;
   final ConversionAdvancedOptions advancedOptions;
+  final ConversionOutputKind outputKind;
+  final StreamOutputProfileId? streamProfileId;
   final String currentStage;
   final String? errorMessage;
   final DateTime createdAt;
@@ -529,6 +681,8 @@ class ConversionJob {
     this.outputSizeBytes,
     this.customArguments = const [],
     this.advancedOptions = const ConversionAdvancedOptions(),
+    this.outputKind = ConversionOutputKind.file,
+    this.streamProfileId,
     required this.currentStage,
     this.errorMessage,
     required this.createdAt,
@@ -536,6 +690,15 @@ class ConversionJob {
   });
 
   ConversionPreset get preset => ConversionPreset.byId(presetId);
+
+  StreamOutputProfile? get streamProfile => streamProfileId == null
+      ? null
+      : StreamOutputProfile.byId(streamProfileId!);
+
+  String get displayLabel =>
+      outputKind == ConversionOutputKind.stream && streamProfile != null
+          ? streamProfile!.label
+          : preset.label;
 
   ConversionJob copyWith({
     ConversionStatus? status,
@@ -546,6 +709,8 @@ class ConversionJob {
     int? outputSizeBytes,
     List<String>? customArguments,
     ConversionAdvancedOptions? advancedOptions,
+    ConversionOutputKind? outputKind,
+    StreamOutputProfileId? streamProfileId,
     String? currentStage,
     String? errorMessage,
     DateTime? updatedAt,
@@ -565,6 +730,8 @@ class ConversionJob {
       outputSizeBytes: outputSizeBytes ?? this.outputSizeBytes,
       customArguments: customArguments ?? this.customArguments,
       advancedOptions: advancedOptions ?? this.advancedOptions,
+      outputKind: outputKind ?? this.outputKind,
+      streamProfileId: streamProfileId ?? this.streamProfileId,
       currentStage: currentStage ?? this.currentStage,
       errorMessage: errorMessage,
       createdAt: createdAt,
@@ -588,6 +755,8 @@ class ConversionJob {
       'outputSizeBytes': outputSizeBytes,
       'customArguments': customArguments,
       'advancedOptions': advancedOptions.toJson(),
+      'outputKind': outputKind.name,
+      'streamProfileId': streamProfileId?.name,
       'currentStage': currentStage,
       'errorMessage': errorMessage,
       'createdAt': createdAt.toIso8601String(),
@@ -635,6 +804,15 @@ class ConversionJob {
           (key, value) => MapEntry(key.toString(), value),
         ),
       ),
+      outputKind: _enumByName(
+        ConversionOutputKind.values,
+        json['outputKind'] as String?,
+        ConversionOutputKind.file,
+      ),
+      streamProfileId: _nullableEnumByName(
+        StreamOutputProfileId.values,
+        json['streamProfileId'] as String?,
+      ),
       currentStage: json['currentStage'] as String? ?? 'Restored',
       errorMessage: json['errorMessage'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -651,6 +829,16 @@ class ConversionJob {
       if (value.name == name) return value;
     }
     return fallback;
+  }
+
+  static T? _nullableEnumByName<T extends Enum>(
+    List<T> values,
+    String? name,
+  ) {
+    for (final value in values) {
+      if (value.name == name) return value;
+    }
+    return null;
   }
 }
 

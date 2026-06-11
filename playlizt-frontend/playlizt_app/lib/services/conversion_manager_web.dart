@@ -76,6 +76,41 @@ class ConversionManager with ChangeNotifier {
     return job;
   }
 
+  Future<ConversionJob> enqueueStreamOutput({
+    required String inputPath,
+    required String outputUri,
+    required StreamOutputProfileId profileId,
+    String? startTime,
+    String? endTime,
+    ConversionAdvancedOptions advancedOptions =
+        const ConversionAdvancedOptions(),
+  }) async {
+    advancedOptions.validate();
+    final now = DateTime.now();
+    final id = now.microsecondsSinceEpoch.toString();
+    final job = ConversionJob(
+      id: id,
+      inputPath: inputPath,
+      outputPath: outputUri,
+      presetId: ConversionPresetId.webClip,
+      status: ConversionStatus.failed,
+      startTime: startTime,
+      endTime: endTime,
+      advancedOptions: advancedOptions,
+      outputKind: ConversionOutputKind.stream,
+      streamProfileId: profileId,
+      currentStage: 'Unavailable on web',
+      errorMessage:
+          'Stream output requires the desktop app with FFmpeg configured.',
+      createdAt: now,
+      updatedAt: now,
+    );
+    _jobs[id] = job;
+    await _persist();
+    notifyListeners();
+    return job;
+  }
+
   Future<void> cancelConversion(String id) async {
     final job = _jobs[id];
     if (job == null) return;
