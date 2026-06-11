@@ -3,12 +3,12 @@
 Playlizt is a media player, streamer, downloader and converter for your own media collection. It plays local audio and video files, manages playlists and libraries, can stream from the Playlizt backend when available, and can download or convert media for offline use. When connected to the backend, it also offers AI-powered discovery, metadata enhancement and analytics.
 
 Primary areas:
-- **Library**: Browse and search local audio/video files.
-- **Playlists**: Build playlists that can mix local and online items.
+- **Library**: Scan folders, index local audio/video files, and browse with search/sort/filter.
+- **Playlists**: Build playlists that can mix local files, online catalogue items, downloads, converted outputs, and network streams.
 - **Streaming**: When online, access the Playlizt backend catalog.
-- **Download**: Download external media to a configured or chosen folder, with optional Library integration.
-- **Convert**: Transcode/clip media into library-friendly formats.
-- **Devices**: Extensibility point for future sync/cast targets.
+- **Download**: Download external media to a configured or chosen folder with extractor metadata, format selection, playlists, subtitles, thumbnails, archive/history, batch jobs, post-processing, progress bars, and optional Library integration.
+- **Convert**: Probe, transcode, remux, clip, trim, crop, scale, normalize audio, extract audio, burn/copy subtitles, and queue conversion jobs with friendly progress.
+- **Devices**: Discover and control playback targets, network streams, renderer/casting targets, service sources, hardware acceleration paths, and stream output/transcoding workflows.
 
 ### Navigation Shell & Tabs
 
@@ -28,12 +28,12 @@ The Flutter frontend uses a unified multimedia shell:
 
 - **Library Tab**:
   - Entry point into the local media library.
-  - Surfaces indexed folders and items from configured scan folders.
-  - Supports basic browsing and search over local audio/video files.
+  - Scans configured folders and surfaces indexed folders/items.
+  - Supports browsing, search, sort and filter over local audio/video files.
 
 - **Playlists Tab**:
-  - Manages user playlists for local and online items.
-  - Provides list and detail views, with ordering and future editing capabilities.
+  - Manages user playlists for local files, online items, downloaded outputs, converted outputs and network streams.
+  - Provides list and detail views with create, rename, duplicate, delete and ordered editing.
 
 - **Streaming Tab**:
   - Hosts all online content features: search bar, category chips, AI "Recommended for You" carousel, "Continue Watching" strip, and main content grid.
@@ -44,24 +44,29 @@ The Flutter frontend uses a unified multimedia shell:
   - URL input field plus `Download` button to enqueue downloads from external HTTP/HTTPS sources.
   - Switch to choose between using a **default download folder** (`~/Downloads` by default, user-editable) or prompting for a folder/name on each download.
   - Scrollable download queue panel listing active and recent downloads with status, progress bar, and per-item controls to **Pause**, **Resume**, or **Cancel**.
-  - Backed by a `DownloadManager` service that performs real HTTP downloads, enforces a configurable concurrency limit, and persists task state across app restarts.
-  - Desktop builds use the vendored upstream `youtube-dl` extractor/downloader package for long-tail site support, with optional `PLAYLIZT_YOUTUBE_DL_SOURCE` or `PLAYLIZT_YOUTUBE_DL_EXECUTABLE` dart-define overrides.
+  - Backed by a `DownloadManager` service that performs real downloads, enforces a configurable concurrency limit, and persists task state across app restarts.
+  - Uses a configured extractor runtime with a verified 1,273-entry site catalog and optional `PLAYLIZT_YOUTUBE_DL_SOURCE` or `PLAYLIZT_YOUTUBE_DL_EXECUTABLE` dart-define overrides.
+  - Supports format selection, playlists, subtitles, thumbnails, metadata writing, cookies, login/auth options, proxies, retries, rate limits, archive/history, batch downloads, audio-only extraction and post-processing.
 
 - **Convert Tab**:
   - Dedicated area for transcoding and clipping media into library-friendly formats.
   - Reads from Library items and writes transformed outputs back into the Library.
+  - Tracks the conversion capability inventory of 273 encoders, 607 decoders, 185 muxers, 367 demuxers, 596 filters, 51 bitstream filters and 55 protocols.
+  - Provides media probe, queue, progress, cancellation, retry, presets and advanced codec/container/filter controls.
 
 - **Devices Tab**:
-  - Lists current and potential playback targets.
-  - Provides a future integration point for sync/cast features without impacting core Library semantics.
+  - Lists local and network playback targets with online/offline/error status.
+  - Provides network streams, service discovery, renderer/casting control, hardware acceleration selection and stream output/transcoding controls without changing core Library semantics.
 
 - **Settings Drawer** (hamburger menu):
   - Shows the T3Ratech logo at the top, alongside Settings title.
   - **General**: choose startup tab (Library/Playlists/Streaming/Download/Convert/Devices) and configure which tabs are visible.
     - On the web platform, the **Library** and **Devices** tabs cannot be enabled; **Streaming** must always be visible and acts as the default startup tab.
     - Whenever the visible tab set changes, the saved startup tab is automatically adjusted to a still-visible tab (falling back to Streaming if needed).
-  - **Library**: manage **scan folders** via add/remove list of filesystem paths.
-  - **Download**: view and edit the default download folder; toggle "Use default download location" behaviour. Even when the switch is ON, you can open a native folder chooser dialog from Settings to update the default folder.
+  - **Library**: manage **scan folders**, recursive scan, manual rescan and indexing behaviour.
+  - **Download**: view and edit the default download folder; toggle "Use default download location" behaviour; configure concurrency, archive/history, retries and rate limits. Even when the switch is ON, you can open a native folder chooser dialog from Settings to update the default folder.
+  - **Convert**: choose output folder, default presets and hardware acceleration preferences.
+  - **Devices**: enable renderer discovery, service discovery and remote playback controls.
   - **Appearance**: light/dark theme toggle. The default theme for new users and anonymous sessions is **Dark mode**.
   - **Account & Actions**: access upload, analytics/dashboard, profile details and logout; these actions are no longer duplicated in the top app bar.
 
@@ -72,11 +77,12 @@ These features work entirely on your local machine without any backend:
 ### 1. Library
 - Scans configured folders for supported audio/video files.
 - Builds a lightweight index of your media collection.
-- Lets you browse by folder and search over basic metadata.
+- Lets you browse by folder and search, sort and filter over metadata.
 
 ### 2. Playlists
 - Stores ordered lists of Library items.
 - Supports purely local playlists and hybrid playlists (local + online entries).
+- Supports downloaded outputs, converted outputs and network stream entries in the same playlist.
 - Keeps playlist entries stable as long as the underlying files remain on disk.
 
 ### 3. Offline Playback
@@ -88,19 +94,22 @@ These features work entirely on your local machine without any backend:
 - Downloads media to a configured or chosen folder using the original filename by default.
 - Optionally normalizes file names and target folders according to Library rules when enabled.
 - Optionally ingests successful downloads into the Library as first-class entries.
-- Uses native Dart extractors for first-party supported sites, direct media, HTML5 media and HLS; desktop builds delegate supported long-tail sites to the vendored youtube-dl package.
+- Uses Playlizt extraction models for direct media, HTML5 media, HLS and the configured 1,273-entry site extractor catalog.
+- Supports format selection, playlists, subtitles, thumbnails, metadata writing, cookies, login/auth options, proxies, retry/rate-limit controls, archive/history, batch downloads, audio-only extraction and post-processing.
   
 The Download tab surfaces these behaviours via the URL input, default/custom destination switch, and a full download manager queue with pause/resume/cancel controls.
 
 ### 5. Convert (Transcoding/Clipping)
 - Reads media from the Library and writes converted outputs back into it.
-- Supports format conversion, downsampling, or clipping segments.
+- Supports format conversion, downsampling, remuxing, clipping, trimming, cropping, scaling, audio normalization, audio extraction and subtitle burn/copy workflows.
+- Exposes media probe, output presets, advanced codec/container/filter controls and a conversion queue with progress/cancel/retry.
 - Treats converted outputs as separate, trackable Library items.
 
-### 6. Devices (Extensibility Point)
+### 6. Devices
 - Provides an abstraction layer for external playback targets.
+- Supports network streams, renderer/casting discovery and control, service discovery, hardware acceleration paths and stream output/transcoding workflows.
 - Keeps device-specific logic separate from core Library/Player behaviour.
-- Designed so that future sync/cast features do not change Library semantics.
+- Keeps sync/cast behaviour separate from Library semantics.
 
 ## Optional Online Features
 
@@ -158,7 +167,8 @@ Analyzes user comments and ratings to determine sentiment (Positive, Neutral, Ne
 - JDK 25 (for development)
 - Flutter SDK 3.24+ (for frontend development)
 - Gemini API key from Google
-- Python 3 for the vendored youtube-dl desktop downloader bridge.
+- Local Gradle wrapper distribution at `/opt/gradle-wrapper/gradle-9.5.1-bin.zip`; `playlizt-docker.sh` copies this ignored ZIP into `gradle/wrapper/` before Docker image builds so containers can use `file:/opt/gradle-wrapper/gradle-9.5.1-bin.zip` without downloading Gradle.
+- Python 3 for the configured desktop extractor runtime.
 
 ### Environment Setup
 
@@ -185,6 +195,10 @@ PLAYLIZT_JWT_SECRET=your_jwt_secret_minimum_256_bits
 
 # Gemini AI
 PLAYLIZT_GEMINI_API_KEY=your_gemini_api_key
+PLAYLIZT_AI_PROVIDER_FALLBACK_ORDER=gemini,nvidia,openrouter,openai
+PLAYLIZT_NVIDIA_API_KEY=your_nvidia_demo_key
+PLAYLIZT_OPENROUTER_API_KEY=your_openrouter_demo_key
+PLAYLIZT_OPENAI_API_KEY=your_openai_demo_key
 
 # Ports
 PLAYLIZT_EUREKA_PORT=4761
@@ -196,7 +210,7 @@ PLAYLIZT_CONTENT_PROCESSING_PORT=4084
 PLAYLIZT_API_GATEWAY_PORT=4080
 ```
 
-Flutter desktop downloader builds use the vendored youtube-dl source at `playlizt-frontend/playlizt_app/vendor/youtube-dl`. To override the vendored source, pass another source checkout explicitly:
+Flutter desktop downloader builds use the packaged extractor source at `playlizt-frontend/playlizt_app/vendor/youtube-dl`. To override that source, pass another local checkout explicitly:
 ```bash
 /opt/flutter/bin/flutter run -d linux \
   --dart-define=API_URL=http://localhost:4080/api/v1 \

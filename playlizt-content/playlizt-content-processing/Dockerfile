@@ -2,6 +2,10 @@
 FROM eclipse-temurin:25-jdk-jammy AS build
 WORKDIR /workspace
 
+# Copy local Gradle distribution to avoid downloading during Docker builds
+RUN mkdir -p /opt/gradle-wrapper
+COPY gradle/wrapper/gradle-9.5.1-bin.zip /opt/gradle-wrapper/
+
 # Copy Gradle wrapper and build files
 COPY gradlew .
 COPY gradle gradle

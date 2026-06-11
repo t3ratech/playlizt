@@ -18,4 +18,7 @@ public class GeminiConfig {
     private String key;
     private String model;
     private String fallbackModels;
+    private int maxTokens = 2048;
+    private double temperature = 0.7;
+    private int rateLimitRpm = 60;
 }

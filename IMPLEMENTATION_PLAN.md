@@ -5,6 +5,71 @@ This document tracks the outstanding tasks and features to be implemented.
 
 ## 🚀 Outstanding Features
 
+### Full Downloader, Converter And Playback Engine Expansion
+
+- [ ] **Downloader Inventory Port/Integration: 1,273 Extractors**
+  - Port/integrate every downloader extractor from the configured extractor catalog so Playlizt can identify and extract all 1,273 supported site entries through Playlizt-owned models.
+  - Each extractor result must normalise into Playlizt metadata: title, description, duration, uploader/channel, upload date, webpage URL, thumbnails, subtitles, formats, chapters, playlist entries and warnings.
+  - Add automated inventory verification that fails when the implemented extractor count is lower than 1,273 or when any extractor cannot be loaded.
+
+- [ ] **Downloader User Experience And Progress**
+  - Replace raw command/process output with Playlizt progress events and friendly messages for extracting, awaiting user input, queued, downloading, post-processing, completed, failed, cancelled and retriable states.
+  - Add per-item progress bars with percent, downloaded bytes, total bytes, speed, ETA, active fragment count and current post-processing step.
+  - Add playlist-level aggregate progress with visible per-entry status and output path.
+
+- [ ] **Downloader Feature Surface**
+  - Implement format selection with friendly labels for resolution, codec, bitrate, filesize, container and protocol.
+  - Implement playlist support with item selection, batch queueing, skip completed, retry failed and stop-on-error controls.
+  - Implement subtitle download, automatic subtitle selection, thumbnail download, metadata sidecar output and metadata writing.
+  - Implement cookie support, username/password login, two-factor prompt handoff, proxy settings, user agent/referrer headers and site-specific options.
+  - Implement retry controls, socket timeout, rate limit, concurrent fragment settings, max downloads, archive/history and batch URL import.
+  - Implement audio-only extraction and post-processing workflows: remux, extract audio, embed subtitles, embed thumbnails, write metadata, split chapters and hand completed files to conversion profiles.
+
+- [ ] **Converter Inventory Port/Integration**
+  - Expose the complete tracked conversion capability inventory in Playlizt: 273 encoders, 607 decoders, 185 muxers, 367 demuxers, 596 filters, 51 bitstream filters and 55 protocols.
+  - Add automated capability verification that fails when any inventory count drops below the tracked requirement.
+  - Surface capability details through typed Playlizt models for codecs, containers, filters, protocols, hardware acceleration support and invalid combination diagnostics.
+
+- [ ] **Media Probe And Conversion Queue**
+  - Add media probe support for streams, chapters, attachments, duration, bitrate, resolution, framerate, color details, audio layout, subtitle streams and container metadata.
+  - Implement conversion jobs with pending, probing, running, completed, failed, cancelled and retriable states.
+  - Add queue persistence, cancellation, retry, output path handling, output collision policy and completed-output Library import.
+  - Add Playlizt conversion progress bars with parsed media time, percent, speed, ETA, output size and current processing stage.
+
+- [ ] **Converter Workflows And Controls**
+  - Implement presets for MP3, AAC, FLAC, WAV, MP4 720p, MP4 1080p, remux, audio-only, web clip, mobile-friendly video and custom profile.
+  - Implement advanced codec/container/filter controls for encoder, decoder, muxer, demuxer, bitrate, CRF, sample rate, channels, pixel format, subtitle handling and filter chains.
+  - Implement clip, trim, crop, scale, normalize audio, extract audio, remux, transcode, subtitle burn-in, subtitle copy, thumbnail generation, short-clip export and stream-copy workflows.
+  - Validate every selected combination before execution and show friendly correction messages when a combination is invalid.
+
+- [ ] **VLC-Class Playback, Network And Device Features**
+  - Implement local file playback, Library item playback, remote HTTP/HLS/DASH/RTSP-style network streams and playlist entry playback under a Playlizt-specific interface.
+  - Implement audio track, video track, subtitle track and external subtitle selection.
+  - Implement playback speed, seek, resume, chapter navigation, snapshots and local continue-watching state.
+  - Implement hardware acceleration paths with an explicit setting for the active path.
+  - Implement renderer/casting discovery, service discovery, device online/offline/error state and remote playback controls: connect, play, pause, seek, volume, disconnect and transfer playback back to local.
+  - Implement stream output/transcoding profiles so local items or network streams can be sent to another target in a compatible format.
+
+- [ ] **Library, Folder Scanning, Search/Sort/Filter**
+  - Implement recursive and non-recursive folder scanning from Settings.
+  - Store local `LibraryItem` records with path, display title, duration, media type, hash, source, parent/derived lineage, date added and last-seen timestamp.
+  - Implement search, sort and filters by title, folder, source, type, duration, date added and missing-file state.
+  - Import completed downloads and completed conversions as first-class Library items when enabled.
+
+- [ ] **Mixed Local/Remote Playlists**
+  - Implement playlist CRUD, duplicate, rename, delete, drag/drop ordering and stable local persistence.
+  - Support mixed local Library items, online catalog content, downloader URLs, downloaded outputs and converted outputs in the same playlist.
+  - Resolve unavailable local files and unavailable online content with visible per-item errors instead of dropping entries.
+
+- [ ] **Settings Wired To Behaviour**
+  - Wire scan folders, recursive scan, default download folder, max concurrent downloads, archive/history, converter output folder, hardware acceleration, renderer discovery and startup tab directly into their consuming services.
+  - Prove each setting takes effect immediately and persists across restart.
+
+- [ ] **Major Workflow Tests**
+  - Add automated tests for downloader inventory, extraction, format selection, playlist downloads, subtitle/thumbnail/metadata outputs, cookies, proxy settings, retries, archive/history, batch import, audio-only and post-processing.
+  - Add automated tests for converter inventory, probe parsing, preset validation, clip/trim/crop/scale/normalize/extract-audio/subtitle-burn workflows, queue persistence, cancel/retry and Library import.
+  - Add automated tests for network streams, device discovery/control state, stream output/transcoding validation, hardware acceleration settings, folder scanning, search/sort/filter, mixed playlist items and settings propagation.
+
 ### Hybrid Offline/Online Refactor Framework (Framework Only)
 
 - [x] Rename services and schemas to use `playlizt-` prefixes (e.g. `playlizt-api-gateway`, `playlizt-authentication`, `playlizt-content`, `playlizt-playback`).
@@ -112,7 +177,7 @@ This document tracks the outstanding tasks and features to be implemented.
   - Implement a playlist editor screen where users can see the ordered list of items and re-order via drag-and-drop.
   - Items can reference either local `LibraryItem` entries or online `Content` entries; the UI should visually distinguish these (e.g. icon or chip), even if hybrid resolution is implemented later.
 
-#### 5.4 Download Tab – Download Manager UI (Phase 1: Full Behaviour)
+#### 5.4 Download Tab – Download Manager UI
 - [x] **Download Input Row**:
   - At the top of the Download tab, render a single-line URL input box and a `Download` button aligned horizontally (desktop) or stacked with responsive layout (mobile).
   - The input accepts any HTTP/HTTPS media URL (initially focusing on direct file URLs; YouTube-style extraction will be layered on later).
@@ -140,25 +205,25 @@ This document tracks the outstanding tasks and features to be implemented.
   - Expose a stream-based API so the UI can subscribe to download state updates and update the progress panel in real time.
   - Enforce strict error handling and surface clear error messages in the UI (e.g. network errors, disk full, permission denied) rather than silently swallowing failures.
 
-- [x] **youtube-dl Extractor/Downloader Bridge (Desktop)**:
+- [x] **youtube-dl Extractor/Downloader Runtime (Desktop)**:
   - Verify the existing native Dart extractors and remove placeholder extractor registrations from the production stack.
-  - Vendor the upstream youtube-dl runtime package into the Flutter workspace and use it after native extractors and before the generic fallback.
+  - Package the extractor runtime with the Flutter workspace and use it after native extractors and before the generic fallback.
   - Persist youtube-dl-backed queued downloads with explicit backend metadata so restarts preserve queue state and active downloads fail clearly.
-  - Verify the vendored youtube-dl package exposes 1,273 upstream extractors and cover the bridge mapper, inventory check, extractor registration and task persistence with Flutter tests.
+  - Verify the packaged extractor runtime exposes 1,273 extractors and cover the mapper, inventory check, extractor registration and task persistence with Flutter tests.
 
-#### 5.5 Convert Tab – Conversion Shell (Phase 1: UI)
-- [x] **Convert Landing UI**:
+#### 5.5 Convert Tab – Conversion Workspace
+- [x] **Convert Landing UI Contract**:
   - Provide a simple UI to pick one or more existing Library items and a target output profile (e.g. MP3, MP4 720p, Audio-only, Clip segment).
   - Expose fields for start/end timestamps (HH:MM:SS) for clipping scenarios.
-  - For this phase, do not wire to a real transcoder yet, but finalise the UI contract and model objects (`ConversionJob`) to be used by a future ffmpeg-backed worker.
+  - Finalise the UI contract and model objects (`ConversionJob`) used by the conversion engine.
 
-- [ ] **Conversion Queue Panel (Design)**:
+- [ ] **Conversion Queue Panel**:
   - Mirror the visual style of the Download queue panel for conversion jobs (Pending, Running, Completed, Failed, Cancelled), with progress indicator and per-item controls.
 
-#### 5.6 Devices Tab – Extensibility Shell (Phase 1: UI)
+#### 5.6 Devices Tab – Playback Targets
 - [x] **Devices Landing UI**:
-  - Show a placeholder list for potential sync/cast targets (e.g. "This Device", "Living Room TV", "Bluetooth Speaker"), with clear indication that advanced device integration is a future feature.
-  - Define a `PlaybackDevice` abstraction (ID, name, type, capabilities) to be used later when real device discovery is implemented.
+  - Show a list for local and network playback targets (e.g. "This Device", "Living Room TV", "Bluetooth Speaker") with explicit online/offline/error states.
+  - Define a `PlaybackDevice` abstraction (ID, name, type, capabilities) for real device discovery and renderer control.
 
 #### 5.7 Global Settings & Hamburger Menu
 - [x] **Hamburger Menu Entry Point**:

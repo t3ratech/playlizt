@@ -5,6 +5,7 @@
 - [System Architecture](#system-architecture)
 - [Microservices](#microservices)
 - [Technology Stack](#technology-stack)
+- [Local Media Engine](#local-media-engine)
 - [Configuration Standards](#configuration-standards)
 - [Build System](#build-system)
 - [Database Architecture](#database-architecture)
@@ -17,15 +18,15 @@
 
 ## Overview
 
-Playlizt is a media player, streamer, downloader and converter for your own media collection. It is implemented as a microservices-based system using Java, Spring Boot and Flutter, and uses Google Gemini AI for intelligent content discovery, metadata enhancement and behavioral analytics.
+Playlizt is a media player, streamer, downloader and converter for your own media collection. It is implemented as a local-first Flutter media application backed by Java/Spring Boot microservices for account, catalogue, playback analytics and AI features. The local media layer owns library scanning, downloads, conversion, network playback, devices and user-facing progress reporting so the desktop experience remains useful even when the backend is unavailable.
 
 ### Key Features
 - Unified multimedia player shell with Library, Playlists, Streaming, Download, Convert and Devices tabs
-- Local Library indexing and playback for on-disk audio/video files
-- Playlist management for local and online items
-- URL-based media downloading into a configurable download folder with queue management
-- Media conversion and clipping pipeline for library-friendly formats
-- Extensible device abstraction for future sync/cast targets
+- Local Library indexing, folder scanning, search, sort and playback for on-disk audio/video files
+- Playlist management for local, online and hybrid local/online items
+- Full downloader system with a 1,273-entry site extractor catalog, format selection, playlists, subtitles, thumbnails, metadata, cookies, credentials, proxies, retry/rate controls, archive/history, batch jobs, audio-only extraction and post-processing
+- Full conversion system with media probing, queue management, progress/cancel/retry, presets, advanced codec/container/filter controls and the tracked capability inventory of 273 encoders, 607 decoders, 185 muxers, 367 demuxers, 596 filters, 51 bitstream filters and 55 protocols
+- Playback and device system covering network streams, renderer/casting discovery and control, service discovery, stream output/transcoding, hardware acceleration paths and a Playlizt-specific user interface
 - User authentication for a single generic user type (no roles)
 - AI-powered content recommendations
 - AI metadata enhancement for uploads
@@ -41,13 +42,20 @@ Playlizt is a media player, streamer, downloader and converter for your own medi
 At a high level, Playlizt has:
 
 - A Flutter frontend that runs on the user's machine.
-- Local media files on disk that the frontend can play directly.
+- Local media files on disk that the frontend can index, play, download into and convert from.
+- A local media engine that owns library scanning, downloader jobs, conversion jobs, network playback, device discovery and user-facing progress/error state.
 - A backend composed of the API Gateway and microservices, plus PostgreSQL and Gemini, for online catalog, AI, and analytics.
 
 ```text
 +----------------------+           +---------------------------+
-|   Flutter Frontend   |  <----->  |   Local Media Filesystem |
+|   Flutter Frontend   |  <----->  |   Local Media Filesystem  |
 +----------------------+           +---------------------------+
+            |
+            v
++--------------------------------------------------------------+
+| Local Media Engine                                           |
+| Library Index / Downloader / Converter / Playback / Devices  |
++--------------------------------------------------------------+
 
             |
             | HTTP (when backend is available)
@@ -63,7 +71,7 @@ At a high level, Playlizt has:
                                   +------------------------+
 ```
 
-The frontend can act purely as a local media player using the filesystem. When the backend stack is running, the same frontend also talks to `playlizt-api-gateway` for authenticated access, online catalog features, AI-powered recommendations and usage analytics.
+The frontend can act purely as a local media player, downloader and converter using the filesystem and local media engine. When the backend stack is running, the same frontend also talks to `playlizt-api-gateway` for authenticated access, online catalog features, AI-powered recommendations and usage analytics.
 
 ## Microservices
 
@@ -104,18 +112,88 @@ The Flutter application hosts a unified multimedia shell with a **single navigat
 
 - A minimal **global app bar** containing Playlizt/Blaklizt branding and a hamburger icon that opens the Settings drawer. Theme, upload, analytics, profile and logout actions are all accessed from Settings rather than the app bar.
 - A **left navigation rail** that is present on all platforms (desktop, tablet and web/mobile) with fixed tabs:
-  1. Library – local filesystem browser and future index for offline media.
-  2. Playlists – editor for local/online/hybrid playlists.
+  1. Library – local filesystem scanner, searchable index and offline media browser.
+  2. Playlists – editor and queue source for local/online/hybrid playlists.
   3. Streaming – authenticated dashboard that hosts search, category chips, AI recommendations, continue-watching and the main online content grid.
-  4. Download – URL-based downloader that writes media to a configured folder and exposes a download manager queue.
-  5. Convert – shell for future transcoding/clipping UI backed by ffmpeg-style workers.
-  6. Devices – shell for future sync/cast targets.
+  4. Download – site-aware downloader that writes media to a configured folder and exposes a full queue with format, playlist, subtitle, thumbnail, metadata and post-processing controls.
+  5. Convert – transcoding/clipping workspace backed by the conversion engine, media probe, presets and advanced codec/container/filter controls.
+  6. Devices – local/network playback target surface for discovery, casting, renderer control and stream output.
 
 All tab content is **top‑aligned** within its scrollable area to match traditional desktop media players. The **"Powered by Blaklizt Entertainment"** footer (logo, line and text) is the only element that is deliberately bottom‑aligned, and it appears only inside the Streaming tab.
 
 The selected tab indicator is rendered as a pill/oval highlight that surrounds the icon and label without obscuring them in either Light or Dark theme; in particular, light‑mode colours are chosen so the icon remains clearly visible.
 
-The **Download** tab is backed by a `DownloadManager` service that uses `dio` for native HTTP/HLS transfers, honours a per-user concurrency limit from `SettingsProvider`, and persists task metadata via `SharedPreferences` so active, queued and completed downloads are visible after restarts. The extractor stack runs native Dart site extractors first, then the desktop `youtube-dl` bridge, then the generic HTML/media fallback. The bridge defaults to the vendored youtube-dl package at `playlizt-frontend/playlizt_app/vendor/youtube-dl`, which carries the upstream extractor source and exposes 1,273 extractors in verification. `PLAYLIZT_YOUTUBE_DL_SOURCE` or `PLAYLIZT_YOUTUBE_DL_EXECUTABLE` can override the vendored source. Flutter Web does not run local processes, so it remains on native and generic extraction only.
+The **Download** tab is backed by a `DownloadManager` service that honours a per-user concurrency limit from `SettingsProvider`, persists task metadata so active, queued and completed downloads are visible after restarts, and emits first-class progress events for each queue item. The downloader catalog exposes 1,273 extractor entries in verification and every extractor result is normalised into Playlizt download models with title, duration, thumbnails, subtitles, formats, playlist entries, metadata fields, warnings and recoverable/non-recoverable errors. Desktop builds can use `PLAYLIZT_YOUTUBE_DL_SOURCE` or `PLAYLIZT_YOUTUBE_DL_EXECUTABLE` to point at a configured extractor runtime.
+
+## Local Media Engine
+
+The local media engine is the owner of all capabilities that do not require the Playlizt backend. It must expose typed Dart services, persisted local state, strict failures for invalid configuration and user-friendly progress/error events for every long-running operation.
+
+### Capability Inventory
+
+| Capability Area | Required Inventory |
+| --- | ---: |
+| Site extractor catalog entries | 1,273 |
+| FFmpeg-compatible encoders | 273 |
+| FFmpeg-compatible decoders | 607 |
+| FFmpeg-compatible muxers | 185 |
+| FFmpeg-compatible demuxers | 367 |
+| FFmpeg-compatible filters | 596 |
+| FFmpeg-compatible bitstream filters | 51 |
+| FFmpeg-compatible protocols | 55 |
+| VLC-class module files represented in Playlizt features | 3,615 |
+| VLC-class module source files represented in Playlizt features | 2,657 |
+
+### Downloader Engine
+
+The downloader engine provides a Playlizt-owned interface over every site extractor and every direct media source. Required behaviour:
+
+- Extract metadata for a URL before download: title, description, duration, uploader/channel, upload date, thumbnail list, subtitle list, available formats, chapters, playlist entries and warnings.
+- Support single video/audio URLs and playlists, including playlist item selection, per-item status, per-item output path and aggregate playlist progress.
+- Support format selection with friendly labels for resolution, codec, bitrate, container, filesize and protocol.
+- Support subtitle download, automatic subtitle selection, thumbnail download, metadata sidecars, media metadata writing and audio-only extraction.
+- Support cookies, username/password credentials, two-factor prompt handoff, proxy settings, user agent/referrer headers, retries, socket timeout, rate limit, concurrent fragments and max-download controls.
+- Support archive/history so previously completed URLs can be skipped, re-downloaded intentionally or imported into the Library.
+- Support batch jobs from pasted URL lists or imported text files.
+- Support post-processing workflows: remux, extract audio, embed subtitles, embed thumbnails, write metadata, split chapters and hand completed files to the converter when a conversion profile is selected.
+- Emit queue-level and item-level events: queued, extracting, awaiting user input, downloading, post-processing, completed, failed, cancelled and retriable.
+- Show Playlizt progress bars with percent, downloaded bytes, total bytes, speed, ETA, active fragment count and current post-processing step.
+- Convert technical extractor failures into clear user-facing messages while preserving detailed diagnostics for logs.
+
+### Conversion Engine
+
+The conversion engine provides media probing, format discovery and conversion jobs for all supported codec/container/filter/protocol combinations. Required behaviour:
+
+- Probe every selected input and expose streams, chapters, attachments, duration, bitrate, resolution, framerate, color details, audio layout, subtitle streams and container metadata.
+- Expose capability catalogs for 273 encoders, 607 decoders, 185 muxers, 367 demuxers, 596 filters, 51 bitstream filters and 55 protocols.
+- Provide presets for common workflows while keeping advanced codec, container, bitrate, CRF, sample rate, channel, pixel format, subtitle and filter controls available.
+- Support clip, trim, crop, scale, normalize audio, extract audio, remux, transcode, subtitle burn-in, subtitle copy, thumbnail generation, GIF/WebM-style short clips and stream-copy paths.
+- Queue multiple jobs with pending, probing, running, completed, failed, cancelled and retriable states.
+- Emit progress by parsed media time, percent, speed, ETA, output size and current processing stage.
+- Allow cancellation and retry without corrupting completed outputs.
+- Write successful outputs back into the Library as separate `LibraryItem` records with parent/derived metadata.
+- Surface friendly validation errors when a chosen encoder/container/filter combination is not valid.
+
+### Playback, Devices And Network Media
+
+The playback/device layer provides a Playlizt-specific user interface for VLC-class behaviours:
+
+- Open local files, Library items, remote HTTP/HLS/DASH/RTSP-style streams and playlist entries.
+- Select audio tracks, video tracks, subtitle tracks and external subtitle files.
+- Control playback speed, seek, resume, chapter navigation, snapshots and local continue-watching state.
+- Use hardware acceleration where available and expose an explicit setting for the active path.
+- Discover renderer/casting targets and service-discovery sources on the local network.
+- Control remote playback targets: connect, play, pause, seek, volume, disconnect and transfer playback back to local.
+- Support stream output/transcoding profiles so a local item or network stream can be sent to another target in a compatible format.
+- Keep device discovery, renderer control and stream output state visible in the Devices tab with clear online/offline/error states.
+
+### Library, Playlists And Settings
+
+- The Library scanner reads configured folders recursively when enabled, stores `LibraryItem` records locally and supports search, sort and filtering by type, folder, date, duration and source.
+- The media library stores generated and downloaded outputs as first-class items with source lineage.
+- Playlists store mixed local, online, downloaded and generated items with stable ordering, drag/drop editing, duplicate, rename and delete.
+- Settings are the source of truth for scan folders, recursive scan, default download folder, max concurrent downloads, download archive, converter output folder, hardware acceleration, renderer discovery and startup tab.
+- Settings changes take effect immediately in the services that consume them.
 
 ### AI
 - **Provider**: Google Gemini API
@@ -457,6 +535,17 @@ USER playlizt:playlizt
 - **Integration**: 20%
 - **Unit**: 70%
 - **Coverage Target**: 80% minimum
+
+### Required Major Workflow Coverage
+
+Every local media engine capability must have tests at the lowest reliable layer plus workflow coverage for the user-facing path:
+
+- Downloader extraction tests for representative direct media, single-item site extraction, playlist extraction, format selection, subtitles, thumbnails, cookies, proxy configuration, retry/rate controls, archive/history, batch jobs, audio-only jobs and post-processing handoff.
+- Downloader UI/state tests for queue persistence, per-item progress bars, playlist aggregate progress, cancellation, retry, completed output paths and friendly error messages.
+- Conversion tests for media probe parsing, capability catalog parsing, preset validation, invalid combination failures, clip/trim/crop/scale/normalize/extract-audio/subtitle-burn workflows, queue persistence, cancel/retry and Library import of generated outputs.
+- Playback and device tests for local files, network streams, track selection, subtitle loading, resume state, hardware acceleration setting persistence, service discovery state, renderer control state and stream output/transcoding profile validation.
+- Library and playlist tests for folder scanning, recursive scan toggles, search/sort/filter, mixed local/remote playlist items, drag/drop ordering, rename, duplicate, delete and missing-file handling.
+- Settings tests proving every setting updates the consuming service immediately and persists across restart.
 
 ### Unit Test Example
 ```java

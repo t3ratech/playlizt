@@ -101,6 +101,21 @@ print_usage() {
 
 # Use modern docker compose command
 DOCKER_COMPOSE="docker compose"
+GRADLE_DISTRIBUTION_VERSION="9.5.1"
+LOCAL_GRADLE_DISTRIBUTION="/opt/gradle-wrapper/gradle-${GRADLE_DISTRIBUTION_VERSION}-bin.zip"
+DOCKER_CONTEXT_GRADLE_DISTRIBUTION="$SCRIPT_DIR/gradle/wrapper/gradle-${GRADLE_DISTRIBUTION_VERSION}-bin.zip"
+
+ensure_local_gradle_distribution() {
+    if [ ! -f "$LOCAL_GRADLE_DISTRIBUTION" ]; then
+        echo -e "${RED}Required local Gradle distribution not found: $LOCAL_GRADLE_DISTRIBUTION${NC}"
+        exit 1
+    fi
+
+    if [ ! -f "$DOCKER_CONTEXT_GRADLE_DISTRIBUTION" ] || ! cmp -s "$LOCAL_GRADLE_DISTRIBUTION" "$DOCKER_CONTEXT_GRADLE_DISTRIBUTION"; then
+        echo -e "${BLUE}Preparing local Gradle distribution for Docker build context...${NC}"
+        cp "$LOCAL_GRADLE_DISTRIBUTION" "$DOCKER_CONTEXT_GRADLE_DISTRIBUTION"
+    fi
+}
 
 # Load environment variables
 source_env() {
@@ -219,6 +234,7 @@ build_service_jar() {
     local service=$1
     echo -e "${BLUE}Building JAR for $service...${NC}"
     cd "$SCRIPT_DIR"
+    ensure_local_gradle_distribution
 
     # Map Docker service name to Gradle project path
     local projectPath=":$service"
@@ -233,6 +249,7 @@ build_service_jar() {
 build_service_image() {
     local service=$1
     echo -e "${BLUE}Building Docker image for $service...${NC}"
+    ensure_local_gradle_distribution
     docker compose build --no-cache "$service"
 }
 
