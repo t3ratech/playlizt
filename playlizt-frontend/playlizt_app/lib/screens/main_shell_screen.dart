@@ -15,6 +15,7 @@ import '../utils/test_bridge_stub.dart'
 import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/conversion_models.dart';
 import '../services/download_manager_platform.dart';
 import '../models/content.dart';
 import '../widgets/themed_logo.dart';
@@ -1607,6 +1608,27 @@ class _SettingsDrawer extends StatelessWidget {
               ),
             ),
             ListTile(
+              title: const Text('Conversion file conflicts'),
+              subtitle: Text(
+                _collisionPolicyDescription(
+                  settings.conversionOutputCollisionPolicy,
+                ),
+              ),
+              trailing: DropdownButton<ConversionOutputCollisionPolicy>(
+                value: settings.conversionOutputCollisionPolicy,
+                onChanged: (value) {
+                  if (value == null) return;
+                  settings.setConversionOutputCollisionPolicy(value);
+                },
+                items: ConversionOutputCollisionPolicy.values.map((policy) {
+                  return DropdownMenuItem(
+                    value: policy,
+                    child: Text(_collisionPolicyLabel(policy)),
+                  );
+                }).toList(),
+              ),
+            ),
+            ListTile(
               title: const Text('Maximum concurrent downloads'),
               subtitle: Text(settings.maxConcurrentDownloads.toString()),
               trailing: SizedBox(
@@ -1814,5 +1836,27 @@ class _SettingsDrawer extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _collisionPolicyLabel(ConversionOutputCollisionPolicy policy) {
+    switch (policy) {
+      case ConversionOutputCollisionPolicy.keepBoth:
+        return 'Keep both';
+      case ConversionOutputCollisionPolicy.overwrite:
+        return 'Overwrite';
+      case ConversionOutputCollisionPolicy.fail:
+        return 'Fail';
+    }
+  }
+
+  String _collisionPolicyDescription(ConversionOutputCollisionPolicy policy) {
+    switch (policy) {
+      case ConversionOutputCollisionPolicy.keepBoth:
+        return 'Create numbered output files';
+      case ConversionOutputCollisionPolicy.overwrite:
+        return 'Replace existing output files';
+      case ConversionOutputCollisionPolicy.fail:
+        return 'Stop before replacing a file';
+    }
   }
 }

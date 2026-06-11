@@ -45,6 +45,12 @@ enum ConversionOutputKind {
   stream,
 }
 
+enum ConversionOutputCollisionPolicy {
+  keepBoth,
+  overwrite,
+  fail,
+}
+
 enum StreamOutputProfileId {
   rtmpH264,
   rtspH264,

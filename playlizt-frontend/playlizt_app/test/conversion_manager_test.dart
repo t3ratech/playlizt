@@ -1,5 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:playlizt_app/providers/settings_provider.dart';
+import 'package:playlizt_app/services/conversion_manager_platform.dart'
+    as conversion_platform;
 import 'package:playlizt_app/services/conversion_models.dart';
+import 'package:playlizt_app/services/library_manager_platform.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('FFmpeg conversion models', () {
@@ -358,6 +365,63 @@ Filters:
       expect(info.attachments.single.mimeType, 'image/jpeg');
       expect(info.attachments.single.codecName, 'mjpeg');
       expect(info.attachments.single.isCoverArt, isTrue);
+    });
+
+    test('applies output collision policy before queueing conversions',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final tempDir =
+          await Directory.systemTemp.createTemp('playlizt-convert-policy-');
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final input = File('${tempDir.path}/Sample Clip.mp4');
+      final existingOutput = File('${tempDir.path}/Sample Clip.mp3');
+      await input.writeAsBytes([1, 2, 3]);
+      await existingOutput.writeAsBytes([4, 5, 6]);
+
+      final settings = SettingsProvider();
+      await settings.ensureLoaded();
+      await settings.setConversionOutputDirectory(tempDir.path);
+      final libraryManager = LibraryManager(settingsProvider: settings);
+      await Future<void>.delayed(Duration.zero);
+      final manager = conversion_platform.ConversionManager(
+        settingsProvider: settings,
+        libraryManager: libraryManager,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      await settings.setConversionOutputCollisionPolicy(
+        ConversionOutputCollisionPolicy.keepBoth,
+      );
+      final keepBoth = await manager.enqueueConversion(
+        inputPath: input.path,
+        presetId: ConversionPresetId.mp3,
+      );
+      expect(keepBoth.outputPath, '${tempDir.path}/Sample Clip (2).mp3');
+
+      await settings.setConversionOutputCollisionPolicy(
+        ConversionOutputCollisionPolicy.overwrite,
+      );
+      final overwrite = await manager.enqueueConversion(
+        inputPath: input.path,
+        presetId: ConversionPresetId.mp3,
+      );
+      expect(overwrite.outputPath, existingOutput.path);
+
+      await settings.setConversionOutputCollisionPolicy(
+        ConversionOutputCollisionPolicy.fail,
+      );
+      await expectLater(
+        manager.enqueueConversion(
+          inputPath: input.path,
+          presetId: ConversionPresetId.mp3,
+        ),
+        throwsA(isA<StateError>()),
+      );
     });
 
     test('parses ffmpeg progress snapshots into Playlizt progress', () {

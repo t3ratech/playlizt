@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/playlizt_tab.dart';
+import '../services/conversion_models.dart';
 
 /// Centralised runtime settings store for the frontend shell.
 ///
@@ -29,6 +30,8 @@ class SettingsProvider with ChangeNotifier {
   static const _keyRecursiveLibraryScan = 'settings.recursiveLibraryScan';
   static const _keyConversionOutputDirectory =
       'settings.conversionOutputDirectory';
+  static const _keyConversionOutputCollisionPolicy =
+      'settings.conversionOutputCollisionPolicy';
   static const _keyHardwareAccelerationEnabled =
       'settings.hardwareAccelerationEnabled';
   static const _keyRendererDiscoveryEnabled =
@@ -43,6 +46,8 @@ class SettingsProvider with ChangeNotifier {
   bool _compactLayout = false;
   bool _recursiveLibraryScan = true;
   String _conversionOutputDirectory = '~/Videos/Playlizt';
+  ConversionOutputCollisionPolicy _conversionOutputCollisionPolicy =
+      ConversionOutputCollisionPolicy.keepBoth;
   bool _hardwareAccelerationEnabled = true;
   bool _rendererDiscoveryEnabled = true;
   bool _downloadArchiveEnabled = true;
@@ -63,6 +68,8 @@ class SettingsProvider with ChangeNotifier {
   bool get compactLayout => _compactLayout;
   bool get recursiveLibraryScan => _recursiveLibraryScan;
   String get conversionOutputDirectory => _conversionOutputDirectory;
+  ConversionOutputCollisionPolicy get conversionOutputCollisionPolicy =>
+      _conversionOutputCollisionPolicy;
   bool get hardwareAccelerationEnabled => _hardwareAccelerationEnabled;
   bool get rendererDiscoveryEnabled => _rendererDiscoveryEnabled;
   bool get downloadArchiveEnabled => _downloadArchiveEnabled;
@@ -103,6 +110,11 @@ class SettingsProvider with ChangeNotifier {
       _conversionOutputDirectory =
           prefs.getString(_keyConversionOutputDirectory) ??
               _conversionOutputDirectory;
+      _conversionOutputCollisionPolicy = _enumByName(
+        ConversionOutputCollisionPolicy.values,
+        prefs.getString(_keyConversionOutputCollisionPolicy),
+        _conversionOutputCollisionPolicy,
+      );
       _hardwareAccelerationEnabled =
           prefs.getBool(_keyHardwareAccelerationEnabled) ??
               _hardwareAccelerationEnabled;
@@ -180,6 +192,10 @@ class SettingsProvider with ChangeNotifier {
     await prefs.setString(
       _keyConversionOutputDirectory,
       _conversionOutputDirectory,
+    );
+    await prefs.setString(
+      _keyConversionOutputCollisionPolicy,
+      _conversionOutputCollisionPolicy.name,
     );
     await prefs.setBool(
       _keyHardwareAccelerationEnabled,
@@ -277,6 +293,15 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setConversionOutputCollisionPolicy(
+    ConversionOutputCollisionPolicy policy,
+  ) async {
+    _conversionOutputCollisionPolicy = policy;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyConversionOutputCollisionPolicy, policy.name);
+    notifyListeners();
+  }
+
   Future<void> setHardwareAccelerationEnabled(bool value) async {
     _hardwareAccelerationEnabled = value;
     final prefs = await SharedPreferences.getInstance();
@@ -339,5 +364,16 @@ class SettingsProvider with ChangeNotifier {
       _startupTabIndex =
           _visibleTabIndices.contains(2) ? 2 : _visibleTabIndices.first;
     }
+  }
+
+  static T _enumByName<T extends Enum>(
+    List<T> values,
+    String? name,
+    T fallback,
+  ) {
+    for (final value in values) {
+      if (value.name == name) return value;
+    }
+    return fallback;
   }
 }

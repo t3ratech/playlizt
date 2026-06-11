@@ -79,6 +79,7 @@ class ConversionManager with ChangeNotifier {
       inputPath: resolvedInput,
       extension: advancedOptions.normalizedContainerExtension ??
           preset.outputExtension,
+      collisionPolicy: settingsProvider.conversionOutputCollisionPolicy,
     );
 
     final now = DateTime.now();
@@ -424,12 +425,25 @@ class ConversionManager with ChangeNotifier {
     required String directory,
     required String inputPath,
     required String extension,
+    required ConversionOutputCollisionPolicy collisionPolicy,
   }) async {
     final safeBase = _titleFromPath(inputPath).replaceAll(
       RegExp(r'[^\w\s\.-]'),
       '_',
     );
     var candidate = '$directory${Platform.pathSeparator}$safeBase.$extension';
+    switch (collisionPolicy) {
+      case ConversionOutputCollisionPolicy.overwrite:
+        return candidate;
+      case ConversionOutputCollisionPolicy.fail:
+        if (await File(candidate).exists()) {
+          throw StateError('Output file already exists: $candidate');
+        }
+        return candidate;
+      case ConversionOutputCollisionPolicy.keepBoth:
+        break;
+    }
+
     var index = 2;
     while (await File(candidate).exists()) {
       candidate =

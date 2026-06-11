@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:playlizt_app/providers/settings_provider.dart';
+import 'package:playlizt_app/services/conversion_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -39,6 +40,9 @@ void main() {
 
     await settings.setRecursiveLibraryScan(false);
     await settings.setConversionOutputDirectory('/tmp/playlizt-converted');
+    await settings.setConversionOutputCollisionPolicy(
+      ConversionOutputCollisionPolicy.fail,
+    );
     await settings.setHardwareAccelerationEnabled(false);
     await settings.setRendererDiscoveryEnabled(false);
     await settings.setDownloadArchiveEnabled(false);
@@ -48,6 +52,10 @@ void main() {
 
     expect(restored.recursiveLibraryScan, isFalse);
     expect(restored.conversionOutputDirectory, '/tmp/playlizt-converted');
+    expect(
+      restored.conversionOutputCollisionPolicy,
+      ConversionOutputCollisionPolicy.fail,
+    );
     expect(restored.hardwareAccelerationEnabled, isFalse);
     expect(restored.rendererDiscoveryEnabled, isFalse);
     expect(restored.downloadArchiveEnabled, isFalse);
