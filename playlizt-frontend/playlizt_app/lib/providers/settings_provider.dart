@@ -69,6 +69,11 @@ class SettingsProvider with ChangeNotifier {
   List<int> get visibleTabIndices => List.unmodifiable(_visibleTabIndices);
   bool isTabVisible(int index) => _visibleTabIndices.contains(index);
 
+  static Future<bool> loadInitialHardwareAccelerationEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyHardwareAccelerationEnabled) ?? true;
+  }
+
   SettingsProvider() {
     _load();
   }

@@ -4,6 +4,34 @@ import 'package:playlizt_app/services/playback_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('PlaybackEngineConfiguration prefers hardware decoder paths', () {
+    const configuration = PlaybackEngineConfiguration(
+      hardwareAccelerationEnabled: true,
+    );
+
+    final options = configuration.toFvpOptions(
+      platforms: const ['linux', 'windows', 'macos'],
+    );
+
+    expect(options['platforms'], const ['linux', 'windows', 'macos']);
+    expect(options, isNot(contains('video.decoders')));
+    expect(options['player'], containsPair('avformat.rtsp_transport', 'tcp'));
+    expect(options['player'], containsPair('avio.reconnect', '1'));
+  });
+
+  test('PlaybackEngineConfiguration forces software decoder paths', () {
+    const configuration = PlaybackEngineConfiguration(
+      hardwareAccelerationEnabled: false,
+    );
+
+    final options = configuration.toFvpOptions(
+      platforms: const ['linux', 'windows', 'macos'],
+    );
+
+    expect(options['video.decoders'], const ['FFmpeg', 'dav1d']);
+    expect(options['player'], containsPair('video.decoder', 'FFmpeg'));
+  });
+
   test('LocalPlaybackPosition reports fractional progress', () {
     final position = LocalPlaybackPosition(
       key: 'url:/tmp/video.mp4',

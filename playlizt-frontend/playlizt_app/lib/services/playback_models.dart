@@ -59,3 +59,30 @@ class PlaybackSpeedOption {
     PlaybackSpeedOption(2, '2x'),
   ];
 }
+
+class PlaybackEngineConfiguration {
+  final bool hardwareAccelerationEnabled;
+
+  const PlaybackEngineConfiguration({
+    this.hardwareAccelerationEnabled = true,
+  });
+
+  Map<String, dynamic> toFvpOptions({required List<String> platforms}) {
+    final playerOptions = <String, String>{
+      'avformat.rtsp_transport': 'tcp',
+      'avio.reconnect': '1',
+      'avio.reconnect_delay_max': '7',
+    };
+    final options = <String, dynamic>{
+      'platforms': platforms,
+      'player': playerOptions,
+    };
+
+    if (!hardwareAccelerationEnabled) {
+      options['video.decoders'] = const ['FFmpeg', 'dav1d'];
+      playerOptions['video.decoder'] = 'FFmpeg';
+    }
+
+    return options;
+  }
+}

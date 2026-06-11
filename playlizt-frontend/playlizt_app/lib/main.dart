@@ -17,13 +17,20 @@ import 'services/conversion_manager_platform.dart';
 import 'services/device_manager.dart';
 import 'services/download_manager_platform.dart';
 import 'services/library_manager_platform.dart';
+import 'services/playback_models.dart';
 import 'services/video_backend.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  registerVideoBackend();
+  final hardwareAccelerationEnabled =
+      await SettingsProvider.loadInitialHardwareAccelerationEnabled();
+  registerVideoBackend(
+    configuration: PlaybackEngineConfiguration(
+      hardwareAccelerationEnabled: hardwareAccelerationEnabled,
+    ),
+  );
   runApp(const PlayliztApp());
 }
 

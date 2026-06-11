@@ -52,4 +52,16 @@ void main() {
     expect(restored.rendererDiscoveryEnabled, isFalse);
     expect(restored.downloadArchiveEnabled, isFalse);
   });
+
+  test('SettingsProvider reads hardware acceleration before app startup',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'settings.hardwareAccelerationEnabled': false,
+    });
+
+    final value =
+        await SettingsProvider.loadInitialHardwareAccelerationEnabled();
+
+    expect(value, isFalse);
+  });
 }
